@@ -33,17 +33,17 @@ export class VscodeParser extends BaseParser {
         if (!entry.key || !entry.command) continue;
         if (this.isImpossibleWhen(entry.when)) continue;
 
-        // Skip unbind entries — they remove bindings, not add them
-        if (entry.command.startsWith('-')) continue;
+        const isUnbound = entry.command.startsWith('-');
+        const commandId = isUnbound ? entry.command.slice(1) : entry.command;
 
         keybindings.push(
           this.makeKeybinding({
             key: this.normalizeVscodeKey(entry.key),
-            command: this.humanizeCommand(entry.command),
+            command: this.humanizeCommand(commandId),
             rawCommand: entry.command,
             context: this.cleanWhenClause(entry.when),
             isDefault: false,
-            isUnbound: false,
+            isUnbound,
             filePath,
           }),
         );
