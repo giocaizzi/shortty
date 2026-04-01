@@ -59,6 +59,8 @@ export class TmuxParser extends BaseParser {
 
         if (flag === 'T') {
           // bind-key -T <table> <key> <cmd>
+          // tableOrKey is the table name for -T bindings
+          if (tableOrKey && TmuxParser.IGNORED_TABLES.has(tableOrKey)) continue;
           key = keyOrCmd;
           command = rest;
         } else if (isRoot) {
@@ -68,6 +70,9 @@ export class TmuxParser extends BaseParser {
           key = tableOrKey ?? keyOrCmd;
           command = `${keyOrCmd} ${rest}`.trim();
         }
+
+        // Skip mouse-event bindings
+        if (TmuxParser.MOUSE_KEY_RE.test(key)) continue;
 
         const prefix = isRoot ? '' : 'prefix ';
         keybindings.push(
@@ -98,6 +103,16 @@ export class TmuxParser extends BaseParser {
     }
   }
 
+  /** Tables that produce noise (copy-mode vi/emacs bindings, mouse events). */
+  private static readonly IGNORED_TABLES = new Set([
+    'copy-mode',
+    'copy-mode-vi',
+  ]);
+
+  /** Keys that are mouse events rather than keyboard shortcuts. */
+  private static readonly MOUSE_KEY_RE =
+    /^(?:Mouse|WheelUp|WheelDown|DoubleClick|TripleClick|DragEnd|SecondClick)/;
+
   parseTmuxListKeys(output: string): Keybinding[] {
     const keybindings: Keybinding[] = [];
 
@@ -108,6 +123,13 @@ export class TmuxParser extends BaseParser {
       if (!match) continue;
 
       const [, table, key, command] = match;
+
+      // Skip copy-mode tables (noise — hundreds of vi/emacs bindings)
+      if (TmuxParser.IGNORED_TABLES.has(table)) continue;
+
+      // Skip mouse-event bindings
+      if (TmuxParser.MOUSE_KEY_RE.test(key)) continue;
+
       const prefix = table === 'root' ? '' : 'prefix ';
 
       keybindings.push(
@@ -137,17 +159,52 @@ export class TmuxParser extends BaseParser {
       'previous-window': 'Previous Window',
       'kill-pane': 'Kill Pane',
       'kill-window': 'Kill Window',
+      'kill-session': 'Kill Session',
       'copy-mode': 'Copy Mode',
       'paste-buffer': 'Paste Buffer',
       'choose-tree': 'Choose Tree',
+      'choose-buffer': 'Choose Buffer',
+      'choose-client': 'Choose Client',
       'detach-client': 'Detach Client',
+      'suspend-client': 'Suspend Client',
+      'switch-client': 'Switch Client',
       'list-keys': 'List Keys',
+      'list-sessions': 'List Sessions',
       'command-prompt': 'Command Prompt',
       'display-message': 'Display Message',
+      'display-menu': 'Display Menu',
+      'display-panes': 'Display Panes',
       'send-keys': 'Send Keys',
+      'send-prefix': 'Send Prefix',
       'rename-window': 'Rename Window',
+      'rename-session': 'Rename Session',
       'last-window': 'Last Window',
+      'last-pane': 'Last Pane',
+      'next-layout': 'Next Layout',
+      'select-layout': 'Select Layout',
+      'rotate-window': 'Rotate Window',
+      'swap-pane': 'Swap Pane',
+      'swap-window': 'Swap Window',
+      'move-window': 'Move Window',
+      'break-pane': 'Break Pane',
+      'join-pane': 'Join Pane',
+      'refresh-client': 'Refresh Client',
+      'set-option': 'Set Option',
+      'show-options': 'Show Options',
+      'clock-mode': 'Clock Mode',
+      'customize-mode': 'Customize Mode',
+      'source-file': 'Source File',
+      'respawn-pane': 'Respawn Pane',
+      'respawn-window': 'Respawn Window',
+      'find-window': 'Find Window',
+      'select-window': 'Select Window',
+      'if-shell': 'Conditional',
+      'run-shell': 'Run Shell',
     };
-    return humanized[cmd] ?? command.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase());
+    if (humanized[cmd]) return humanized[cmd];
+
+    // For unknown commands, humanize only the first tmux subcommand
+    // (avoid dumping the entire raw argument string)
+    return cmd.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase());
   }
 }

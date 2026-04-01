@@ -31,6 +31,7 @@ export class VscodeParser extends BaseParser {
       const entries = this.parseJsonc(content);
       for (const entry of entries) {
         if (!entry.key || !entry.command) continue;
+        if (this.isImpossibleWhen(entry.when)) continue;
 
         const isUnbound = entry.command.startsWith('-');
         const rawCommand = isUnbound ? entry.command.slice(1) : entry.command;
@@ -64,6 +65,31 @@ export class VscodeParser extends BaseParser {
     } catch {
       return [];
     }
+  }
+
+  /** Filter out `when` conditions that are impossible on the current platform. */
+  private isImpossibleWhen(when?: string): boolean {
+    if (!when) return false;
+
+    const isMac = process.platform === 'darwin';
+    const isWindows = process.platform === 'win32';
+    const isLinux = process.platform === 'linux';
+
+    // Check for platform conditions that contradict the current OS.
+    // These are simple top-level checks — VS Code uses `&&` to combine.
+    const clauses = when.split(/\s*&&\s*/);
+    for (const clause of clauses) {
+      const trimmed = clause.trim();
+      if (isMac && trimmed === '!isMac') return true;
+      if (isMac && trimmed === 'isWindows') return true;
+      if (isMac && trimmed === 'isLinux') return true;
+      if (isWindows && trimmed === '!isWindows') return true;
+      if (isWindows && trimmed === 'isMac') return true;
+      if (isLinux && trimmed === '!isLinux') return true;
+      if (isLinux && trimmed === 'isMac') return true;
+    }
+
+    return false;
   }
 
   private normalizeVscodeKey(key: string): string {

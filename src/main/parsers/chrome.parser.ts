@@ -44,15 +44,13 @@ export class ChromeParser extends BaseParser {
         const keyCombo = shortcutKey.slice(platformPrefix.length + 1);
         if (!keyCombo) continue;
 
-        const extensionName =
-          shortcutData.description ||
-          shortcutData.command_name ||
-          'Unknown Extension';
+        const commandName = this.resolveCommandName(shortcutData);
+        if (!commandName) continue;
 
         keybindings.push(
           this.makeKeybinding({
             key: this.normalizeChromeKey(keyCombo),
-            command: `${extensionName}`,
+            command: commandName,
             rawCommand: shortcutKey,
             context: shortcutData.global ? 'global' : undefined,
             isDefault: false,
@@ -64,6 +62,33 @@ export class ChromeParser extends BaseParser {
     }
 
     return keybindings;
+  }
+
+  /** Internal Chrome command names that aren't useful to show. */
+  private static readonly INTERNAL_COMMANDS = new Set([
+    '_execute_action',
+    '_execute_browser_action',
+    '_execute_page_action',
+    '_execute_sidebar_action',
+  ]);
+
+  private resolveCommandName(data: {
+    command_name?: string;
+    description?: string;
+  }): string | null {
+    // Prefer human-readable description
+    if (data.description) return data.description;
+
+    // Skip entries with only an internal Chrome command name
+    if (!data.command_name || ChromeParser.INTERNAL_COMMANDS.has(data.command_name)) {
+      return null;
+    }
+
+    // Humanize the command name (e.g. "toggle_pause" → "Toggle Pause")
+    return data.command_name
+      .replace(/^_+/, '')
+      .replace(/[_-]/g, ' ')
+      .replace(/\b\w/g, (c: string) => c.toUpperCase());
   }
 
   private getPlatformPrefix(): string {
