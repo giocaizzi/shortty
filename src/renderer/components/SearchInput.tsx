@@ -13,7 +13,6 @@ export function SearchInput({ query, onChange }: SearchInputProps) {
     inputRef.current?.focus();
   }, []);
 
-  // Re-focus on window shown
   useEffect(() => {
     const api = window.electronAPI;
     if (!api) return;
@@ -25,8 +24,8 @@ export function SearchInput({ query, onChange }: SearchInputProps) {
   }, []);
 
   return (
-    <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
-      <Search className="h-5 w-5 shrink-0 text-neutral-400" />
+    <div className="relative z-10 flex shrink-0 items-center gap-3 border-b border-white/8 bg-white/5 px-5 py-4">
+      <Search className="h-6 w-6 shrink-0 text-white/40" />
       <input
         ref={inputRef}
         type="text"
@@ -34,14 +33,17 @@ export function SearchInput({ query, onChange }: SearchInputProps) {
         onChange={(e) => onChange(e.target.value)}
         placeholder="Search shortcuts..."
         className="
-          flex-1 bg-transparent text-base text-neutral-900
-          placeholder-neutral-400 outline-none
-          dark:text-neutral-100
+          flex-1 bg-transparent text-lg text-white
+          placeholder-white/30 outline-none
         "
         role="searchbox"
         aria-label="Search shortcuts"
       />
-      <kbd className="text-xs text-neutral-400">⌘⇧Space</kbd>
+      <span className="flex items-center gap-0.5 text-white/30">
+        <kbd>⌘</kbd>
+        <kbd>⇧</kbd>
+        <kbd>Space</kbd>
+      </span>
     </div>
   );
 }

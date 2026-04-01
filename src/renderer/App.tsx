@@ -68,7 +68,7 @@ export function App() {
         />
       )}
       {loading ? (
-        <div className="flex items-center justify-center py-8 text-sm text-neutral-400">
+        <div className="flex items-center justify-center py-16 text-sm text-white/30">
           Loading shortcuts...
         </div>
       ) : filteredResults.length > 0 ? (

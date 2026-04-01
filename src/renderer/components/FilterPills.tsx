@@ -13,7 +13,7 @@ export function FilterPills({
 }: FilterPillsProps) {
   return (
     <div
-      className="flex gap-1.5 overflow-x-auto border-b border-white/10 px-4 py-2"
+      className="relative z-10 flex shrink-0 gap-2 overflow-x-auto border-b border-white/6 bg-white/5 px-5 py-3"
       role="tablist"
       aria-label="Filter by source"
     >
@@ -54,12 +54,13 @@ function PillButton({
       aria-selected={active}
       onClick={onClick}
       className={`
-        shrink-0 rounded-full px-3 py-1 text-xs font-medium
+        shrink-0 rounded-full px-3.5 py-1.5
+        text-[11px] font-medium tracking-wide
         transition-colors
         ${
           active
-            ? 'bg-white/25 text-neutral-900 dark:bg-white/15 dark:text-neutral-100'
-            : 'text-neutral-500 hover:bg-white/10 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+            ? 'bg-white/15 text-white'
+            : 'text-white/40 hover:bg-white/8 hover:text-white/60'
         }
       `}
     >

@@ -12,6 +12,8 @@ if (started) {
 let mainWindow: BrowserWindow | null = null;
 const parserRegistry = new ParserRegistry();
 
+const isDev = !!MAIN_WINDOW_VITE_DEV_SERVER_URL;
+
 function createWindow(): BrowserWindow {
   const { width: screenWidth, height: screenHeight } =
     screen.getPrimaryDisplay().workAreaSize;
@@ -25,7 +27,10 @@ function createWindow(): BrowserWindow {
     x: Math.round((screenWidth - windowWidth) / 2),
     y: Math.round(screenHeight * 0.2),
     frame: false,
-    transparent: true,
+    transparent: false,
+    backgroundColor: '#00000000',
+    vibrancy: 'under-window',
+    visualEffectState: 'active',
     resizable: false,
     movable: false,
     minimizable: false,
@@ -34,9 +39,10 @@ function createWindow(): BrowserWindow {
     alwaysOnTop: true,
     skipTaskbar: true,
     hasShadow: true,
-    show: false,
+    show: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -56,10 +62,16 @@ function createWindow(): BrowserWindow {
     );
   }
 
-  // Dismiss on blur
-  win.on('blur', () => {
-    hideWindow();
-  });
+  if (isDev) {
+    win.webContents.openDevTools({ mode: 'detach' });
+  }
+
+  // Dismiss on blur (skip in dev so DevTools doesn't cause hiding)
+  if (!isDev) {
+    win.on('blur', () => {
+      hideWindow();
+    });
+  }
 
   return win;
 }
@@ -117,7 +129,3 @@ app.on('activate', () => {
   }
 });
 
-// Hide dock icon on macOS
-if (process.platform === 'darwin') {
-  app.dock?.hide();
-}

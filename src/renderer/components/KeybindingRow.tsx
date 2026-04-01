@@ -18,23 +18,24 @@ export function KeybindingRow({
       role="option"
       aria-selected={selected}
       className={`
-        flex items-center justify-between gap-4 px-4 py-2 text-sm
+        mx-2 flex items-center justify-between gap-4
+        rounded-lg px-3 py-2.5 text-[13px]
         transition-colors
         ${
           selected
-            ? 'bg-white/20 dark:bg-white/10'
-            : 'hover:bg-white/10 dark:hover:bg-white/5'
+            ? 'bg-white/10'
+            : 'hover:bg-white/6'
         }
       `}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         <KeyCombo keys={keybinding.key} />
-        <span className="text-neutral-700 dark:text-neutral-200">
+        <span className="text-white/80">
           {keybinding.command}
         </span>
       </div>
       {keybinding.context && (
-        <span className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] text-neutral-400 dark:bg-white/8">
+        <span className="shrink-0 rounded bg-white/6 px-1.5 py-0.5 text-[10px] text-white/25">
           {keybinding.context}
         </span>
       )}

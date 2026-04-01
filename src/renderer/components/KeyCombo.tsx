@@ -4,18 +4,17 @@ interface KeyComboProps {
 
 export function KeyCombo({ keys }: KeyComboProps) {
   if (!keys) {
-    return <span className="text-xs italic text-neutral-400">unbound</span>;
+    return <span className="min-w-[80px] text-xs italic text-white/25">unbound</span>;
   }
 
-  // Split multi-chord keys (e.g., "⌘K ⌘S" or "prefix c")
   const chords = keys.split(/\s+/);
 
   return (
-    <span className="inline-flex items-center gap-1 font-mono text-xs">
+    <span className="inline-flex min-w-[80px] items-center gap-1">
       {chords.map((chord, i) => (
-        <span key={i}>
-          {i > 0 && <span className="mx-0.5 text-neutral-400">&nbsp;</span>}
-          <kbd className="text-neutral-600 dark:text-neutral-300">{chord}</kbd>
+        <span key={i} className="inline-flex items-center gap-1">
+          {i > 0 && <span className="text-white/20">&middot;</span>}
+          <kbd>{chord}</kbd>
         </span>
       ))}
     </span>
