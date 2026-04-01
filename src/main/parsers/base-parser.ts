@@ -20,7 +20,7 @@ export abstract class BaseParser implements ParserPlugin {
   ): Keybinding {
     return {
       ...partial,
-      id: generateKeybindingId(this.meta.id, partial.key, partial.rawCommand),
+      id: generateKeybindingId(this.meta.id, partial.key, partial.rawCommand, partial.context),
       source: this.meta.id,
       sourceLabel: this.meta.label,
     };

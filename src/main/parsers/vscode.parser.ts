@@ -33,17 +33,17 @@ export class VscodeParser extends BaseParser {
         if (!entry.key || !entry.command) continue;
         if (this.isImpossibleWhen(entry.when)) continue;
 
-        const isUnbound = entry.command.startsWith('-');
-        const rawCommand = isUnbound ? entry.command.slice(1) : entry.command;
+        // Skip unbind entries — they remove bindings, not add them
+        if (entry.command.startsWith('-')) continue;
 
         keybindings.push(
           this.makeKeybinding({
             key: this.normalizeVscodeKey(entry.key),
-            command: this.humanizeCommand(rawCommand),
+            command: this.humanizeCommand(entry.command),
             rawCommand: entry.command,
-            context: entry.when,
+            context: this.cleanWhenClause(entry.when),
             isDefault: false,
-            isUnbound,
+            isUnbound: false,
             filePath,
           }),
         );
@@ -92,6 +92,29 @@ export class VscodeParser extends BaseParser {
     return false;
   }
 
+  /** Strip redundant platform clauses and simplify `when` for display. */
+  private cleanWhenClause(when?: string): string | undefined {
+    if (!when) return undefined;
+
+    const isMac = process.platform === 'darwin';
+    const isWindows = process.platform === 'win32';
+    const isLinux = process.platform === 'linux';
+
+    // Remove clauses that are always true on the current platform
+    const alwaysTrue = new Set<string>();
+    if (isMac) alwaysTrue.add('isMac').add('!isWindows').add('!isLinux');
+    if (isWindows) alwaysTrue.add('isWindows').add('!isMac').add('!isLinux');
+    if (isLinux) alwaysTrue.add('isLinux').add('!isMac').add('!isWindows');
+
+    const filtered = when
+      .split(/\s*&&\s*/)
+      .map((c) => c.trim())
+      .filter((c) => !alwaysTrue.has(c));
+
+    if (filtered.length === 0) return undefined;
+    return filtered.join(' && ');
+  }
+
   private normalizeVscodeKey(key: string): string {
     // Handle multi-chord keys like "cmd+k cmd+s"
     return key
@@ -104,9 +127,11 @@ export class VscodeParser extends BaseParser {
     return command
       .replace(/^workbench\.action\./, '')
       .replace(/^editor\.action\./, '')
+      .replace(/^terminal\./, 'Terminal: ')
+      .replace(/^editor\./, 'Editor: ')
       .replace(/\./g, ' ')
       .replace(/([a-z])([A-Z])/g, '$1 $2')
-      .replace(/^./, (c) => c.toUpperCase());
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   }
 }
 

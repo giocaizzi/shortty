@@ -23,10 +23,11 @@ export interface ParserMeta {
 export function generateKeybindingId(
   source: string,
   key: string,
-  command: string,
+  rawCommand: string,
+  context?: string,
 ): string {
   return createHash('sha256')
-    .update(`${source}:${key}:${command}`)
+    .update(`${source}:${key}:${rawCommand}:${context ?? ''}`)
     .digest('hex')
     .slice(0, 12);
 }

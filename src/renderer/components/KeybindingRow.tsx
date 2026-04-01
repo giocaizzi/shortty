@@ -17,8 +17,9 @@ export function KeybindingRow({
       data-index={dataIndex}
       role="option"
       aria-selected={selected}
+      title={keybinding.context ?? undefined}
       className={`
-        mx-2 flex items-center justify-between gap-4
+        mx-2 flex items-center gap-4
         rounded-lg px-3 py-2.5 text-[13px]
         transition-colors
         ${
@@ -28,17 +29,10 @@ export function KeybindingRow({
         }
       `}
     >
-      <div className="flex items-center gap-4">
-        <KeyCombo keys={keybinding.key} />
-        <span className="text-white/80">
-          {keybinding.command}
-        </span>
-      </div>
-      {keybinding.context && (
-        <span className="shrink-0 rounded bg-white/6 px-1.5 py-0.5 text-[10px] text-white/25">
-          {keybinding.context}
-        </span>
-      )}
+      <KeyCombo keys={keybinding.key} />
+      <span className="truncate text-white/80">
+        {keybinding.command}
+      </span>
     </div>
   );
 }
