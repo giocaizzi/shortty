@@ -1,0 +1,30 @@
+{
+  "extensions": {
+    "commands": {
+      "mac:Command+Shift+L": {
+        "command_name": "_execute_browser_action",
+        "description": "Activate Bitwarden",
+        "extension": "nngceckbapebfimnlniiiahkandclblb",
+        "global": false
+      },
+      "mac:Command+Shift+O": {
+        "command_name": "_execute_browser_action",
+        "description": "Clip to Notion",
+        "extension": "knheggckgoiihginacbkhaalnibhilkk",
+        "global": false
+      },
+      "mac:Alt+A": {
+        "command_name": "_execute_browser_action",
+        "description": "Toggle AdBlock",
+        "extension": "gighmmpiobklfepjocnamgkkbiglidom",
+        "global": true
+      },
+      "windows:Ctrl+Shift+L": {
+        "command_name": "_execute_browser_action",
+        "description": "Activate Bitwarden",
+        "extension": "nngceckbapebfimnlniiiahkandclblb",
+        "global": false
+      }
+    }
+  }
+}

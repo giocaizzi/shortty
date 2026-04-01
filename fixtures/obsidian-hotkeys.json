@@ -1,0 +1,15 @@
+{
+  "editor:toggle-bold": [
+    { "modifiers": ["Mod"], "key": "B" }
+  ],
+  "editor:toggle-italic": [
+    { "modifiers": ["Mod"], "key": "I" }
+  ],
+  "app:go-back": [
+    { "modifiers": ["Mod", "Alt"], "key": "ArrowLeft" }
+  ],
+  "command-palette:open": [
+    { "modifiers": ["Mod", "Shift"], "key": "P" }
+  ],
+  "editor:toggle-strikethrough": []
+}

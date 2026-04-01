@@ -1,0 +1,14 @@
+bind-key -T prefix c new-window
+bind-key -T prefix % split-window -h
+bind-key -T prefix " split-window -v
+bind-key -T prefix d detach-client
+bind-key -T prefix n next-window
+bind-key -T prefix p previous-window
+bind-key -T prefix & kill-window
+bind-key -T prefix x kill-pane
+bind-key -T prefix [ copy-mode
+bind-key -T prefix ] paste-buffer
+bind-key -T prefix s choose-tree -s
+bind-key -T prefix : command-prompt
+bind-key -T root M-Up resize-pane -U 5
+bind-key -T root M-Down resize-pane -D 5

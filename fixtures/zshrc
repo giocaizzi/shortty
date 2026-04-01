@@ -1,0 +1,15 @@
+# Zsh Configuration
+export EDITOR=nvim
+export PATH="$HOME/.local/bin:$PATH"
+
+# Key bindings
+bindkey '^R' history-incremental-search-backward
+bindkey '^P' up-line-or-history
+bindkey '^N' down-line-or-history
+bindkey '\e[A' up-line-or-search
+bindkey '\e[B' down-line-or-search
+bindkey -M vicmd 'k' up-line-or-history
+
+# Aliases
+alias ll="ls -la"
+alias gs="git status"

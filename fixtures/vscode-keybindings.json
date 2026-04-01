@@ -1,0 +1,41 @@
+// VSCode User Keybindings
+[
+  {
+    "key": "cmd+shift+t",
+    "command": "workbench.action.reopenClosedEditor"
+  },
+  {
+    "key": "cmd+shift+p",
+    "command": "workbench.action.showCommands"
+  },
+  {
+    "key": "cmd+k cmd+s",
+    "command": "workbench.action.openGlobalKeybindings"
+  },
+  {
+    "key": "cmd+shift+e",
+    "command": "workbench.action.toggleSidebarVisibility"
+  },
+  {
+    "key": "cmd+shift+f",
+    "command": "workbench.action.findInFiles"
+  },
+  {
+    "key": "cmd+j",
+    "command": "workbench.action.togglePanel"
+  },
+  {
+    "key": "cmd+shift+g",
+    "command": "-workbench.action.showSCM"
+  },
+  {
+    "key": "cmd+b",
+    "command": "editor.action.toggleWordWrap",
+    "when": "editorFocus"
+  },
+  // A comment that should be ignored
+  {
+    "key": "ctrl+shift+`",
+    "command": "workbench.action.terminal.new"
+  }
+]
