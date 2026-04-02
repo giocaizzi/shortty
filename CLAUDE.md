@@ -4,13 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+All commands go through the Makefile. Always use `make` targets, not `npm` directly.
+
 ```bash
-npm start                # Start dev server with HMR (electron-forge start)
-npm test                 # Run all unit tests once (vitest run)
-npm run test:watch       # Run tests in watch mode
-npm run lint             # Lint TypeScript/TSX files (eslint --ext .ts,.tsx .)
-npm run package          # Package the app
-npm run make             # Generate platform-specific installers
+make install             # Install dependencies (npm ci)
+make dev                 # Start dev server with HMR (electron-forge start)
+make test                # Run all unit tests once (vitest run)
+make lint                # Lint TypeScript/TSX files (eslint)
+make typecheck           # Type-check without emitting (tsc --noEmit)
+make package             # Package the app
+make make                # Generate platform-specific installers
+make knip                # Find unused files, deps, and exports (knip)
+make precommit           # Run lint + typecheck + test + knip (used by git pre-commit hook)
+make setup-hooks         # Install git pre-commit hook
 ```
 
 To run a single test file:

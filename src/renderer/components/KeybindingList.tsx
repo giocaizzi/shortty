@@ -40,14 +40,14 @@ export const KeybindingList = forwardRef<HTMLDivElement, KeybindingListProps>(
     return (
       <div
         ref={ref}
-        className="flex-1 overflow-y-auto py-1"
+        className="flex-1 overflow-y-auto py-0.5"
         role="listbox"
         aria-label="Keybinding results"
       >
         {grouped.map((group) => (
           <div key={group.source ?? 'all'}>
             {group.label && (
-              <div className="sticky top-0 flex items-center gap-1.5 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/35">
+              <div className="sticky top-0 flex items-center gap-1.5 bg-black/20 px-5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30 backdrop-blur-sm">
                 <span>{group.label}</span>
                 <span className="text-white/25">{group.items.length}</span>
               </div>

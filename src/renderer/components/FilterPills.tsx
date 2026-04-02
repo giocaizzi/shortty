@@ -13,7 +13,7 @@ export function FilterPills({
 }: FilterPillsProps) {
   return (
     <div
-      className="relative z-10 flex shrink-0 gap-2 overflow-x-auto border-b border-white/6 bg-white/5 px-5 py-3"
+      className="relative z-10 flex shrink-0 gap-1.5 overflow-x-auto border-b border-white/6 bg-white/5 px-5 py-2"
       role="tablist"
       aria-label="Filter by source"
     >
@@ -54,7 +54,7 @@ function PillButton({
       aria-selected={active}
       onClick={onClick}
       className={`
-        shrink-0 rounded-full px-3.5 py-1.5
+        shrink-0 rounded-full px-3 py-1
         text-[11px] font-medium tracking-wide
         transition-colors
         ${

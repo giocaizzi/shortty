@@ -63,6 +63,7 @@ export function getConfigPaths(parserId: string): string[] {
 
 /** Discover Obsidian vaults by scanning common directories. */
 export function discoverObsidianVaults(): string[] {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { existsSync, readdirSync, statSync } = require('node:fs');
   const vaults: string[] = [];
   const searchDirs = [
