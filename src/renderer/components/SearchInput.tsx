@@ -24,8 +24,8 @@ export function SearchInput({ query, onChange }: SearchInputProps) {
   }, []);
 
   return (
-    <div className="relative z-10 flex shrink-0 items-center gap-3 border-b border-white/8 bg-white/5 px-5 py-4">
-      <Search className="h-6 w-6 shrink-0 text-white/40" />
+    <div className="relative z-10 flex shrink-0 items-center gap-3 border-b border-white/8 bg-white/5 px-5 py-3">
+      <Search className="h-5 w-5 shrink-0 text-white/40" />
       <input
         ref={inputRef}
         type="text"

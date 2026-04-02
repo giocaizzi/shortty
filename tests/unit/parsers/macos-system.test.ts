@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { MacosSystemParser } from '../../../src/main/parsers/macos-system.parser';
 
 describe('MacosSystemParser', () => {

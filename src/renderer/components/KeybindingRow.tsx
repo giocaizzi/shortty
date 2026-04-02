@@ -19,8 +19,8 @@ export function KeybindingRow({
       aria-selected={selected}
       title={keybinding.context ?? undefined}
       className={`
-        mx-2 flex items-center gap-4
-        rounded-lg px-3 py-2.5 text-[13px]
+        mx-1.5 flex items-center gap-3
+        rounded-md px-3.5 py-[5px] text-[13px]
         transition-colors
         ${
           selected
