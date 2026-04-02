@@ -3,6 +3,30 @@ import { execSync } from 'node:child_process';
 import type { Keybinding, ParserMeta } from '../../shared/types';
 import { getConfigPaths } from '../platform/paths';
 import { BaseParser } from './base-parser';
+import {
+  type ParsedKey,
+  Modifier,
+  normalizeToCanonical,
+} from './key-normalizer';
+
+/** Map tmux special key names to display glyphs/names. */
+const TMUX_SPECIAL_KEYS: Record<string, string> = {
+  Up: '↑',
+  Down: '↓',
+  Left: '←',
+  Right: '→',
+  BSpace: 'Delete',
+  NPage: 'PageDown',
+  PPage: 'PageUp',
+  Enter: 'Return',
+  Space: 'Space',
+  Tab: 'Tab',
+  Escape: 'Escape',
+  DC: 'Delete',
+  IC: 'Insert',
+  Home: 'Home',
+  End: 'End',
+};
 
 export class TmuxParser extends BaseParser {
   get meta(): ParserMeta {
@@ -28,11 +52,8 @@ export class TmuxParser extends BaseParser {
   }
 
   async parse(): Promise<Keybinding[]> {
-    // Try config file first
     const configKeybindings = await this.parseConfigFiles();
     if (configKeybindings.length > 0) return configKeybindings;
-
-    // Fallback to live query
     return this.parseLiveKeys();
   }
 
@@ -58,8 +79,6 @@ export class TmuxParser extends BaseParser {
         let command: string;
 
         if (flag === 'T') {
-          // bind-key -T <table> <key> <cmd>
-          // tableOrKey is the table name for -T bindings
           if (tableOrKey && TmuxParser.IGNORED_TABLES.has(tableOrKey)) continue;
           key = keyOrCmd;
           command = rest;
@@ -71,13 +90,15 @@ export class TmuxParser extends BaseParser {
           command = `${keyOrCmd} ${rest}`.trim();
         }
 
-        // Skip mouse-event bindings
         if (TmuxParser.MOUSE_KEY_RE.test(key)) continue;
 
-        const prefix = isRoot ? '' : 'prefix ';
+        const prefix = isRoot ? undefined : 'prefix';
+        const { displayKey, searchKey } = this.normalizeTmuxKey(key, prefix);
+
         keybindings.push(
           this.makeKeybinding({
-            key: `${prefix}${key}`,
+            key: displayKey,
+            searchKey,
             command: this.humanizeCommand(command),
             rawCommand: trimmed,
             isDefault: false,
@@ -124,17 +145,16 @@ export class TmuxParser extends BaseParser {
 
       const [, table, key, command] = match;
 
-      // Skip copy-mode tables (noise — hundreds of vi/emacs bindings)
       if (TmuxParser.IGNORED_TABLES.has(table)) continue;
-
-      // Skip mouse-event bindings
       if (TmuxParser.MOUSE_KEY_RE.test(key)) continue;
 
-      const prefix = table === 'root' ? '' : 'prefix ';
+      const prefix = table === 'root' ? undefined : 'prefix';
+      const { displayKey, searchKey } = this.normalizeTmuxKey(key, prefix);
 
       keybindings.push(
         this.makeKeybinding({
-          key: `${prefix}${key}`,
+          key: displayKey,
+          searchKey,
           command: this.humanizeCommand(command),
           rawCommand: line.trim(),
           context: table !== 'prefix' && table !== 'root' ? table : undefined,
@@ -146,6 +166,39 @@ export class TmuxParser extends BaseParser {
     }
 
     return keybindings;
+  }
+
+  /** Parse tmux key notation (C-a, M-x, C-M-v) into a normalized form. */
+  private normalizeTmuxKey(
+    rawKey: string,
+    prefix?: string,
+  ): { displayKey: string; searchKey: string } {
+    const modifiers: Modifier[] = [];
+    let remaining = rawKey;
+
+    // Parse chained modifier prefixes: C-, M-, S-
+    while (remaining.length > 2) {
+      if (remaining.startsWith('C-')) {
+        modifiers.push(Modifier.Control);
+        remaining = remaining.slice(2);
+      } else if (remaining.startsWith('M-')) {
+        modifiers.push(Modifier.Option);
+        remaining = remaining.slice(2);
+      } else if (remaining.startsWith('S-')) {
+        modifiers.push(Modifier.Shift);
+        remaining = remaining.slice(2);
+      } else {
+        break;
+      }
+    }
+
+    // Map special key names or uppercase single letters
+    const keyName = TMUX_SPECIAL_KEYS[remaining] ?? (
+      remaining.length === 1 ? remaining.toUpperCase() : remaining
+    );
+
+    const parsed: ParsedKey = { modifiers, key: keyName, prefix };
+    return normalizeToCanonical(parsed);
   }
 
   private humanizeCommand(command: string): string {
@@ -202,9 +255,6 @@ export class TmuxParser extends BaseParser {
       'run-shell': 'Run Shell',
     };
     if (humanized[cmd]) return humanized[cmd];
-
-    // For unknown commands, humanize only the first tmux subcommand
-    // (avoid dumping the entire raw argument string)
     return cmd.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase());
   }
 }

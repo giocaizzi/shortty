@@ -34,10 +34,12 @@ export class VscodeParser extends BaseParser {
         if (this.isImpossibleWhen(entry.when)) continue;
 
         const isUnbound = entry.command.startsWith('-');
+        const { displayKey, searchKey } = this.normalizeVscodeKey(entry.key);
 
         keybindings.push(
           this.makeKeybinding({
-            key: this.normalizeVscodeKey(entry.key),
+            key: displayKey,
+            searchKey,
             command: this.humanizeCommand(
               isUnbound ? entry.command.slice(1) : entry.command,
             ),
@@ -76,8 +78,6 @@ export class VscodeParser extends BaseParser {
     const isWindows = process.platform === 'win32';
     const isLinux = process.platform === 'linux';
 
-    // Check for platform conditions that contradict the current OS.
-    // These are simple top-level checks — VS Code uses `&&` to combine.
     const clauses = when.split(/\s*&&\s*/);
     for (const clause of clauses) {
       const trimmed = clause.trim();
@@ -101,7 +101,6 @@ export class VscodeParser extends BaseParser {
     const isWindows = process.platform === 'win32';
     const isLinux = process.platform === 'linux';
 
-    // Remove clauses that are always true on the current platform
     const alwaysTrue = new Set<string>();
     if (isMac) alwaysTrue.add('isMac').add('!isWindows').add('!isLinux');
     if (isWindows) alwaysTrue.add('isWindows').add('!isMac').add('!isLinux');
@@ -116,12 +115,25 @@ export class VscodeParser extends BaseParser {
     return filtered.join(' && ');
   }
 
-  private normalizeVscodeKey(key: string): string {
+  private normalizeVscodeKey(key: string): {
+    displayKey: string;
+    searchKey: string;
+  } {
     // Handle multi-chord keys like "cmd+k cmd+s"
-    return key
-      .split(' ')
-      .map((chord) => this.normalizeKey(chord))
-      .join(' ');
+    const chords = key.split(' ');
+    const displays: string[] = [];
+    const searches: string[] = [];
+
+    for (const chord of chords) {
+      const { displayKey, searchKey } = this.formatKeyCombo(chord);
+      displays.push(displayKey);
+      searches.push(searchKey);
+    }
+
+    return {
+      displayKey: displays.join(' '),
+      searchKey: searches.join(' '),
+    };
   }
 
   private humanizeCommand(command: string): string {

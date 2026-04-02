@@ -41,10 +41,12 @@ export class GhosttyParser extends BaseParser {
 
         const keyPart = value.slice(0, eqIdx).trim();
         const action = value.slice(eqIdx + 1).trim();
+        const { displayKey, searchKey } = this.normalizeGhosttyKey(keyPart);
 
         keybindings.push(
           this.makeKeybinding({
-            key: this.normalizeGhosttyKey(keyPart),
+            key: displayKey,
+            searchKey,
             command: this.humanizeAction(action),
             rawCommand: action,
             isDefault: false,
@@ -58,12 +60,25 @@ export class GhosttyParser extends BaseParser {
     return keybindings;
   }
 
-  private normalizeGhosttyKey(key: string): string {
+  private normalizeGhosttyKey(key: string): {
+    displayKey: string;
+    searchKey: string;
+  } {
     // Ghostty uses > for leader sequences: ctrl+a>h
-    return key
-      .split('>')
-      .map((part) => this.normalizeKey(part))
-      .join('>');
+    const segments = key.split('>');
+    const displays: string[] = [];
+    const searches: string[] = [];
+
+    for (const segment of segments) {
+      const { displayKey, searchKey } = this.formatKeyCombo(segment);
+      displays.push(displayKey);
+      searches.push(searchKey);
+    }
+
+    return {
+      displayKey: displays.join('>'),
+      searchKey: searches.join(' '),
+    };
   }
 
   private humanizeAction(action: string): string {

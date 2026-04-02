@@ -47,9 +47,13 @@ export class ChromeParser extends BaseParser {
         const commandName = this.resolveCommandName(shortcutData);
         if (!commandName) continue;
 
+        // Chrome may use either "+" or "-" as separator; normalize to "+"
+        const { displayKey, searchKey } = this.formatKeyCombo(keyCombo.replace(/-/g, '+'));
+
         keybindings.push(
           this.makeKeybinding({
-            key: this.normalizeChromeKey(keyCombo),
+            key: displayKey,
+            searchKey,
             command: commandName,
             rawCommand: shortcutKey,
             context: shortcutData.global ? 'global' : undefined,
@@ -76,15 +80,12 @@ export class ChromeParser extends BaseParser {
     command_name?: string;
     description?: string;
   }): string | null {
-    // Prefer human-readable description
     if (data.description) return data.description;
 
-    // Skip entries with only an internal Chrome command name
     if (!data.command_name || ChromeParser.INTERNAL_COMMANDS.has(data.command_name)) {
       return null;
     }
 
-    // Humanize the command name (e.g. "toggle_pause" → "Toggle Pause")
     return data.command_name
       .replace(/^_+/, '')
       .replace(/[_-]/g, ' ')
@@ -100,10 +101,6 @@ export class ChromeParser extends BaseParser {
       default:
         return 'linux';
     }
-  }
-
-  private normalizeChromeKey(key: string): string {
-    return this.normalizeKey(key.replace(/-/g, '+'));
   }
 }
 

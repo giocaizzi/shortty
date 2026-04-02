@@ -37,7 +37,7 @@ describe('ChromeParser', () => {
       const bitwarden = result.find((kb) =>
         kb.command.includes('Bitwarden'),
       );
-      expect(bitwarden?.key).toBe('⌘⇧L');
+      expect(bitwarden?.key).toBe('⇧⌘L');
     }
   });
 

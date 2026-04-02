@@ -3,6 +3,12 @@ import { execSync } from 'node:child_process';
 import type { Keybinding, ParserMeta } from '../../shared/types';
 import { getConfigPaths } from '../platform/paths';
 import { BaseParser } from './base-parser';
+import {
+  type ParsedKey,
+  Modifier,
+  normalizeToCanonical,
+  charCodeToKeyName,
+} from './key-normalizer';
 
 /** Maps symbolic hotkey IDs to human-readable action names. */
 const HOTKEY_NAMES: Record<number, string> = {
@@ -41,33 +47,27 @@ const HOTKEY_NAMES: Record<number, string> = {
   175: 'Accessibility: Turn Focus following On/Off',
 };
 
-/** Convert macOS modifier flags to glyph string. */
-function modifierFlagsToGlyphs(flags: number): string {
-  let result = '';
-  if (flags & 1048576) result += '⌘';
-  if (flags & 524288) result += '⌥';
-  if (flags & 262144) result += '⌃';
-  if (flags & 131072) result += '⇧';
-  return result;
+/** Convert macOS modifier bitfield flags to Modifier enum array. */
+function modifierFlagsToModifiers(flags: number): Modifier[] {
+  const mods: Modifier[] = [];
+  if (flags & 262144) mods.push(Modifier.Control);
+  if (flags & 524288) mods.push(Modifier.Option);
+  if (flags & 131072) mods.push(Modifier.Shift);
+  if (flags & 1048576) mods.push(Modifier.Command);
+  return mods;
 }
 
-/** Convert a macOS virtual key code to a readable key name. */
-function keyCodeToName(keyCode: number): string {
-  const keyMap: Record<number, string> = {
-    0: 'A', 1: 'S', 2: 'D', 3: 'F', 4: 'H', 5: 'G', 6: 'Z', 7: 'X',
-    8: 'C', 9: 'V', 11: 'B', 12: 'Q', 13: 'W', 14: 'E', 15: 'R',
-    16: 'Y', 17: 'T', 18: '1', 19: '2', 20: '3', 21: '4', 22: '6',
-    23: '5', 24: '=', 25: '9', 26: '7', 27: '-', 28: '8', 29: '0',
-    30: ']', 31: 'O', 32: 'U', 33: '[', 34: 'I', 35: 'P', 36: 'Return',
-    37: 'L', 38: 'J', 39: "'", 40: 'K', 41: ';', 42: '\\', 43: ',',
-    44: '/', 45: 'N', 46: 'M', 47: '.', 48: 'Tab', 49: 'Space',
-    50: '`', 51: 'Delete', 53: 'Escape', 96: 'F5', 97: 'F6', 98: 'F7',
-    99: 'F3', 100: 'F8', 101: 'F9', 103: 'F11', 105: 'F13', 107: 'F14',
-    109: 'F10', 111: 'F12', 113: 'F15', 118: 'F4', 119: 'F2',
-    120: 'F1', 121: 'F16', 122: 'F17', 123: '←', 124: '→', 125: '↓', 126: '↑',
-  };
-  return keyMap[keyCode] ?? `Key${keyCode}`;
-}
+/**
+ * Convert a macOS virtual key code to a readable key name.
+ * Only used for non-printable keys where the char code is not useful.
+ */
+const NON_PRINTABLE_KEY_MAP: Record<number, string> = {
+  36: 'Return', 48: 'Tab', 49: 'Space', 51: 'Delete', 53: 'Escape',
+  96: 'F5', 97: 'F6', 98: 'F7', 99: 'F3', 100: 'F8', 101: 'F9',
+  103: 'F11', 105: 'F13', 107: 'F14', 109: 'F10', 111: 'F12',
+  113: 'F15', 118: 'F4', 119: 'F2', 120: 'F1', 121: 'F16', 122: 'F17',
+  123: '←', 124: '→', 125: '↓', 126: '↑',
+};
 
 export class MacosSystemParser extends BaseParser {
   get meta(): ParserMeta {
@@ -111,13 +111,21 @@ export class MacosSystemParser extends BaseParser {
         const params = entry.value?.parameters;
         if (!Array.isArray(params) || params.length < 3) continue;
 
-        const [, keyCode, modFlags] = params;
-        const mods = modifierFlagsToGlyphs(modFlags);
-        const keyName = keyCodeToName(keyCode);
+        const [charCode, keyCode, modFlags] = params;
+        const modifiers = modifierFlagsToModifiers(modFlags);
+
+        // Use charCode (layout-correct) for printable characters,
+        // fall back to keyCode map for non-printable keys (function keys, arrows, etc.)
+        const keyFromChar = charCodeToKeyName(charCode);
+        const keyName = keyFromChar ?? NON_PRINTABLE_KEY_MAP[keyCode] ?? `Key${keyCode}`;
+
+        const parsed: ParsedKey = { modifiers, key: keyName };
+        const { displayKey, searchKey } = normalizeToCanonical(parsed);
 
         keybindings.push(
           this.makeKeybinding({
-            key: `${mods}${keyName}`,
+            key: displayKey,
+            searchKey,
             command: actionName,
             rawCommand: `symbolichotkey:${id}`,
             isDefault: true,

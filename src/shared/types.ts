@@ -5,6 +5,7 @@ export interface Keybinding {
   source: string;
   sourceLabel: string;
   key: string;
+  searchKey: string;
   command: string;
   rawCommand: string;
   context?: string;

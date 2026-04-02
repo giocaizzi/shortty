@@ -10,10 +10,11 @@ interface UseSearchReturn {
 
 const FUSE_OPTIONS: IFuseOptions<Keybinding> = {
   keys: [
-    { name: 'key', weight: 0.4 },
-    { name: 'command', weight: 0.4 },
-    { name: 'sourceLabel', weight: 0.1 },
-    { name: 'context', weight: 0.1 },
+    { name: 'key', weight: 0.3 },
+    { name: 'searchKey', weight: 0.3 },
+    { name: 'command', weight: 0.3 },
+    { name: 'sourceLabel', weight: 0.05 },
+    { name: 'context', weight: 0.05 },
   ],
   threshold: 0.35,
   ignoreLocation: true,

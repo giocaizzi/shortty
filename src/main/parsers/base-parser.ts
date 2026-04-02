@@ -3,6 +3,11 @@ import { existsSync } from 'node:fs';
 import type { Keybinding } from '../../shared/types';
 import { generateKeybindingId } from '../../shared/types';
 import type { ParserPlugin } from './types';
+import {
+  type ParsedKey,
+  parseKeyCombo,
+  normalizeToCanonical,
+} from './key-normalizer';
 
 export abstract class BaseParser implements ParserPlugin {
   abstract get meta(): ParserPlugin['meta'];
@@ -26,20 +31,26 @@ export abstract class BaseParser implements ParserPlugin {
     };
   }
 
-  /** Normalize key string to macOS glyph format. */
-  protected normalizeKey(key: string): string {
-    return key
-      .replace(/\bCommandOrControl\b/gi, '⌘')
-      .replace(/\bCmd\b/gi, '⌘')
-      .replace(/\bCommand\b/gi, '⌘')
-      .replace(/\bCtrl\b/gi, '⌃')
-      .replace(/\bControl\b/gi, '⌃')
-      .replace(/\bShift\b/gi, '⇧')
-      .replace(/\bAlt\b/gi, '⌥')
-      .replace(/\bOption\b/gi, '⌥')
-      .replace(/\bMeta\b/gi, '⌘')
-      .replace(/\bSuper\b/gi, '⌘')
-      .replace(/\bMod\b/gi, process.platform === 'darwin' ? '⌘' : '⌃')
-      .replace(/\+/g, '');
+  /**
+   * Parse a raw key combo string and return both display and search formats.
+   * Handles canonical modifier ordering and edge cases (e.g. "+" as a key).
+   */
+  protected formatKeyCombo(
+    raw: string,
+    separator = '+',
+  ): { displayKey: string; searchKey: string } {
+    const parsed = parseKeyCombo(raw, separator);
+    return normalizeToCanonical(parsed);
+  }
+
+  /**
+   * Produce display/search strings from a pre-built ParsedKey.
+   * Use when the parser needs custom parsing before normalization.
+   */
+  protected formatParsedKey(parsed: ParsedKey): {
+    displayKey: string;
+    searchKey: string;
+  } {
+    return normalizeToCanonical(parsed);
   }
 }

@@ -33,7 +33,7 @@ describe('VscodeParser', () => {
     const reopenTab = result.find((kb) =>
       kb.rawCommand === 'workbench.action.reopenClosedEditor',
     );
-    expect(reopenTab?.key).toBe('⌘⇧t');
+    expect(reopenTab?.key).toBe('⇧⌘t');
   });
 
   it('handles multi-chord keys', async () => {

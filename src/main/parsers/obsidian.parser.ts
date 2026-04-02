@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import type { Keybinding, ParserMeta } from '../../shared/types';
 import { discoverObsidianVaults } from '../platform/paths';
 import { BaseParser } from './base-parser';
+import { parseModifierWord, normalizeToCanonical } from './key-normalizer';
 
 export class ObsidianParser extends BaseParser {
   private vaultPaths: string[] = [];
@@ -44,6 +45,7 @@ export class ObsidianParser extends BaseParser {
           keybindings.push(
             this.makeKeybinding({
               key: '',
+              searchKey: '',
               command: this.humanizeCommand(commandId),
               rawCommand: commandId,
               isDefault: false,
@@ -55,9 +57,11 @@ export class ObsidianParser extends BaseParser {
         }
 
         for (const binding of bindings) {
+          const { displayKey, searchKey } = this.normalizeObsidianKey(binding);
           keybindings.push(
             this.makeKeybinding({
-              key: this.normalizeObsidianKey(binding),
+              key: displayKey,
+              searchKey,
               command: this.humanizeCommand(commandId),
               rawCommand: commandId,
               isDefault: false,
@@ -72,15 +76,18 @@ export class ObsidianParser extends BaseParser {
     return keybindings;
   }
 
-  private normalizeObsidianKey(hotkey: ObsidianHotkey): string {
-    const mods = (hotkey.modifiers ?? [])
-      .map((m) => this.normalizeKey(m))
-      .join('');
-    return `${mods}${hotkey.key}`;
+  private normalizeObsidianKey(hotkey: ObsidianHotkey): {
+    displayKey: string;
+    searchKey: string;
+  } {
+    const modifiers = (hotkey.modifiers ?? [])
+      .map((m) => parseModifierWord(m))
+      .filter((m): m is NonNullable<typeof m> => m !== null);
+
+    return normalizeToCanonical({ modifiers, key: hotkey.key });
   }
 
   private humanizeCommand(commandId: string): string {
-    // "plugin-id:command-name" -> "Command Name"
     const parts = commandId.split(':');
     const name = parts[parts.length - 1];
     return name

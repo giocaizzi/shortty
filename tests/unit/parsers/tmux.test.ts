@@ -30,7 +30,7 @@ describe('TmuxParser', () => {
     const result = parser.parseTmuxListKeys(output);
 
     const newWindow = result.find((kb) => kb.command === 'New Window');
-    expect(newWindow?.key).toBe('prefix c');
+    expect(newWindow?.key).toBe('prefix C');
   });
 
   it('no prefix for root-table bindings', () => {
@@ -39,7 +39,7 @@ describe('TmuxParser', () => {
 
     const rootBindings = result.filter((kb) => !kb.key.startsWith('prefix'));
     expect(rootBindings.length).toBeGreaterThan(0);
-    expect(rootBindings[0].key).toBe('M-Up');
+    expect(rootBindings[0].key).toBe('⌥↑');
   });
 
   it('marks all as default (from live query)', () => {
