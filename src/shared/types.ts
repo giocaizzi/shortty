@@ -26,6 +26,32 @@ export interface ParserMeta {
   platforms: ('darwin' | 'win32' | 'linux')[];
 }
 
+export interface CommandDetail {
+  name: string;
+  description: string;
+}
+
+export interface FlagDetail {
+  short?: string;
+  long?: string;
+  arg?: string;
+  description: string;
+}
+
+export interface Command {
+  name: string;
+  description: string;
+  bin: string;
+  mtime: number;
+  enrichment: 'basic' | 'partial' | 'full' | 'failed';
+  enrichedFrom?: 'zsh-completion' | 'bash-completion' | 'man' | 'help';
+  enrichedAt?: string;
+  hasManPage: boolean;
+  hasCompletion: boolean;
+  subcommands: CommandDetail[];
+  flags: FlagDetail[];
+}
+
 export function generateKeybindingId(
   source: string,
   keyOrRawCommand: string,

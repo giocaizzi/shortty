@@ -1,0 +1,128 @@
+import type { Command } from '../../shared/types';
+import { scanPath } from './path-scanner';
+import { readWhatis } from './whatis-reader';
+import { CommandCache } from './cache';
+import { EnrichmentWorker } from './enrichment-worker';
+
+type CommandsUpdateCallback = (commands: Command[]) => void;
+
+export class CommandsEngine {
+  private commands: Command[] = [];
+  private cache: CommandCache;
+  private worker: EnrichmentWorker;
+  private updateCallback: CommandsUpdateCallback | null = null;
+
+  constructor(userDataPath: string) {
+    this.cache = new CommandCache(userDataPath);
+    this.worker = new EnrichmentWorker(this.cache, (updated) => {
+      this.handleEnrichmentBatch(updated);
+    });
+  }
+
+  async initialize(): Promise<Command[]> {
+    if (this.cache.isValid()) {
+      const cached = this.cache.readIndex();
+      if (cached) {
+        this.commands = cached;
+        this.startEnrichment();
+        return this.commands;
+      }
+    }
+
+    return this.fullScan();
+  }
+
+  async fullScan(): Promise<Command[]> {
+    const scanned = scanPath();
+    const descriptions = readWhatis();
+
+    this.commands = scanned.map((s) => ({
+      name: s.name,
+      description: descriptions.get(s.name) ?? '',
+      bin: s.bin,
+      mtime: s.mtime,
+      enrichment: 'basic' as const,
+      hasManPage: false,
+      hasCompletion: false,
+      subcommands: [],
+      flags: [],
+    }));
+
+    this.cache.writeIndex(this.commands);
+    this.cache.writeMeta({
+      pathHash: this.cache.computePathHash(),
+      timestamp: new Date().toISOString(),
+      commandCount: this.commands.length,
+      enrichedCount: 0,
+    });
+
+    this.startEnrichment();
+
+    return this.commands;
+  }
+
+  async checkAndRefresh(): Promise<boolean> {
+    if (this.cache.isValid()) return false;
+    await this.fullScan();
+    return true;
+  }
+
+  getAll(): Command[] {
+    return this.commands;
+  }
+
+  getDetail(name: string): Command | null {
+    return this.commands.find(c => c.name === name) ?? this.cache.readDetail(name);
+  }
+
+  onUpdate(callback: CommandsUpdateCallback): void {
+    this.updateCallback = callback;
+  }
+
+  pause(): void {
+    this.worker.pause();
+  }
+
+  resume(): void {
+    this.worker.resume();
+  }
+
+  stop(): void {
+    this.worker.stop();
+  }
+
+  getEnrichmentStats(): { total: number; enriched: number; running: boolean } {
+    return {
+      total: this.commands.length,
+      enriched: this.commands.filter(c => c.enrichment !== 'basic').length,
+      running: this.worker.isRunning,
+    };
+  }
+
+  private startEnrichment(): void {
+    const unenriched = this.commands.filter(c => c.enrichment === 'basic');
+    if (unenriched.length > 0) {
+      this.worker.start(this.commands);
+    }
+  }
+
+  private handleEnrichmentBatch(updated: Command[]): void {
+    for (const cmd of updated) {
+      const idx = this.commands.findIndex(c => c.name === cmd.name);
+      if (idx !== -1) {
+        this.commands[idx] = cmd;
+      }
+    }
+
+    this.cache.writeIndex(this.commands);
+
+    const meta = this.cache.readMeta();
+    if (meta) {
+      meta.enrichedCount = this.commands.filter(c => c.enrichment !== 'basic').length;
+      meta.timestamp = new Date().toISOString();
+      this.cache.writeMeta(meta);
+    }
+
+    this.updateCallback?.(updated);
+  }
+}

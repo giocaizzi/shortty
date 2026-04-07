@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
-import type { Keybinding, ParserMeta } from '../shared/types';
+import type { Keybinding, ParserMeta, Command } from '../shared/types';
 import type { AppSettings } from '../shared/settings';
 
 const electronAPI = {
@@ -70,6 +70,30 @@ const electronAPI = {
 
   openPreferences(): void {
     ipcRenderer.send(IPC_CHANNELS.OPEN_PREFERENCES);
+  },
+
+  getAllCommands(): Promise<Command[]> {
+    return ipcRenderer.invoke(IPC_CHANNELS.COMMANDS_GET_ALL);
+  },
+
+  getCommandDetail(name: string): Promise<Command | null> {
+    return ipcRenderer.invoke(IPC_CHANNELS.COMMANDS_GET_DETAIL, name);
+  },
+
+  refreshCommands(): Promise<Command[]> {
+    return ipcRenderer.invoke(IPC_CHANNELS.COMMANDS_REFRESH);
+  },
+
+  onCommandsUpdate(callback: (commands: Command[]) => void): () => void {
+    const handler = (_event: Electron.IpcRendererEvent, commands: Command[]) =>
+      callback(commands);
+    ipcRenderer.on(IPC_CHANNELS.COMMANDS_ON_UPDATE, handler);
+    return () =>
+      ipcRenderer.removeListener(IPC_CHANNELS.COMMANDS_ON_UPDATE, handler);
+  },
+
+  getCommandsStats(): Promise<{ total: number; enriched: number; running: boolean }> {
+    return ipcRenderer.invoke(IPC_CHANNELS.COMMANDS_GET_STATS);
   },
 };
 

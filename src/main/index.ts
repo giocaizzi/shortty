@@ -15,12 +15,14 @@ import { createTray, destroyTray } from './tray';
 import { openPreferencesWindow } from './preferences-window';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import type { AppSettings } from '../shared/settings';
+import { CommandsEngine } from './commands/engine';
 
 if (started) {
   app.quit();
 }
 
 let mainWindow: BrowserWindow | null = null;
+let commandsEngine: CommandsEngine | null = null;
 const parserRegistry = new ParserRegistry();
 
 const isDev = !!MAIN_WINDOW_VITE_DEV_SERVER_URL;
@@ -137,12 +139,18 @@ function showWindow(): void {
   mainWindow.show();
   mainWindow.focus();
   mainWindow.webContents.send('window:shown');
+
+  // Pause enrichment while user is interacting
+  commandsEngine?.pause();
 }
 
 function hideWindow(): void {
   if (!mainWindow) return;
   mainWindow.hide();
   mainWindow.webContents.send('window:hidden');
+
+  // Resume enrichment in background
+  commandsEngine?.resume();
 }
 
 function toggleWindow(): void {
@@ -230,6 +238,22 @@ function setupSettingsChangeListener(): void {
       }
     }
 
+    // Commands engine toggle
+    if (newSettings.commandsEnabled !== oldSettings.commandsEnabled) {
+      if (newSettings.commandsEnabled && !commandsEngine) {
+        commandsEngine = new CommandsEngine(app.getPath('userData'));
+        commandsEngine.onUpdate((updated) => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send(IPC_CHANNELS.COMMANDS_ON_UPDATE, updated);
+          }
+        });
+        commandsEngine.initialize();
+      } else if (!newSettings.commandsEnabled && commandsEngine) {
+        commandsEngine.stop();
+        commandsEngine = null;
+      }
+    }
+
     // Parser enable/disable or path overrides change
     if (
       JSON.stringify(newSettings.disabledParsers) !==
@@ -270,8 +294,19 @@ app.on('ready', async () => {
     onPreferences: openPreferences,
   });
 
+  // Initialize commands engine if enabled
+  if (getSetting('commandsEnabled')) {
+    commandsEngine = new CommandsEngine(app.getPath('userData'));
+    commandsEngine.onUpdate((updated) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(IPC_CHANNELS.COMMANDS_ON_UPDATE, updated);
+      }
+    });
+    commandsEngine.initialize();
+  }
+
   // Register IPC handlers
-  registerIpcHandlers(parserRegistry, { openPreferences });
+  registerIpcHandlers(parserRegistry, { openPreferences }, commandsEngine);
 
   // Initialize parsers (respecting disabled list and path overrides) and start file watching
   const disabledParsers = getSetting('disabledParsers');
@@ -284,6 +319,7 @@ app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   stopWatching();
   destroyTray();
+  commandsEngine?.stop();
 });
 
 app.on('window-all-closed', () => {

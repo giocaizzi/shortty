@@ -3,12 +3,14 @@ import { IPC_CHANNELS } from '../shared/ipc-channels';
 import type { ParserRegistry, SourceInfo } from './parsers/registry';
 import type { AppSettings } from '../shared/settings';
 import { getSettings, setSetting } from './settings-store';
+import type { CommandsEngine } from './commands/engine';
 
 export function registerIpcHandlers(
   registry: ParserRegistry,
   callbacks: {
     openPreferences: () => void;
   },
+  commandsEngine?: CommandsEngine | null,
 ): void {
   ipcMain.handle(IPC_CHANNELS.GET_SOURCES, () => {
     return registry.getSources();
@@ -55,5 +57,24 @@ export function registerIpcHandlers(
 
   ipcMain.on(IPC_CHANNELS.OPEN_PREFERENCES, () => {
     callbacks.openPreferences();
+  });
+
+  // Commands handlers
+  ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_ALL, () => {
+    return commandsEngine?.getAll() ?? [];
+  });
+
+  ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_DETAIL, (_event, name: string) => {
+    return commandsEngine?.getDetail(name) ?? null;
+  });
+
+  ipcMain.handle(IPC_CHANNELS.COMMANDS_REFRESH, async () => {
+    if (!commandsEngine) return [];
+    await commandsEngine.fullScan();
+    return commandsEngine.getAll();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_STATS, () => {
+    return commandsEngine?.getEnrichmentStats() ?? { total: 0, enriched: 0, running: false };
   });
 }
