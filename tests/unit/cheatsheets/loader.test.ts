@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
 import { join } from 'node:path';
 
 vi.mock('../../../src/main/logger', () => ({
@@ -24,20 +24,20 @@ describe('loadCheatsheets', () => {
     const results = await loadCheatsheets(FIXTURES_DIR);
     const valid = results.find((d) => d.id === 'testapp');
 
-    expect(valid).toBeDefined();
-    expect(valid!.label).toBe('Test App');
-    expect(valid!.icon).toBe('🧪');
-    expect(valid!.platforms).toEqual(['darwin', 'linux']);
-    expect(valid!.parser).toBe('testapp');
-    expect(valid!.shortcuts).toHaveLength(2);
-    expect(valid!.shortcuts[0].command).toBe('Save File');
-    expect(valid!.shortcuts[0].rawCommand).toBe('file.save');
-    expect(valid!.shortcuts[0].key).toEqual({
+    assert(valid, 'expected testapp cheatsheet to be loaded');
+    expect(valid.label).toBe('Test App');
+    expect(valid.icon).toBe('🧪');
+    expect(valid.platforms).toEqual(['darwin', 'linux']);
+    expect(valid.parser).toBe('testapp');
+    expect(valid.shortcuts).toHaveLength(2);
+    expect(valid.shortcuts[0].command).toBe('Save File');
+    expect(valid.shortcuts[0].rawCommand).toBe('file.save');
+    expect(valid.shortcuts[0].key).toEqual({
       darwin: '⌘s',
       linux: 'Ctrl+S',
     });
-    expect(valid!.shortcuts[0].category).toBe('File');
-    expect(valid!.shortcuts[0].context).toBe('editorFocus');
+    expect(valid.shortcuts[0].category).toBe('File');
+    expect(valid.shortcuts[0].context).toBe('editorFocus');
   });
 
   it('skips file with missing required field "id" with warning', async () => {
@@ -75,8 +75,8 @@ describe('loadCheatsheets', () => {
     const results = await loadCheatsheets(FIXTURES_DIR);
     const minimal = results.find((d) => d.id === 'minimal');
 
-    expect(minimal).toBeDefined();
-    expect(minimal!.shortcuts).toEqual([]);
+    assert(minimal, 'expected minimal cheatsheet to be loaded');
+    expect(minimal.shortcuts).toEqual([]);
   });
 
   it('ignores non-JSON files in directory', async () => {
@@ -101,23 +101,26 @@ describe('loadCheatsheets', () => {
     const results = await loadCheatsheets(FIXTURES_DIR);
     const valid = results.find((d) => d.id === 'testapp');
 
-    const saveShortcut = valid!.shortcuts.find(
+    assert(valid, 'expected testapp cheatsheet to be loaded');
+    const saveShortcut = valid.shortcuts.find(
       (s) => s.rawCommand === 'file.save',
     );
-    expect(saveShortcut!.key.darwin).toBe('⌘s');
-    expect(saveShortcut!.key.linux).toBe('Ctrl+S');
-    expect(saveShortcut!.key.win32).toBeUndefined();
+    assert(saveShortcut, 'expected save shortcut to exist');
+    expect(saveShortcut.key.darwin).toBe('⌘s');
+    expect(saveShortcut.key.linux).toBe('Ctrl+S');
+    expect(saveShortcut.key.win32).toBeUndefined();
   });
 
   it('preserves optional fields (lastVerified, defaultPaths)', async () => {
     const results = await loadCheatsheets(FIXTURES_DIR);
     const valid = results.find((d) => d.id === 'testapp');
 
-    expect(valid!.lastVerified).toEqual({
+    assert(valid, 'expected testapp cheatsheet to be loaded');
+    expect(valid.lastVerified).toEqual({
       version: '1.0.0',
       date: '2026-01-01',
     });
-    expect(valid!.defaultPaths).toEqual({
+    expect(valid.defaultPaths).toEqual({
       darwin: ['~/Library/TestApp/config.json'],
       linux: ['~/.config/testapp/config.json'],
     });

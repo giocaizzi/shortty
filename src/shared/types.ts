@@ -66,13 +66,10 @@ export interface SourceStatus {
 
 export function generateKeybindingId(
   source: string,
-  keyOrRawCommand: string,
-  rawCommand?: string,
-  _context?: string,
+  rawCommand: string,
 ): string {
-  const cmd = rawCommand ?? keyOrRawCommand;
   return createHash('sha256')
-    .update(`${source}:${cmd}`)
+    .update(`${source}:${rawCommand}`)
     .digest('hex')
     .slice(0, 12);
 }

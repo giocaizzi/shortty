@@ -8,7 +8,7 @@ interface LauncherPanelProps {
 export function LauncherPanel({ children, onKeyDown }: LauncherPanelProps) {
   return (
     <div
-      className="panel-enter flex h-screen w-screen items-start justify-center"
+      className="panel-enter panel-bg flex h-screen w-screen items-start justify-center"
       onKeyDown={onKeyDown}
     >
       <div

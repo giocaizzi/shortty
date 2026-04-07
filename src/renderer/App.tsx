@@ -252,8 +252,22 @@ export function App() {
   const commandPrefixActive =
     commandPrefixMode && query.startsWith('>');
 
+  const navAnnouncement = (() => {
+    switch (nav.mode) {
+      case 'drilled-source':
+        return `Drilled into ${nav.sourceLabel} shortcuts`;
+      case 'command-detail':
+        return `Viewing ${nav.command.name} command details`;
+      default:
+        return 'Search all shortcuts';
+    }
+  })();
+
   return (
     <LauncherPanel onKeyDown={handleKeyDown}>
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {navAnnouncement}
+      </div>
       <SearchInput
         query={query}
         onChange={setQuery}

@@ -1,3 +1,4 @@
+import { assert } from 'vitest';
 import type { Shortcut } from '../../../src/shared/types';
 import { mergeShortcuts } from '../../../src/main/shortcuts/merge';
 
@@ -60,9 +61,9 @@ describe('mergeShortcuts', () => {
     const userEntry = result.find(
       (s) => s.rawCommand === 'custom.userCommand',
     );
-    expect(userEntry).toBeDefined();
-    expect(userEntry!.isDefault).toBe(false);
-    expect(userEntry!.origin).toBe('user-config');
+    assert(userEntry, 'expected user entry to exist');
+    expect(userEntry.isDefault).toBe(false);
+    expect(userEntry.origin).toBe('user-config');
   });
 
   it('should preserve unmatched cheatsheet entries', () => {
@@ -88,9 +89,9 @@ describe('mergeShortcuts', () => {
     const preserved = result.find(
       (s) => s.rawCommand === 'workbench.action.save',
     );
-    expect(preserved).toBeDefined();
-    expect(preserved!.isDefault).toBe(true);
-    expect(preserved!.origin).toBe('cheatsheet');
+    assert(preserved, 'expected preserved entry to exist');
+    expect(preserved.isDefault).toBe(true);
+    expect(preserved.origin).toBe('cheatsheet');
   });
 
   it('should return cheatsheet as-is when parser output is empty', () => {

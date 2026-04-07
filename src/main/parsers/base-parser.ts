@@ -38,7 +38,7 @@ export abstract class BaseParser implements ParserPlugin {
   ): Keybinding {
     return {
       ...partial,
-      id: generateKeybindingId(this.meta.id, partial.key, partial.rawCommand, partial.context),
+      id: generateKeybindingId(this.meta.id, partial.rawCommand),
       source: this.meta.id,
       sourceLabel: this.meta.label,
       origin: partial.origin ?? 'user-config',

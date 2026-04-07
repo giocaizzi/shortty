@@ -116,3 +116,9 @@ kbd {
     animation: none;
   }
 }
+
+@media (prefers-reduced-transparency: reduce) {
+  .panel-bg {
+    background-color: rgb(30, 30, 30);
+  }
+}

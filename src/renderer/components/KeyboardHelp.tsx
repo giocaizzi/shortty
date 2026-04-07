@@ -24,7 +24,12 @@ export function KeyboardHelp({ onDismiss }: KeyboardHelpProps) {
   }, [onDismiss]);
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div
+      className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Keyboard shortcuts help"
+    >
       <div className="mx-8 w-full max-w-xs rounded-lg border border-white/10 bg-black/80 p-5">
         <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">
           Keyboard Shortcuts
