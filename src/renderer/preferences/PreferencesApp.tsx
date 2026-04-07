@@ -1,19 +1,17 @@
 import { useState } from 'react';
 import { useSettings } from './hooks/useSettings';
 import { GeneralTab } from './components/GeneralTab';
-import { AppearanceTab } from './components/AppearanceTab';
-import { ParsersTab } from './components/ParsersTab';
+import { SourcesTab } from './components/SourcesTab';
 import { SearchTab } from './components/SearchTab';
-import { WindowTab } from './components/WindowTab';
+import { CommandsTab } from './components/CommandsTab';
 
-type Tab = 'general' | 'appearance' | 'parsers' | 'search' | 'window';
+type Tab = 'general' | 'sources' | 'search' | 'commands';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'general', label: 'General' },
-  { id: 'appearance', label: 'Appearance' },
-  { id: 'parsers', label: 'Parsers' },
+  { id: 'sources', label: 'Sources' },
   { id: 'search', label: 'Search' },
-  { id: 'window', label: 'Window' },
+  { id: 'commands', label: 'Commands' },
 ];
 
 export function PreferencesApp() {
@@ -67,17 +65,14 @@ export function PreferencesApp() {
         {activeTab === 'general' && (
           <GeneralTab settings={settings} onUpdate={updateSetting} />
         )}
-        {activeTab === 'appearance' && (
-          <AppearanceTab settings={settings} onUpdate={updateSetting} />
-        )}
-        {activeTab === 'parsers' && (
-          <ParsersTab settings={settings} onUpdate={updateSetting} />
+        {activeTab === 'sources' && (
+          <SourcesTab settings={settings} onUpdate={updateSetting} />
         )}
         {activeTab === 'search' && (
           <SearchTab settings={settings} onUpdate={updateSetting} />
         )}
-        {activeTab === 'window' && (
-          <WindowTab settings={settings} onUpdate={updateSetting} />
+        {activeTab === 'commands' && (
+          <CommandsTab settings={settings} onUpdate={updateSetting} />
         )}
       </main>
     </div>

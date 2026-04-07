@@ -1,7 +1,8 @@
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
-import type { ParserRegistry, SourceInfo } from './parsers/registry';
+import type { ParserRegistry } from './parsers/registry';
 import type { AppSettings } from '../shared/settings';
+import type { SourceStatus } from '../shared/types';
 import { getSettings, setSetting } from './settings-store';
 import type { CommandsEngine } from './commands/engine';
 
@@ -20,8 +21,18 @@ export function registerIpcHandlers(
     return registry.getAvailableSources();
   });
 
-  ipcMain.handle(IPC_CHANNELS.GET_ALL_SOURCES, (): SourceInfo[] => {
-    return registry.getAllSources();
+  ipcMain.handle(IPC_CHANNELS.GET_ALL_SOURCES, (): SourceStatus[] => {
+    return registry.getAllSources().map((s) => ({
+      id: s.id,
+      label: s.label,
+      icon: s.icon,
+      platforms: s.platforms,
+      hasParser: s.parser !== null,
+      enabled: s.enabled,
+      detected: s.detected,
+      configPaths: s.configPaths,
+      shortcutCount: s.cheatsheet?.shortcuts.length ?? 0,
+    }));
   });
 
   ipcMain.handle(IPC_CHANNELS.GET_ALL, () => {

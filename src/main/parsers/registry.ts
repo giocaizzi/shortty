@@ -1,6 +1,7 @@
 import type { Keybinding, ParserMeta } from '../../shared/types';
 import { generateKeybindingId } from '../../shared/types';
 import type { ParserPlugin } from './types';
+import log from '../logger';
 import { loadCheatsheets, type CheatsheetDefinition } from '../cheatsheets/loader';
 import { mergeShortcuts } from '../shortcuts/merge';
 import { resolveDefaultPaths, resolvePath } from '../utils/path-resolver';
@@ -30,7 +31,7 @@ const PARSERS: Record<string, new () => BaseParser> = {
   bash: BashParser,
 };
 
-export interface SourceInfo {
+interface SourceInfo {
   id: string;
   label: string;
   icon: string;
@@ -108,6 +109,11 @@ export class ParserRegistry {
       this.sources.set(id, source);
     }
 
+    const detected = Array.from(this.sources.values()).filter((s) => s.detected);
+    log.info(
+      `Parser registry initialized: ${this.sources.size} sources, ${detected.length} detected`,
+    );
+
     await this.parseAll();
   }
 
@@ -164,9 +170,17 @@ export class ParserRegistry {
         }),
     );
 
-    return results
+    const failed = results.filter((r) => r.status === 'rejected');
+    if (failed.length > 0) {
+      log.warn(`${failed.length} parser(s) failed during parseAll`);
+    }
+
+    const keybindings = results
       .filter((r): r is PromiseFulfilledResult<Keybinding[]> => r.status === 'fulfilled')
       .flatMap((r) => r.value);
+
+    log.info(`Parsed ${keybindings.length} shortcuts total`);
+    return keybindings;
   }
 
   private async parseSource(source: SourceInfo): Promise<Keybinding[]> {
@@ -176,8 +190,9 @@ export class ParserRegistry {
     if (source.parser && source.detected) {
       try {
         parserResults = await source.parser.parse();
-      } catch {
-        // Parser failed - fall back to cheatsheet only
+        log.debug(`Parsed ${parserResults.length} shortcuts from ${source.id}`);
+      } catch (err) {
+        log.warn(`Parser failed for ${source.id}`, err);
       }
     }
 

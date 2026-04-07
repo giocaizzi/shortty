@@ -52,6 +52,18 @@ export interface Command {
   flags: FlagDetail[];
 }
 
+export interface SourceStatus {
+  id: string;
+  label: string;
+  icon: string;
+  platforms: ('darwin' | 'win32' | 'linux')[];
+  hasParser: boolean;
+  enabled: boolean;
+  detected: boolean;
+  configPaths: string[];
+  shortcutCount: number;
+}
+
 export function generateKeybindingId(
   source: string,
   keyOrRawCommand: string,

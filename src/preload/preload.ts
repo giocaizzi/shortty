@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
-import type { Keybinding, ParserMeta, Command } from '../shared/types';
+import type { Keybinding, ParserMeta, Command, SourceStatus } from '../shared/types';
 import type { AppSettings } from '../shared/settings';
 
 const electronAPI = {
@@ -10,6 +10,10 @@ const electronAPI = {
 
   getAvailableSources(): Promise<ParserMeta[]> {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_AVAILABLE_SOURCES);
+  },
+
+  getAllSources(): Promise<SourceStatus[]> {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_ALL_SOURCES);
   },
 
   getAllKeybindings(): Promise<Keybinding[]> {
