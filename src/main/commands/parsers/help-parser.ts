@@ -1,5 +1,7 @@
 import { execSync } from 'node:child_process';
-import { statSync } from 'node:fs';
+import { statSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { CommandDetail, FlagDetail } from '../../../shared/types';
 
 const BLOCKLIST = new Set([
@@ -26,17 +28,22 @@ export function parseHelp(commandName: string, binPath: string): {
     return null;
   }
 
+  // Run in a temp directory to isolate any file side effects from buggy --help
+  const sandboxDir = mkdtempSync(join(tmpdir(), 'shortty-help-'));
   let output: string;
   try {
     output = execSync(`"${binPath}" --help 2>&1`, {
       encoding: 'utf-8',
       timeout: 2000,
       maxBuffer: 1 * 1024 * 1024,
+      cwd: sandboxDir,
     });
   } catch (err: unknown) {
     const execErr = err as { stdout?: string; stderr?: string };
     output = execErr.stderr || execErr.stdout || '';
     if (!output) return null;
+  } finally {
+    try { rmSync(sandboxDir, { recursive: true, force: true }); } catch { /* ignore */ }
   }
 
   const subcommands = extractSubcommands(output, commandName);
