@@ -8,6 +8,7 @@ interface SearchInputProps {
   onChange: (value: string) => void;
   navMode: NavMode;
   sourceLabel?: string;
+  commandName?: string;
   commandPrefixActive?: boolean;
   onHelpToggle: () => void;
 }
@@ -31,6 +32,7 @@ export function SearchInput({
   onChange,
   navMode,
   sourceLabel,
+  commandName,
   commandPrefixActive,
 }: SearchInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -56,6 +58,16 @@ export function SearchInput({
         {commandPrefixActive && (
           <span className="shrink-0 rounded-md bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs text-white/50">
             {'>'}
+          </span>
+        )}
+        {navMode === 'drilled-source' && sourceLabel && (
+          <span className="shrink-0 rounded-md bg-white/[0.08] px-2.5 py-1 text-sm font-medium text-white/70">
+            {sourceLabel}
+          </span>
+        )}
+        {navMode === 'command-detail' && commandName && (
+          <span className="shrink-0 rounded-md bg-white/[0.08] px-2.5 py-1 font-mono text-sm font-medium text-white/70">
+            {commandName}
           </span>
         )}
         <input

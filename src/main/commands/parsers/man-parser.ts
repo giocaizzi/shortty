@@ -66,18 +66,38 @@ function extractFlags(content: string): FlagDetail[] {
 
 function extractSubcommands(content: string, commandName: string): CommandDetail[] {
   const subcommands: CommandDetail[] = [];
+  const seen = new Set<string>();
+
+  // Format 1: section-based — "COMMANDS" / "SUBCOMMANDS" with "  name  description"
   const cmdSectionMatch = content.match(
-    /^(?:COMMANDS?|SUBCOMMANDS?)\s*\n([\s\S]*?)(?=\n[A-Z]+\s*\n|$)/m,
+    /^(?:COMMANDS?|SUBCOMMANDS?)\s*\n([\s\S]*?)(?=\n[A-Z][A-Z ]*\s*\n|$)/m,
   );
-  if (!cmdSectionMatch) return subcommands;
+  if (cmdSectionMatch) {
+    const section = cmdSectionMatch[1];
+    const subCmdRegex = /^\s{2,8}(\S+)\s{2,}(.+)/gm;
+    let match: RegExpExecArray | null;
+    while ((match = subCmdRegex.exec(section)) !== null) {
+      const name = match[1];
+      if (name.startsWith('-') || name.includes('(')) continue;
+      if (seen.has(name)) continue;
+      seen.add(name);
+      subcommands.push({
+        name: `${commandName} ${name}`,
+        description: match[2].trim(),
+      });
+    }
+  }
 
-  const section = cmdSectionMatch[1];
-  const subCmdRegex = /^\s{2,8}(\S+)\s{2,}(.+)/gm;
-
+  // Format 2: man page cross-references — "  cmd-subcmd(1)\n      description"
+  const refRegex = new RegExp(
+    `^\\s+${commandName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-(\\S+?)\\(\\d+\\)\\s*\\n\\s{8,}(.+)`,
+    'gm',
+  );
   let match: RegExpExecArray | null;
-  while ((match = subCmdRegex.exec(section)) !== null) {
+  while ((match = refRegex.exec(content)) !== null) {
     const name = match[1];
-    if (name.startsWith('-')) continue;
+    if (seen.has(name)) continue;
+    seen.add(name);
     subcommands.push({
       name: `${commandName} ${name}`,
       description: match[2].trim(),

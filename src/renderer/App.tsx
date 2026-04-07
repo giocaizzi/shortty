@@ -275,6 +275,9 @@ export function App() {
         sourceLabel={
           nav.mode === 'drilled-source' ? nav.sourceLabel : undefined
         }
+        commandName={
+          nav.mode === 'command-detail' ? nav.command.name : undefined
+        }
         commandPrefixActive={commandPrefixActive}
         onHelpToggle={() => setShowHelp((v) => !v)}
       />

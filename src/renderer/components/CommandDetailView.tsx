@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { ArrowLeft } from 'lucide-react';
 import type { Command } from '../../shared/types';
 
 interface CommandDetailViewProps {
@@ -44,22 +43,13 @@ export function CommandDetailView({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-2 border-b border-white/[0.06] px-5 py-2.5">
-        <ArrowLeft className="h-3.5 w-3.5 text-white/25" />
-        <span className="font-mono text-sm font-medium text-white/85">
-          {command.name}
-        </span>
-      </div>
-      {command.description && (
-        <div className="px-5 py-2 text-[12px] text-white/35">
+      {/* Description + status bar */}
+      {(command.description || isEnriching) && (
+        <div style={{ padding: '8px 28px' }} className="text-[12px] text-white/35">
           {command.description}
-        </div>
-      )}
-
-      {isEnriching && (
-        <div className="px-5 py-1.5 text-[11px] text-white/20 italic">
-          Enriching...
+          {isEnriching && (
+            <span className="ml-2 text-[11px] text-white/20 italic">— Enriching...</span>
+          )}
         </div>
       )}
 

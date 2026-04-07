@@ -34,7 +34,6 @@ describe('CommandDetailView', () => {
         copyFlashIndex={null}
       />,
     );
-    expect(screen.getByText('git')).toBeInTheDocument();
     expect(
       screen.getByText('The fast version control system'),
     ).toBeInTheDocument();
@@ -77,7 +76,7 @@ describe('CommandDetailView', () => {
         copyFlashIndex={null}
       />,
     );
-    expect(screen.getByText('Enriching...')).toBeInTheDocument();
+    expect(screen.getByText('— Enriching...')).toBeInTheDocument();
   });
 });
 
