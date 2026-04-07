@@ -5,7 +5,7 @@ import {
   nativeTheme,
   screen,
 } from 'electron';
-import path from 'node:path';
+import path, { join } from 'node:path';
 import started from 'electron-squirrel-startup';
 import log from './logger';
 import { registerIpcHandlers } from './ipc';
@@ -329,7 +329,8 @@ app.on('ready', async () => {
   // Initialize parsers (respecting disabled list and path overrides) and start file watching
   const disabledParsers = getSetting('disabledParsers');
   const pathOverrides = getSetting('sourcePathOverrides');
-  await parserRegistry.initialize(disabledParsers, pathOverrides);
+  const cheatsheetsDir = join(app.getAppPath(), 'src/cheatsheets/sources');
+  await parserRegistry.initialize(disabledParsers, pathOverrides, cheatsheetsDir);
   startWatching(parserRegistry, mainWindow);
 
   log.info('App ready');

@@ -50,8 +50,9 @@ export class ParserRegistry {
   async initialize(
     disabledIds: string[] = [],
     pathOverrides: Record<string, string | string[]> = {},
+    cheatsheetsDir?: string,
   ): Promise<void> {
-    const cheatsheets = await loadCheatsheets();
+    const cheatsheets = await loadCheatsheets(cheatsheetsDir);
     const platform = process.platform as Platform;
 
     // Register sources from cheatsheets
