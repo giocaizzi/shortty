@@ -1,5 +1,5 @@
-import { execSync } from 'node:child_process';
-import { statSync, mkdtempSync, rmSync } from 'node:fs';
+import { exec } from 'node:child_process';
+import { stat, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { CommandDetail, FlagDetail } from '../../../shared/types';
@@ -15,35 +15,42 @@ export function isBlocklisted(name: string): boolean {
   return BLOCKLIST.has(name);
 }
 
-export function parseHelp(commandName: string, binPath: string): {
+export async function parseHelp(commandName: string, binPath: string): Promise<{
   subcommands: CommandDetail[];
   flags: FlagDetail[];
-} | null {
+} | null> {
   if (isBlocklisted(commandName)) return null;
 
   try {
-    const stat = statSync(binPath);
-    if (stat.uid !== 0 && stat.uid !== process.getuid?.()) return null;
+    const s = await stat(binPath);
+    if (s.uid !== 0 && s.uid !== process.getuid?.()) return null;
   } catch {
     return null;
   }
 
-  // Run in a temp directory to isolate any file side effects from buggy --help
-  const sandboxDir = mkdtempSync(join(tmpdir(), 'shortty-help-'));
+  const sandboxDir = await mkdtemp(join(tmpdir(), 'shortty-help-'));
   let output: string;
   try {
-    output = execSync(`"${binPath}" --help 2>&1`, {
-      encoding: 'utf-8',
-      timeout: 2000,
-      maxBuffer: 1 * 1024 * 1024,
-      cwd: sandboxDir,
+    output = await new Promise<string>((resolve, reject) => {
+      exec(`"${binPath}" --help 2>&1`, {
+        encoding: 'utf-8',
+        timeout: 2000,
+        maxBuffer: 1 * 1024 * 1024,
+        cwd: sandboxDir,
+      }, (error, stdout, stderr) => {
+        if (error) {
+          const fallback = stderr || stdout || '';
+          if (fallback) resolve(fallback);
+          else reject(error);
+        } else {
+          resolve(stdout);
+        }
+      });
     });
-  } catch (err: unknown) {
-    const execErr = err as { stdout?: string; stderr?: string };
-    output = execErr.stderr || execErr.stdout || '';
-    if (!output) return null;
+  } catch {
+    return null;
   } finally {
-    try { rmSync(sandboxDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    try { await rm(sandboxDir, { recursive: true, force: true }); } catch { /* ignore */ }
   }
 
   const subcommands = extractSubcommands(output, commandName);

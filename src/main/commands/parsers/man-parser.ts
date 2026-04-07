@@ -1,17 +1,22 @@
-import { execSync } from 'node:child_process';
+import { exec } from 'node:child_process';
 import type { CommandDetail, FlagDetail } from '../../../shared/types';
 
-export function parseManPage(commandName: string): {
+export async function parseManPage(commandName: string): Promise<{
   description?: string;
   subcommands: CommandDetail[];
   flags: FlagDetail[];
-} | null {
+} | null> {
   let content: string;
   try {
-    content = execSync(`man ${commandName} 2>/dev/null | col -bx`, {
-      encoding: 'utf-8',
-      timeout: 5000,
-      maxBuffer: 5 * 1024 * 1024,
+    content = await new Promise<string>((resolve, reject) => {
+      exec(`man ${commandName} 2>/dev/null | col -bx`, {
+        encoding: 'utf-8',
+        timeout: 5000,
+        maxBuffer: 5 * 1024 * 1024,
+      }, (error, stdout) => {
+        if (error) reject(error);
+        else resolve(stdout);
+      });
     });
   } catch {
     return null;

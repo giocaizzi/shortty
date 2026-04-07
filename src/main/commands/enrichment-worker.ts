@@ -6,10 +6,12 @@ import type { CommandCache } from './cache';
 
 type EnrichmentCallback = (updated: Command[]) => void;
 
+const CONCURRENCY = 8;
+const BATCH_SIZE = 50;
+
 export class EnrichmentWorker {
   private running = false;
   private paused = false;
-  private batchCount = 0;
 
   constructor(
     private cache: CommandCache,
@@ -28,31 +30,36 @@ export class EnrichmentWorker {
 
     const unenriched = sorted.filter(c => c.enrichment === 'basic');
     log.info(`Enrichment started: ${unenriched.length} commands to enrich`);
+
     let enrichedCount = 0;
-    const batch: Command[] = [];
+    let batch: Command[] = [];
+    let i = 0;
 
-    for (const cmd of unenriched) {
-      if (!this.running) break;
-
+    while (i < unenriched.length && this.running) {
       while (this.paused && this.running) {
         await new Promise(r => setTimeout(r, 500));
       }
+      if (!this.running) break;
 
-      // Yield to event loop between commands to avoid starving other async work
-      await new Promise(r => setImmediate(r));
+      // Take a chunk of CONCURRENCY commands and process in parallel
+      const chunk = unenriched.slice(i, i + CONCURRENCY);
+      const results = await Promise.all(chunk.map(cmd => this.enrichCommand(cmd)));
 
-      const enriched = this.enrichCommand(cmd);
-      if (enriched) {
-        batch.push(enriched);
-        this.cache.writeDetail(enriched.name, enriched);
+      for (const enriched of results) {
+        if (!this.running) break;
+        if (enriched) {
+          batch.push(enriched);
+          this.cache.writeDetail(enriched.name, enriched);
+        }
+        enrichedCount++;
       }
 
-      this.batchCount++;
-      enrichedCount++;
-      if (this.batchCount >= 50) {
+      i += chunk.length;
+
+      if (batch.length >= BATCH_SIZE) {
         log.debug(`Enriched ${enrichedCount}/${unenriched.length} commands`);
-        this.onBatchComplete(batch.splice(0));
-        this.batchCount = 0;
+        this.onBatchComplete(batch);
+        batch = [];
       }
     }
 
@@ -64,8 +71,8 @@ export class EnrichmentWorker {
     this.running = false;
   }
 
-  private enrichCommand(cmd: Command): Command | null {
-    const manResult = parseManPage(cmd.name);
+  private async enrichCommand(cmd: Command): Promise<Command | null> {
+    const manResult = await parseManPage(cmd.name);
     if (manResult && (manResult.subcommands.length > 0 || manResult.flags.length > 0)) {
       return {
         ...cmd,
@@ -79,7 +86,7 @@ export class EnrichmentWorker {
     }
 
     if (!isBlocklisted(cmd.name)) {
-      const helpResult = parseHelp(cmd.name, cmd.bin);
+      const helpResult = await parseHelp(cmd.name, cmd.bin);
       if (helpResult && (helpResult.subcommands.length > 0 || helpResult.flags.length > 0)) {
         return {
           ...cmd,
