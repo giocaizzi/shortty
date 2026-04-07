@@ -13,7 +13,7 @@ export function LauncherPanel({ children, onKeyDown }: LauncherPanelProps) {
     >
       <div
         className="
-          flex max-h-[500px] w-full flex-col overflow-hidden
+          flex max-h-[580px] w-full flex-col overflow-hidden
         "
         role="dialog"
         aria-label="Shortty — Keybinding Search"

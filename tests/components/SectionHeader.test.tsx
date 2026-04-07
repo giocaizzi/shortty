@@ -6,7 +6,7 @@ describe('SectionHeader', () => {
   it('renders title and count', () => {
     render(<SectionHeader title="Sources" count={3} />);
     expect(screen.getByText('Sources')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('3 sources')).toBeInTheDocument();
   });
 
   it('shows "Show all" button when totalCount exceeds count', () => {

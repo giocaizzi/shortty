@@ -21,29 +21,39 @@ export function ShortcutRow({
       data-index={dataIndex}
       role="option"
       aria-selected={selected}
-      title={shortcut.context ?? undefined}
+      style={{ padding: '16px 28px' }}
       className={`
-        mx-1.5 flex items-center gap-3
-        rounded-md px-3.5 py-[5px] text-[13px]
+        flex items-center gap-5
+        rounded-xl
         transition-colors
         ${copyFlash ? 'copy-flash' : ''}
-        ${selected ? 'bg-white/10' : 'hover:bg-white/6'}
+        ${selected ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'}
       `}
     >
-      <KeyCombo keys={shortcut.key} />
-      <span className="flex min-w-0 flex-1 items-center gap-2 truncate">
-        <span className="truncate text-white/80">{shortcut.command}</span>
-        {shortcut.context && (
-          <span className="shrink-0 rounded bg-white/8 px-1.5 py-0.5 text-[10px] text-white/40">
-            {shortcut.context}
+      {/* Left: stacked content */}
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="flex items-center gap-3">
+          <span className="truncate text-[15px] font-semibold text-white/90">{shortcut.command}</span>
+          {shortcut.context && (
+            <span className="shrink-0 rounded-md bg-white/[0.06] px-2 py-0.5 text-[11px] text-white/30">
+              {shortcut.context}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="rounded bg-white/[0.06] px-2 py-0.5 font-mono text-[11px] text-white/35">
+            {shortcut.rawCommand}
           </span>
-        )}
-      </span>
-      {showSource && (
-        <span className="shrink-0 text-[11px] text-white/30">
-          {shortcut.sourceLabel}
-        </span>
-      )}
+          {showSource && (
+            <span className="text-[11px] text-white/20">
+              {shortcut.sourceLabel}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Right: key combo */}
+      <KeyCombo keys={shortcut.key} />
     </div>
   );
 }

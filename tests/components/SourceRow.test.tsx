@@ -9,7 +9,7 @@ describe('SourceRow', () => {
     );
     expect(screen.getByText('⌨️')).toBeInTheDocument();
     expect(screen.getByText('VS Code')).toBeInTheDocument();
-    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('42 shortcuts')).toBeInTheDocument();
   });
 
   it('applies selected styling', () => {

@@ -69,8 +69,8 @@ function getWindowPosition(
 }
 
 function createWindow(): BrowserWindow {
-  const windowWidth = 680;
-  const windowHeight = 500;
+  const windowWidth = 750;
+  const windowHeight = 580;
   const { x, y } = getWindowPosition(windowWidth, windowHeight);
 
   const win = new BrowserWindow({
@@ -140,8 +140,8 @@ function showWindow(): void {
   if (!mainWindow) return;
 
   // Reposition window each time it's shown
-  const windowWidth = 680;
-  const windowHeight = 500;
+  const windowWidth = 750;
+  const windowHeight = 580;
   const { x, y } = getWindowPosition(windowWidth, windowHeight);
   mainWindow.setPosition(x, y);
 

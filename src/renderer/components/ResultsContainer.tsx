@@ -43,13 +43,14 @@ export const ResultsContainer = forwardRef<
   return (
     <div
       ref={ref}
-      className="flex-1 overflow-y-auto py-0.5"
+      className="flex-1 overflow-y-auto"
       role="listbox"
       aria-label="Search results"
     >
+      <div style={{ padding: '8px 12px' }}>
       {/* Sources section */}
       {sources.length > 0 && (
-        <div>
+        <div className="mb-1">
           <SectionHeader
             title="Sources"
             count={sources.length}
@@ -74,7 +75,7 @@ export const ResultsContainer = forwardRef<
 
       {/* Shortcuts section */}
       {shortcuts.length > 0 && (
-        <div>
+        <div className="mb-1">
           <SectionHeader
             title="Shortcuts"
             count={shortcuts.length}
@@ -99,7 +100,7 @@ export const ResultsContainer = forwardRef<
 
       {/* Commands section */}
       {commands.length > 0 && (
-        <div>
+        <div className="mb-1">
           <SectionHeader
             title="Commands"
             count={commands.length}
@@ -121,6 +122,7 @@ export const ResultsContainer = forwardRef<
           })}
         </div>
       )}
+      </div>
     </div>
   );
 });

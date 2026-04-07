@@ -25,19 +25,19 @@ export function KeyboardHelp({ onDismiss }: KeyboardHelpProps) {
 
   return (
     <div
-      className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md"
       role="dialog"
       aria-modal="true"
       aria-label="Keyboard shortcuts help"
     >
-      <div className="mx-8 w-full max-w-xs rounded-lg border border-white/10 bg-black/80 p-5">
-        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+      <div className="mx-8 w-full max-w-xs rounded-xl border border-white/[0.06] bg-black/80 p-5 backdrop-blur-lg">
+        <h2 className="mb-3.5 text-[11px] font-semibold uppercase tracking-widest text-white/30">
           Keyboard Shortcuts
         </h2>
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {SHORTCUTS.map(({ keys, description }) => (
             <div key={keys} className="flex items-center justify-between">
-              <span className="text-[12px] text-white/50">{description}</span>
+              <span className="text-[12px] text-white/45">{description}</span>
               <kbd className="text-[11px]">{keys}</kbd>
             </div>
           ))}

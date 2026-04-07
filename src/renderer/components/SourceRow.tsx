@@ -18,17 +18,18 @@ export function SourceRow({
       data-index={dataIndex}
       role="option"
       aria-selected={selected}
+      style={{ padding: '16px 28px' }}
       className={`
-        mx-1.5 flex items-center gap-3
-        rounded-md px-3.5 py-[5px] text-[13px]
+        flex items-center gap-4
+        rounded-xl
         transition-colors
-        ${selected ? 'bg-white/10' : 'hover:bg-white/6'}
+        ${selected ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'}
       `}
     >
-      <span className="text-base">{icon}</span>
-      <span className="truncate text-white/80">{label}</span>
-      <span className="ml-auto text-[11px] text-white/30">{count}</span>
-      <span className="text-[10px] text-white/20">{'>'}</span>
+      <span className="text-lg">{icon}</span>
+      <span className="truncate text-[15px] font-semibold text-white/90">{label}</span>
+      <span className="ml-auto text-[12px] text-white/20">{count} shortcuts</span>
+      <span className="text-[12px] text-white/15">{'>'}</span>
     </div>
   );
 }
