@@ -41,7 +41,7 @@ export function ShortcutRow({
           )}
         </div>
         <div className="flex items-center gap-3">
-          <span className="rounded bg-white/[0.06] px-2 py-0.5 font-mono text-[11px] text-white/35">
+          <span className="max-w-[300px] truncate rounded bg-white/[0.06] px-2 py-0.5 font-mono text-[11px] text-white/35">
             {shortcut.rawCommand}
           </span>
           {showSource && (
