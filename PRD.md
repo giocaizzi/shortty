@@ -1,488 +1,701 @@
-# Shortty — Product Requirements Document
+# Shortty — Implementation Plan
 
-## Vision
-
-A cross-platform keybinding discovery app styled as a **Spotlight/Raycast-style floating launcher**. Invoke it with a global hotkey, search across all your tools' shortcuts instantly, and dismiss it — like a keybinding encyclopedia at your fingertips.
-
-Primary platform: **macOS Tahoe** (Liquid Glass aesthetic). Secondary: **Windows**.
-
----
-
-## Problem
-
-Developers juggle keybindings across many tools — VS Code, terminal emulators, tmux, shell bindings — and constantly forget shortcuts or discover conflicts. There's no single place to search "what's bound to Cmd+Shift+T?" across all tools at once.
-
-## Solution
-
-A lightweight, always-available launcher that:
-1. Dynamically reads keybinding configs from installed tools
-2. Presents them in a fast, searchable floating panel
-3. Auto-refreshes when configs change
-4. Feels native to macOS Tahoe's Liquid Glass design language
+> This document is the step-by-step implementation plan for Shortty.
+> Each phase, task, and subtask is a checkmark item.
+> Every task includes a verification step to confirm completion before moving to the next.
+> See [SPECS.md](./SPECS.md) for the full specification and architectural decisions.
 
 ---
 
-## UX Design — Spotlight/Launcher Style
+## Phase 1: Foundation Refactor
 
-### Core Interaction Model
+Restructure the existing codebase to align with the new cheatsheet-first architecture. No new features — just reorganize.
 
-- **Global hotkey** (e.g. `Cmd+Shift+Space`) summons the app as a **centered floating panel** over everything — just like Spotlight or Raycast
-- **Type to search** immediately — no click required, input is focused on launch
-- **Esc or blur** dismisses the window
-- Results appear instantly below the search bar as you type
+### 1.1 Cheatsheet Schema & Infrastructure
 
-### Layout
+- [ ] Create `src/cheatsheets/schema.json` — JSON Schema per SPECS.md §6.1
+- [ ] Create `src/cheatsheets/sources/` directory
+- [ ] Implement cheatsheet loader module (`src/main/cheatsheets/loader.ts`)
+  - [ ] Read all JSON files from `sources/` directory
+  - [ ] Validate each against `schema.json` at startup
+  - [ ] Parse platform-specific `key` fields for current platform
+  - [ ] Return typed `CheatsheetDefinition[]`
+- [ ] Write unit tests for cheatsheet loader
+  - [ ] Valid cheatsheet loads correctly
+  - [ ] Invalid cheatsheet is skipped with error log
+  - [ ] Platform-specific key resolution works
+  - [ ] Empty shortcuts array handled correctly
+- [ ] **Verify:** `make test` passes, loader reads and validates JSON files
 
-```
-┌─────────────────────────────────────────────────────┐
-│  🔍  Search shortcuts...                    ⌘⇧Space │  ← Search input (always focused)
-├─────────────────────────────────────────────────────┤
-│  [All] [VS Code] [Ghostty] [tmux] [Zsh] [Obsidian] [Chrome] [macOS] │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│  VS Code                                            │  ← Section header (when "All")
-│  ┌─────────────────────────────────────────────────┐│
-│  │ ⌘⇧T        Reopen Closed Editor                ││  ← Keybinding row
-│  │ ⌘⇧P        Command Palette                     ││
-│  │ ⌘K ⌘S      Open Keyboard Shortcuts             ││
-│  └─────────────────────────────────────────────────┘│
-│                                                     │
-│  Ghostty                                            │
-│  ┌─────────────────────────────────────────────────┐│
-│  │ ⌘T          New Tab                             ││
-│  │ ⌘⇧D         Split Down                         ││
-│  └─────────────────────────────────────────────────┘│
-│                                                     │
-│  tmux                                               │
-│  ┌─────────────────────────────────────────────────┐│
-│  │ prefix c    New Window                          ││
-│  │ prefix %    Split Vertical                      ││
-│  └─────────────────────────────────────────────────┘│
-│                                                     │
-└─────────────────────────────────────────────────────┘
-```
+### 1.2 Migrate Existing Parsers to Cheatsheet Model
 
-### Window Behavior
+- [ ] Create metadata-only cheatsheet files for parser-provides-defaults sources:
+  - [ ] `src/cheatsheets/sources/tmux.json` (id, label, icon, platforms, parser, defaultPaths, empty shortcuts)
+  - [ ] `src/cheatsheets/sources/zsh.json`
+  - [ ] `src/cheatsheets/sources/obsidian.json`
+  - [ ] `src/cheatsheets/sources/macos-system.json`
+- [ ] Create cheatsheet stub files for sources that will get curated defaults later:
+  - [ ] `src/cheatsheets/sources/vscode.json` (with defaultPaths and parser, empty shortcuts for now)
+  - [ ] `src/cheatsheets/sources/ghostty.json` (with defaultPaths and parser, empty shortcuts for now)
+  - [ ] `src/cheatsheets/sources/chrome.json` (with defaultPaths and parser, empty shortcuts for now)
+- [ ] **Verify:** all cheatsheet JSON files pass schema validation
 
-| Property | Value |
-|----------|-------|
-| Position | Centered, top-third of screen (like Spotlight) |
-| Size | ~680px wide × dynamic height (max ~500px), then scrolls |
-| Frame | Frameless, no title bar, no traffic lights |
-| Shadow | Large, soft drop shadow for floating effect |
-| Corners | Rounded (16px radius) |
-| Always on top | Yes, when visible |
-| Show in dock | No (background app / `LSUIElement`) |
-| Show in mission control | No |
-| Background | Transparent window, Liquid Glass panel inside |
-| Dismiss | Esc key, click outside, or global hotkey toggle |
+### 1.3 Refactor Parser Registry
 
-### Visual Design — macOS Tahoe Liquid Glass
+- [ ] Replace hardcoded parser list with `PARSERS` map (SPECS.md §6.2)
+  ```typescript
+  const PARSERS: Record<string, new () => BaseParser> = { ... };
+  ```
+- [ ] Refactor `ParserRegistry.initialize()`:
+  - [ ] Load cheatsheets via loader
+  - [ ] For each cheatsheet with `parser` field, look up in PARSERS map
+  - [ ] For parsers in map without cheatsheet, register standalone
+  - [ ] Merge both discovery paths into unified source list
+- [ ] Remove `platform/paths.ts` — paths now come from cheatsheet `defaultPaths`
+- [ ] Update `BaseParser` to accept paths from cheatsheet instead of hardcoded
+- [ ] Update each parser to use provided paths:
+  - [ ] `VscodeParser`
+  - [ ] `GhosttyParser`
+  - [ ] `TmuxParser`
+  - [ ] `ZshParser`
+  - [ ] `ObsidianParser`
+  - [ ] `ChromeParser`
+  - [ ] `MacosSystemParser`
+- [ ] Update all parser tests to work with new path injection
+- [ ] **Verify:** `make test` passes, all existing parsers work through new registry
 
-**Panel surface:**
-- `backdrop-filter: blur(40px) saturate(180%)` for glass translucency
-- Light mode: `rgba(255, 255, 255, 0.72)` tinted background
-- Dark mode: `rgba(30, 30, 30, 0.72)` tinted background
-- `border: 1px solid rgba(255, 255, 255, 0.18)` glass edge
-- `box-shadow: 0 24px 80px rgba(0, 0, 0, 0.25)` floating depth
-- Inner highlight: `inset 0 1px 0 rgba(255, 255, 255, 0.1)` for glass refraction
+### 1.4 Implement Merge Layer
 
-**Search input:**
-- Large, prominent, at the top of the panel
-- Magnifying glass icon left-aligned
-- Placeholder: "Search shortcuts..."
-- Hotkey hint badge on the right (e.g. `⌘⇧Space`)
+- [ ] Create merge module (`src/main/shortcuts/merge.ts`)
+  - [ ] Input: cheatsheet defaults `Shortcut[]` + parser overrides `Shortcut[]`
+  - [ ] Match by `source + rawCommand`
+  - [ ] User override replaces key, sets `isDefault: false`, `origin: 'user-config'`
+  - [ ] User entries not in cheatsheet added as new
+  - [ ] Cheatsheet entries not overridden kept with `isDefault: true`, `origin: 'cheatsheet'`
+- [ ] Write unit tests for merge layer
+  - [ ] Override replaces key correctly
+  - [ ] Unmatched user entries added
+  - [ ] Unmatched cheatsheet entries preserved
+  - [ ] Empty parser output returns cheatsheet as-is
+  - [ ] Empty cheatsheet returns parser output as-is
+- [ ] Integrate merge into startup flow (cheatsheet load → parser parse → merge)
+- [ ] **Verify:** `make test` passes, merged output is correct for each source
 
-**Source filter pills:**
-- Horizontal row of pill buttons below search
-- "All" selected by default
-- Each pill shows source icon + label
-- Active pill: filled glass, inactive: subtle outline
-- Scrollable horizontally if many sources
+### 1.5 Update Data Types
 
-**Keybinding rows:**
-- Clean, minimal rows — no heavy cards
-- Left: key combo rendered with macOS-style `<kbd>` glyphs (⌘ ⌥ ⇧ ⌃)
-- Right: command description
-- Subtle separator between rows
-- Hover: light glass highlight
-- Context badges (e.g. "when: editorFocus") as small pills on the right
+- [ ] Update `Shortcut` type in `src/shared/types.ts`:
+  - [ ] Add `origin: 'cheatsheet' | 'user-config' | 'app-defaults'` field
+  - [ ] Add `category?: string` field
+  - [ ] Ensure `context` field is used generically (vim modes, VS Code when, tmux tables)
+- [ ] Update `generateKeybindingId()` to use `source + rawCommand` as identity
+- [ ] Update all parser outputs to match new type
+- [ ] Update renderer to handle new fields
+- [ ] **Verify:** `make typecheck` passes, `make test` passes
 
-**Section headers:**
-- When viewing "All" sources, group by source with thin section headers
-- Source icon + label, small count badge
+### 1.6 Path Override Support
 
-**Empty states:**
-- No results: "No shortcuts matching [query]" with search icon
-- No configs found: "No shortcuts detected — check your config files"
-
-**Animations:**
-- Window appear: fast scale-up from 0.95 + fade in (~150ms ease-out)
-- Window dismiss: scale down to 0.95 + fade out (~100ms ease-in)
-- Results: crossfade on filter/search change
-
-**Accessibility:**
-- Respect `prefers-reduced-transparency` (solid backgrounds)
-- Respect `prefers-reduced-motion` (no scale animations)
-- Full keyboard navigation: arrow keys through results, Enter to copy shortcut
-- Proper ARIA roles for search, listbox, options
+- [ ] Add `sourcePathOverrides: Record<string, string | string[]>` to `AppSettings`
+- [ ] Implement path resolution order in registry:
+  1. User override (if set)
+  2. Environment variable expansion (`~`, `$HOME`, `$XDG_CONFIG_HOME`, `%APPDATA%`)
+  3. Cheatsheet `defaultPaths` for current platform
+  4. Discovery scan (Obsidian)
+- [ ] Create path resolution utility (`src/main/utils/path-resolver.ts`)
+  - [ ] Tilde expansion
+  - [ ] Environment variable expansion
+  - [ ] Existence checking
+- [ ] Write unit tests for path resolver
+- [ ] **Verify:** path overrides work end-to-end, `make test` passes
 
 ---
 
-## Tech Stack
+## Phase 2: New Parsers
 
-| Layer | Technology | Why |
-|-------|-----------|-----|
-| Framework | Electron ^41 | Native window APIs (vibrancy, frameless, always-on-top, global shortcuts) |
-| Build | Electron Forge ^7 + Vite plugin | Official tooling, fast HMR |
-| Renderer | React 19 + TypeScript 5.8 | Component model, hooks |
-| Styling | Tailwind CSS 4 (`@tailwindcss/vite`) | Utility-first, fast iteration |
-| Search | Fuse.js ^7 | Client-side fuzzy search |
-| File watching | chokidar ^4 | Cross-platform config watchers |
-| Icons | Lucide React | Clean line icons |
-| Testing | Vitest + React Testing Library | Unit + component tests |
-| Linting | ESLint 9 + Prettier | Code quality |
+### 2.1 vim Parser
 
----
+- [ ] Create `src/main/parsers/vim.parser.ts`
+  - [ ] Parse `.vimrc` for `map`, `nmap`, `vmap`, `imap` (recursive)
+  - [ ] Parse `noremap`, `nnoremap`, `vnoremap`, `inoremap` (non-recursive)
+  - [ ] Parse `unmap`, `nunmap` etc.
+  - [ ] Detect `let mapleader = "..."` and substitute `<leader>` in mappings
+  - [ ] Set `context` to mode: "normal", "visual", "insert", "command"
+  - [ ] Humanize command names
+- [ ] Create `src/cheatsheets/sources/vim.json` (metadata + defaultPaths)
+- [ ] Create `fixtures/vimrc` with realistic test data
+- [ ] Write unit tests (`tests/unit/parsers/vim.test.ts`)
+  - [ ] Basic `nmap` parsing
+  - [ ] Multi-modifier mappings
+  - [ ] Leader key substitution
+  - [ ] Unmap handling
+  - [ ] Mode detection from command prefix
+  - [ ] Comments and blank lines ignored
+  - [ ] Missing file graceful handling
+- [ ] Add `vim` to PARSERS map in registry
+- [ ] **Verify:** `make test` passes, vim parser outputs correct shortcuts from fixture
 
-## Architecture
+### 2.2 Bash Keybindings Parser
 
-```
-┌─────────────────────────────────────────────────────┐
-│                 RENDERER PROCESS                     │
-│  React + Tailwind (Liquid Glass launcher panel)      │
-│                                                      │
-│  SearchInput → FilterPills → KeybindingList          │
-│         │                          │                 │
-│     Fuse.js                  useKeybindings          │
-│                                    │                 │
-│                        window.electronAPI             │
-└────────────────────────┬────────────────────────────-┘
-                         │  contextBridge (preload)
-                    IPC channels
-                         │
-┌────────────────────────┴────────────────────────────-┘
-│                  MAIN PROCESS                        │
-│                                                      │
-│  ┌──────────────┐  ┌──────────────┐  ┌────────────┐ │
-│  │ Global       │  │ Parser       │  │ File       │ │
-│  │ Shortcut     │  │ Registry     │  │ Watcher    │ │
-│  │ (show/hide)  │  │              │  │ (chokidar) │ │
-│  └──────────────┘  └──────┬───────┘  └────────────┘ │
-│                           │                          │
-│    ┌───────┬───────┬──────┼──────┬────┬────────┬─────┐│
-│    │VSCode │Ghostty│ tmux │ zsh  │Obs.│ Chrome │macOS││
-│    └───────┴───────┴──────┴──────┴────┴────────┴─────┘│
-│                           │                          │
-│                    ┌──────┴──────┐                    │
-│                    │ platform/   │                    │
-│                    │ paths.ts    │                    │
-│                    └─────────────┘                    │
-└──────────────────────────────────────────────────────┘
-```
-
-### Data Flow
-
-1. Main process registers a **global shortcut** (e.g. `Cmd+Shift+Space`)
-2. On hotkey press: show/hide the BrowserWindow (toggle)
-3. On show: if cache is stale, re-parse all configs via `ParserRegistry`
-4. Each parser reads its config file(s), returns `Keybinding[]`
-5. Results sent to renderer via IPC
-6. Renderer indexes with Fuse.js, renders the launcher panel
-7. chokidar watches config files — on change, re-parses that source and pushes update via IPC
+- [ ] Create `src/main/parsers/bash.parser.ts`
+  - [ ] Parse `.inputrc` for `"sequence": function-name` bindings
+  - [ ] Parse `.bashrc` for `bind '"sequence" function-name'` commands
+  - [ ] Parse `bind -x '"sequence": command'` (shell command bindings)
+  - [ ] Handle `set editing-mode vi` / `set editing-mode emacs` as context
+  - [ ] Normalize escape sequences (same patterns as zsh parser)
+- [ ] Create `src/cheatsheets/sources/bash.json` (metadata + defaultPaths)
+- [ ] Create `fixtures/inputrc` with test data
+- [ ] Create `fixtures/bashrc` with test data
+- [ ] Write unit tests (`tests/unit/parsers/bash.test.ts`)
+  - [ ] `.inputrc` parsing
+  - [ ] `.bashrc` bind parsing
+  - [ ] `bind -x` parsing
+  - [ ] Editing mode detection
+  - [ ] Escape sequence normalization
+  - [ ] Missing file handling
+- [ ] Add `bash` to PARSERS map in registry
+- [ ] **Verify:** `make test` passes, bash parser outputs correct shortcuts
 
 ---
 
-## Project Structure
+## Phase 3: Curated Cheatsheets
 
-```
-shortty/
-├── forge.config.ts                  # Electron Forge config
-├── vite.main.config.ts
-├── vite.preload.config.ts
-├── vite.renderer.config.ts
-├── tsconfig.json
-├── package.json
-├── index.html                       # Renderer HTML entry
-│
-├── src/
-│   ├── main/
-│   │   ├── index.ts                 # App entry: BrowserWindow, global shortcut, show/hide
-│   │   ├── ipc.ts                   # IPC handler registration
-│   │   ├── watcher.ts               # chokidar file watcher manager
-│   │   ├── parsers/
-│   │   │   ├── types.ts             # ParserPlugin interface
-│   │   │   ├── registry.ts          # Parser registry (discover, manage, cache)
-│   │   │   ├── base-parser.ts       # Abstract base with shared helpers
-│   │   │   ├── vscode.parser.ts
-│   │   │   ├── ghostty.parser.ts
-│   │   │   ├── tmux.parser.ts
-│   │   │   ├── zsh.parser.ts
-│   │   │   ├── obsidian.parser.ts
-│   │   │   ├── chrome.parser.ts
-│   │   │   └── macos-system.parser.ts
-│   │   └── platform/
-│   │       └── paths.ts             # Cross-platform config path resolution
-│   │
-│   ├── preload/
-│   │   └── index.ts                 # contextBridge: typed IPC API
-│   │
-│   ├── renderer/
-│   │   ├── main.tsx                 # React entry
-│   │   ├── App.tsx                  # Root component
-│   │   ├── styles/
-│   │   │   └── globals.css          # Tailwind directives + Liquid Glass tokens + kbd styles
-│   │   ├── hooks/
-│   │   │   ├── useKeybindings.ts    # Fetch + subscribe to keybinding data via IPC
-│   │   │   └── useSearch.ts         # Fuse.js fuzzy search wrapper
-│   │   ├── components/
-│   │   │   ├── LauncherPanel.tsx    # Main glass panel container
-│   │   │   ├── SearchInput.tsx      # Search bar with icon + hotkey badge
-│   │   │   ├── FilterPills.tsx      # Horizontal source filter pills
-│   │   │   ├── KeybindingList.tsx   # Scrollable results list with section headers
-│   │   │   ├── KeybindingRow.tsx    # Single keybinding row
-│   │   │   ├── KeyCombo.tsx         # Renders key combo with macOS glyphs
-│   │   │   └── EmptyState.tsx       # No results / no configs state
-│   │   └── lib/
-│   │       └── ipc.ts              # Typed wrapper around window.electronAPI
-│   │
-│   └── shared/
-│       └── types.ts                 # Keybinding, ParserMeta (shared main↔renderer)
-│
-├── tests/
-│   ├── unit/
-│   │   └── parsers/                 # One test file per parser + fixture data
-│   │       ├── vscode.test.ts
-│   │       ├── ghostty.test.ts
-│   │       ├── tmux.test.ts
-│   │       ├── zsh.test.ts
-│   │       ├── obsidian.test.ts
-│   │       ├── chrome.test.ts
-│   │       └── macos-system.test.ts
-│   └── components/
-│       ├── SearchInput.test.tsx
-│       ├── FilterPills.test.tsx
-│       └── KeybindingList.test.tsx
-│
-└── fixtures/                        # Test fixture config files
-    ├── vscode-keybindings.json
-    ├── ghostty-config
-    ├── tmux-list-keys.txt
-    ├── zshrc
-    ├── obsidian-hotkeys.json
-    ├── chrome-preferences.json
-    └── macos-symbolichotkeys.plist
-```
+### 3.1 VS Code Cheatsheet
+
+- [ ] Research and compile VS Code default shortcuts (~150-200 entries)
+  - [ ] General: Command Palette, Quick Open, Settings, Keyboard Shortcuts
+  - [ ] Navigation: Go to Line, Go to Symbol, breadcrumbs
+  - [ ] Editing: Cut, Copy, Paste, Undo, Redo, Find, Replace
+  - [ ] Selection: Multi-cursor, column select, expand/shrink
+  - [ ] View: Sidebar, Panel, Terminal, Explorer, Extensions
+  - [ ] Debug: Start, Step Over, Step Into, Breakpoint
+  - [ ] Terminal: New, Split, Focus, Kill
+- [ ] Populate `src/cheatsheets/sources/vscode.json` with entries
+  - [ ] Include platform-specific keys (darwin, win32, linux)
+  - [ ] Include `context` where applicable (editorFocus, terminalFocus, etc.)
+  - [ ] Include `category` per entry
+  - [ ] Set `lastVerified` to current VS Code version
+- [ ] Validate against schema
+- [ ] **Verify:** cheatsheet loads, entries display correctly, merge with parser overrides works
+
+### 3.2 Chrome Cheatsheet
+
+- [ ] Research and compile Chrome default shortcuts (~50-60 entries)
+  - [ ] Tabs: New, Close, Reopen, Switch, Pin
+  - [ ] Navigation: Back, Forward, Refresh, Home
+  - [ ] Page: Find, Zoom, Print, Source
+  - [ ] Bookmarks: Add, Manager, Bar
+  - [ ] DevTools: Open, Console, Inspector
+- [ ] Populate `src/cheatsheets/sources/chrome.json`
+- [ ] Validate against schema
+- [ ] **Verify:** cheatsheet loads, entries display, extension shortcuts from parser merge correctly
+
+### 3.3 Finder Cheatsheet
+
+- [ ] Research and compile Finder default shortcuts (~40-50 entries)
+  - [ ] File: New Folder, Get Info, Duplicate, Move to Trash
+  - [ ] Navigation: Go to Folder, Enclosing Folder, Home, Desktop
+  - [ ] View: Icons, List, Columns, Gallery, Show/Hide
+  - [ ] Window: New Window, Minimize, Close
+- [ ] Create `src/cheatsheets/sources/finder.json` (parser: null)
+- [ ] Validate against schema
+- [ ] **Verify:** cheatsheet loads, Finder appears as cheatsheet-only source
+
+### 3.4 vim Cheatsheet
+
+- [ ] Research and compile vim default shortcuts (~100-150 entries)
+  - [ ] Normal mode: Motion (h,j,k,l,w,b,e,0,$,gg,G), Editing (d,c,y,p,x,r,s), Search (/,?,n,N)
+  - [ ] Insert mode: Enter insert (i,a,o,I,A,O), Exit (Esc)
+  - [ ] Visual mode: Enter (v,V,Ctrl-v), Operations (d,c,y)
+  - [ ] Command mode: Save (:w), Quit (:q), Search/Replace (:%s)
+  - [ ] Window: Split (Ctrl-w s/v), Navigate (Ctrl-w h/j/k/l)
+- [ ] Populate `src/cheatsheets/sources/vim.json`
+  - [ ] Set `context` to mode for each entry
+  - [ ] Set `category` per entry
+- [ ] Validate against schema
+- [ ] **Verify:** cheatsheet loads, modal context displays correctly, merge with .vimrc overrides works
+
+### 3.5 Ghostty Cheatsheet
+
+- [ ] Research and compile Ghostty default shortcuts (~30 entries)
+  - [ ] Tab management, split management, font size
+  - [ ] Navigation, copy/paste, search
+- [ ] Populate `src/cheatsheets/sources/ghostty.json`
+- [ ] Validate against schema
+- [ ] **Verify:** cheatsheet loads, merge with user config overrides works
 
 ---
 
-## Core Types
+## Phase 4: Commands Engine
 
-```typescript
-// src/shared/types.ts
+### 4.1 Tier 1 — PATH Scan & Whatis
 
-interface Keybinding {
-  id: string;               // deterministic hash of source+key+command
-  source: string;            // "vscode", "ghostty", "tmux", "zsh", "obsidian", "chrome", "macos-system"
-  sourceLabel: string;       // "VS Code", "Ghostty", "tmux", "Zsh", "Obsidian", "Chrome", "macOS"
-  key: string;              // normalized display: "⌘⇧T" or "Ctrl+Shift+T"
-  command: string;           // human-readable action name
-  rawCommand: string;        // original command string from config
-  context?: string;          // e.g. "editorFocus" (VSCode when clause)
-  isDefault: boolean;        // true = from defaults, false = user config
-  isUnbound: boolean;        // true if this unbinds a default (VSCode "-command")
-  filePath: string;          // which config file this came from
-}
+- [ ] Create `src/main/commands/` directory
+- [ ] Implement PATH scanner (`src/main/commands/path-scanner.ts`)
+  - [ ] Read `PATH` environment variable
+  - [ ] Scan each directory for executables
+  - [ ] Deduplicate by name (first in PATH wins)
+  - [ ] Record binary path and mtime
+  - [ ] Return `Command[]` with `enrichment: 'basic'`
+- [ ] Implement whatis reader (`src/main/commands/whatis-reader.ts`)
+  - [ ] Run `whatis -w '*'` or equivalent
+  - [ ] Parse output into name → description map
+  - [ ] Graceful fallback: if whatis unavailable, return empty map
+  - [ ] Merge descriptions into PATH scan results
+- [ ] Write unit tests for PATH scanner
+  - [ ] Finds executables in mock PATH
+  - [ ] Deduplicates correctly
+  - [ ] Handles empty PATH gracefully
+  - [ ] Handles non-existent directories gracefully
+- [ ] Write unit tests for whatis reader
+  - [ ] Parses standard whatis output
+  - [ ] Handles missing whatis database
+- [ ] **Verify:** `make test` passes, Tier 1 produces command inventory
 
-interface ParserMeta {
-  id: string;                // "vscode"
-  label: string;             // "VS Code"
-  icon: string;              // emoji or icon identifier
-  platforms: ('darwin' | 'win32' | 'linux')[];
-}
+### 4.2 Persistent Cache
 
-interface ParserPlugin {
-  meta: ParserMeta;
-  isAvailable(): Promise<boolean>;    // is the tool installed?
-  getWatchPaths(): string[];          // config file paths to watch
-  parse(): Promise<Keybinding[]>;     // read configs, return keybindings
-}
-```
+- [ ] Implement cache manager (`src/main/commands/cache.ts`)
+  - [ ] Read/write `meta.json` (PATH hash, timestamps, stats)
+  - [ ] Read/write `commands-index.json` (full inventory)
+  - [ ] Read/write individual `details/{name}.json` files
+  - [ ] PATH hash computation: `hash(PATH + mtime of each PATH directory)`
+  - [ ] Cache validation: compare current hash vs stored hash
+  - [ ] Incremental update: add new commands, remove old, flag changed for re-enrichment
+- [ ] Write unit tests for cache manager
+  - [ ] Cold start (no cache) works
+  - [ ] Warm start (valid cache) reads correctly
+  - [ ] Stale cache (PATH changed) triggers incremental update
+  - [ ] Individual detail files read/write correctly
+- [ ] **Verify:** `make test` passes, cache survives app restarts
 
----
+### 4.3 Tier 3 — Enrichment Worker
 
-## Parser Details
+- [ ] Implement enrichment worker (`src/main/commands/enrichment-worker.ts`)
+  - [ ] Discover man page locations via `man --path`
+  - [ ] Discover zsh completion locations via `zsh -c 'echo $FPATH'`
+  - [ ] Discover bash completion locations via `pkg-config` or fallback
+  - [ ] Detect available shells (`which zsh`, `which bash`)
+- [ ] Implement zsh completion parser (`src/main/commands/parsers/zsh-completion.ts`)
+  - [ ] Read `_commandname` files from FPATH directories
+  - [ ] Extract subcommands and flags from completion definitions
+  - [ ] Return `CommandDetail[]` and `FlagDetail[]`
+- [ ] Implement bash completion parser (`src/main/commands/parsers/bash-completion.ts`)
+  - [ ] Read completion files from bash completion directories
+  - [ ] Extract subcommands and flags
+  - [ ] Return `CommandDetail[]` and `FlagDetail[]`
+- [ ] Implement man page parser (`src/main/commands/parsers/man-parser.ts`)
+  - [ ] Read man page files from discovered locations
+  - [ ] Extract NAME section (description)
+  - [ ] Extract COMMANDS/SUBCOMMANDS section
+  - [ ] Extract OPTIONS/FLAGS section
+  - [ ] Parse groff/mdoc format patterns
+- [ ] Implement `--help` parser (`src/main/commands/parsers/help-parser.ts`)
+  - [ ] Spawn command with `--help` flag
+  - [ ] 2 second timeout, hard kill
+  - [ ] Check against hardcoded blocklist before spawning
+  - [ ] Skip dotfile/hidden commands
+  - [ ] Parse subcommand patterns: `/^\s{2,}(\S+)\s{2,}(.+)$/`
+  - [ ] Parse flag patterns: `/^\s{2,}(-\w),?\s*(--[\w-]+)\s{2,}(.+)$/`
+- [ ] Implement worker orchestration
+  - [ ] Priority order: zsh completion → bash completion → man pages → --help
+  - [ ] First source that yields results wins (no merging)
+  - [ ] Concurrency: 3 parallel file reads, 1 process spawn at a time
+  - [ ] Pause when window visible, resume when hidden or 5s idle
+  - [ ] Batch save every 50 enrichments
+  - [ ] Mark failed enrichments as `enrichment: 'failed'`
+- [ ] Write unit tests for each enrichment parser
+  - [ ] Zsh completion: fixture parsing
+  - [ ] Bash completion: fixture parsing
+  - [ ] Man page: fixture parsing
+  - [ ] `--help`: mock spawn, timeout handling, blocklist
+- [ ] Write unit tests for worker orchestration
+  - [ ] Priority order respected
+  - [ ] Concurrency limits enforced
+  - [ ] Pause/resume behavior
+  - [ ] Failed enrichment handling
+- [ ] **Verify:** `make test` passes, enrichment produces subcommands and flags from test fixtures
 
-### Auto-Discovery
+### 4.4 Commands Engine Integration
 
-Before parsing, Shortty auto-discovers installed apps by scanning common config locations. This runs at startup and periodically.
-
-**Discovery strategy per platform:**
-
-| Platform | Scan locations |
-|----------|---------------|
-| macOS | `/Applications/`, `~/Library/Application Support/`, `~/.config/`, `~/Library/Preferences/` (plists) |
-| Linux | `~/.config/`, `~/.local/share/applications/`, `/usr/share/applications/` |
-| Windows | `%APPDATA%/`, `%LOCALAPPDATA%/`, `%PROGRAMFILES%/` |
-
-For each supported parser, the registry calls `isAvailable()` which checks if the config file exists at any of the known paths. Only parsers for installed/configured apps appear in the UI.
-
-For apps like Obsidian where config paths are per-vault (e.g. `<vault>/.obsidian/hotkeys.json`), discovery scans common vault locations (`~/Documents/`, `~/Desktop/`, `~/`) for `.obsidian/` directories.
-
-### Discovered Apps (your system)
-
-Scan of the host machine found the following trackable keybinding sources:
-
-**v1 — Supported parsers:**
-
-| App | Config file | Format | Notes |
-|-----|-------------|--------|-------|
-| **VS Code** | `~/Library/Application Support/Code/User/keybindings.json` | JSONC array | 9 custom keybindings |
-| **Ghostty** | `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` | `keybind = key=action` | 12 custom keybinds (splits, vim nav, quick terminal) |
-| **tmux** | Live: `tmux list-keys` | `bind-key -T <table> <key> <cmd>` | No `.tmux.conf` — uses defaults. Live query via child process |
-| **Zsh** | `~/.zshrc` | `bindkey 'seq' widget` | Oh-my-zsh defaults; no explicit bindkey calls currently |
-| **Obsidian** | `<vault>/.obsidian/hotkeys.json` (auto-discovered) | JSON `{ "cmd": [{modifiers, key}] }` | Found vault: `~/Documents/github/wiki/` — 4 custom hotkeys |
-| **Chrome** | `~/Library/Application Support/Google/Chrome/Default/Preferences` | Nested JSON (`extensions.commands`) | Extension shortcuts: Bitwarden, Notion Clipper, AdBlock, Phantom |
-| **macOS System** | `~/Library/Preferences/com.apple.symbolichotkeys.plist` | Binary plist | Mission Control, Spotlight, Show Desktop, etc. |
-
-**Future candidates (not in v1):**
-
-| App | Config location | Complexity | Notes |
-|-----|----------------|------------|-------|
-| Xcode | `~/Library/Developer/Xcode/UserData/KeyBindings/*.idekeybindings` | Medium | Plist format, well-structured |
-| Adobe Premiere Pro | `*.kys` files (proprietary XML) | High | Binary/XML hybrid, no custom presets found |
-| Magnet | `~/Library/Preferences/com.crowdcafe.windowmagnet.plist` | Medium | Binary-encoded JSON keycodes, needs reverse-engineering |
-| macOS per-app shortcuts | `NSUserKeyEquivalents` in app plists | Low | None configured on this system |
-
-### Config Path Resolution
-
-| Parser | macOS | Windows | Linux |
-|--------|-------|---------|-------|
-| VS Code | `~/Library/Application Support/Code/User/keybindings.json` | `%APPDATA%/Code/User/keybindings.json` | `~/.config/Code/User/keybindings.json` |
-| Ghostty | `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` | `%APPDATA%/ghostty/config` | `~/.config/ghostty/config` |
-| tmux | `~/.tmux.conf`, `~/.config/tmux/tmux.conf`, or live `tmux list-keys` | N/A | same as macOS |
-| Zsh | `~/.zshrc` | N/A | same as macOS |
-| Obsidian | `<vault>/.obsidian/hotkeys.json` (auto-discovered) | `<vault>/.obsidian/hotkeys.json` | same as macOS |
-| Chrome | `~/Library/Application Support/Google/Chrome/Default/Preferences` | `%LOCALAPPDATA%/Google/Chrome/User Data/Default/Preferences` | `~/.config/google-chrome/Default/Preferences` |
-| macOS System | `~/Library/Preferences/com.apple.symbolichotkeys.plist` | N/A | N/A |
-
-### Parsing Rules
-
-**VS Code** — JSON with comments (JSONC). Each entry: `{ "key": "...", "command": "...", "when": "..." }`. Commands starting with `-` are unbinds. Must handle multi-chord keys like `cmd+k cmd+s`.
-
-**Ghostty** — Line-based config. Pattern: `keybind = <key>=<action>`. Supports leader-key sequences via `>` (e.g. `ctrl+a>h=new_split:left`). Keys use `super`, `ctrl`, `shift`, `alt`, `cmd` modifiers joined with `+`. Config path on macOS is `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` (not `~/.config/ghostty/config`).
-
-**tmux** — Two strategies:
-1. **Config file** (`~/.tmux.conf` or `~/.config/tmux/tmux.conf`): parse `bind-key`/`bind` and `unbind-key` patterns. The `-n` flag means root table (no prefix).
-2. **Live query** (fallback): execute `tmux list-keys` to get all current bindings including defaults. Parse output format: `bind-key -T <table> <key> <command>`.
-
-**Zsh** — Parse `bindkey '<key-sequence>' <widget>` from `~/.zshrc`. Key sequences: `^` = Ctrl, `\e` = Escape/Alt, `\e[` = arrow key sequences. Also parse `bindkey -M <keymap>` variants.
-
-**Obsidian** — JSON object per vault at `<vault>/.obsidian/hotkeys.json`. Format: `{ "plugin-id:command-name": [{ "modifiers": ["Mod", "Shift"], "key": "P" }] }`. `Mod` maps to `Cmd` on macOS, `Ctrl` on Windows/Linux. Empty arrays mean the hotkey was explicitly unbound. Auto-discover vaults by scanning `~/Documents/`, `~/Desktop/`, `~/` for `.obsidian/` directories.
-
-**Chrome** — JSON file at Chrome's `Default/Preferences`. Extension shortcuts live at `extensions.commands` key. Format: `{ "<platform>:<shortcut>": { "command_name": "...", "extension": "<ext-id>", "global": bool } }`. Resolve extension names from `extensions/<id>/<version>/manifest.json` (with `_locales/` fallback for `__MSG_*` names). Platform prefix is `mac:` on macOS, `windows:` on Windows.
-
-**macOS System** — Binary plist at `~/Library/Preferences/com.apple.symbolichotkeys.plist`. Each shortcut has a numeric ID mapped to a known action (e.g. 64 = Spotlight). The `value.parameters` array contains `[charCode, keyCode, modifierFlags]`. Modifier flags: `131072` = Shift, `262144` = Ctrl, `524288` = Option, `1048576` = Cmd. Combine flags via bitwise OR. Use `plutil` or Node's `plist` library to read.
-
----
-
-## IPC Contract
-
-```typescript
-// Exposed via contextBridge in preload
-
-interface ElectronAPI {
-  getSources(): Promise<ParserMeta[]>;
-  getAllKeybindings(): Promise<Keybinding[]>;
-  getKeybindingsBySource(sourceId: string): Promise<Keybinding[]>;
-  refreshKeybindings(): Promise<Keybinding[]>;
-  onKeybindingsUpdate(cb: (data: { sourceId: string; keybindings: Keybinding[] }) => void): () => void;
-}
-```
+- [ ] Create commands engine facade (`src/main/commands/engine.ts`)
+  - [ ] Initialize: load cache or Tier 1 scan
+  - [ ] Build Fuse.js index with expanded entries (top-level + subcommands)
+  - [ ] Start enrichment worker
+  - [ ] Expose query interface
+  - [ ] Handle rebuild triggers (PATH hash check)
+- [ ] Add commands IPC channels
+  - [ ] `commands:getAll` → all commands from index
+  - [ ] `commands:getDetails` → detail for specific command
+  - [ ] `commands:refresh` → force rescan
+  - [ ] `commands:onUpdate` → push when enrichment batch completes
+- [ ] Update preload script with commands API
+- [ ] Write integration tests
+  - [ ] Cold start → Tier 1 → searchable
+  - [ ] Warm start → cache read → searchable
+  - [ ] PATH change → incremental update
+  - [ ] Enrichment → index expansion
+- [ ] **Verify:** `make test` passes, commands searchable via IPC
 
 ---
 
-## Implementation Phases
+## Phase 5: Search & IPC Refactor
 
-### Phase 1: Scaffolding
-- Initialize Electron Forge with Vite + TypeScript template
-- Install dependencies (React, Tailwind 4, chokidar, fuse.js, lucide-react)
-- Configure TypeScript (strict, ESNext, JSX)
-- Configure Tailwind with `@tailwindcss/vite`
-- Create directory structure
-- Basic BrowserWindow: frameless, transparent, centered, always-on-top
-- Global shortcut registration (show/hide toggle)
-- Verify: app launches as floating centered panel, toggles with hotkey
+### 5.1 Dual Fuse.js Architecture
 
-### Phase 2: Parser Infrastructure
-- `src/shared/types.ts` — Keybinding, ParserMeta types
-- `src/main/parsers/types.ts` — ParserPlugin interface
-- `src/main/parsers/base-parser.ts` — Abstract base (file read, key normalization, ID generation)
-- `src/main/parsers/registry.ts` — ParserRegistry (register, parseAll, parseSource, caching)
-- `src/main/platform/paths.ts` — Cross-platform config path resolution
-- Verify: registry can register and invoke parsers
+- [ ] Create shortcuts search module (`src/renderer/search/shortcuts-search.ts`)
+  - [ ] Fuse.js instance with user-configurable weights
+  - [ ] Fields: key, searchKey, command, sourceLabel, context
+  - [ ] Rebuild on data change
+- [ ] Create commands search module (`src/renderer/search/commands-search.ts`)
+  - [ ] Fuse.js instance with fixed weights (name: 0.5, description: 0.3, subcommands: 0.2)
+  - [ ] Fields: name, description, subcommand names
+  - [ ] Rebuild on data change and enrichment updates
+- [ ] Create unified search coordinator (`src/renderer/search/search-coordinator.ts`)
+  - [ ] Accept query string
+  - [ ] Check command prefix mode setting
+  - [ ] If prefix mode on and query starts with `>`: search commands only
+  - [ ] Otherwise: search both indices
+  - [ ] Match source names against query for Sources section
+  - [ ] Apply section limits (Sources: 3, Shortcuts: 8, Commands: 5)
+  - [ ] Return structured result: `{ sources: [], shortcuts: [], commands: [] }`
+- [ ] Write unit tests for search coordinator
+  - [ ] Unified search returns all three sections
+  - [ ] Prefix mode filters correctly
+  - [ ] Section limits applied
+  - [ ] Source name matching works
+  - [ ] Empty query returns empty results
+- [ ] **Verify:** `make test` passes, search returns correctly structured results
 
-### Phase 3: Individual Parsers + Tests
-- Implement each parser: VSCode, Ghostty, tmux, Zsh, Obsidian, Chrome, macOS System
-- Create fixture files in `fixtures/` with realistic config samples from the host machine
-- Write unit tests for each parser using Vitest
-- Test edge cases: empty files, comments, malformed lines, multi-chord keys, missing configs
-- Verify: `npm test` — all parser tests pass
+### 5.2 IPC Channel Updates
 
-### Phase 4: IPC + File Watching
-- `src/preload/index.ts` — contextBridge with typed API
-- `src/main/ipc.ts` — IPC handler registration
-- `src/main/watcher.ts` — chokidar watchers on parser config paths
-- On file change: re-parse, push `keybindings:onUpdate` to renderer
-- Verify: modify a config file → keybindings auto-update in app
+- [ ] Update `src/shared/ipc-channels.ts` with new channels:
+  - [ ] Commands channels (getAll, getDetails, refresh, onUpdate)
+  - [ ] Rename keybinding channels to shortcut channels for clarity
+- [ ] Update `src/main/ipc.ts` with new handlers
+- [ ] Update `src/preload/preload.ts` with new API surface
+- [ ] Update `src/renderer/lib/ipc.ts` types
+- [ ] Update existing hooks to use new channel names
+- [ ] **Verify:** `make typecheck` passes, IPC communication works end-to-end
 
-### Phase 5: Renderer UI
-- `globals.css` — Tailwind directives, Liquid Glass tokens, kbd styles, animations
-- `LauncherPanel.tsx` — Glass panel container with rounded corners, shadow, blur
-- `SearchInput.tsx` — Autofocused search with icon and hotkey badge
-- `FilterPills.tsx` — Horizontal source pills
-- `KeybindingList.tsx` — Scrollable grouped results
-- `KeybindingRow.tsx` — Key combo + command + context badge
-- `KeyCombo.tsx` — macOS glyph rendering (⌘ ⌥ ⇧ ⌃)
-- `EmptyState.tsx` — No results / no configs
-- `useKeybindings.ts` — IPC data hook
-- `useSearch.ts` — Fuse.js hook
-- Dark/light mode support
-- Window show/hide animations (scale + fade)
-- Verify: app shows real keybindings, search works, filters work
+### 5.3 Renderer Hooks Refactor
 
-### Phase 6: Polish + Packaging
-- Click-outside-to-dismiss behavior
-- Escape key to dismiss
-- Arrow key navigation through results
-- Enter to copy shortcut to clipboard
-- `prefers-reduced-transparency` and `prefers-reduced-motion` support
-- App icons (.icns, .ico)
-- `LSUIElement` / hide from dock on macOS
-- Electron Forge makers (DMG for macOS, Squirrel for Windows)
-- Verify: full user flow works end-to-end, `npm run make` produces distributable
+- [ ] Create `useShortcuts` hook (rename from `useKeybindings`)
+  - [ ] Fetch shortcuts via IPC
+  - [ ] Subscribe to shortcut updates
+  - [ ] Return typed `Shortcut[]`
+- [ ] Create `useCommands` hook
+  - [ ] Fetch commands via IPC
+  - [ ] Subscribe to command updates (enrichment)
+  - [ ] Return typed `Command[]`
+- [ ] Create `useSearch` hook (unified)
+  - [ ] Accept query string
+  - [ ] Use search coordinator
+  - [ ] Return `{ sources, shortcuts, commands }`
+- [ ] Remove old `useKeybindings` and `useSearch` hooks
+- [ ] **Verify:** `make typecheck` passes, hooks provide correct data
 
 ---
 
-## Verification Checklist
+## Phase 6: UI Overhaul
 
-1. `npm start` → app launches as floating centered panel, no dock icon
-2. Global hotkey → toggles panel visibility with animation
-3. Type in search → fuzzy-matches keybindings across all sources
-4. Click source pill → filters to that source only
-5. Edit a config file → keybindings auto-refresh
-6. Esc / click outside → dismisses the panel
-7. Dark mode → glass tinting adapts
-8. `npm test` → all parser unit tests pass
-9. `npm run make` → produces installable app
+### 6.1 Remove Old Components
+
+- [ ] Remove `FilterPills.tsx` (replaced by search-driven navigation)
+- [ ] Remove `EmptyState.tsx` (blank = no message)
+- [ ] Remove `KeybindingList.tsx` (replaced by new results component)
+- [ ] Remove `KeybindingRow.tsx` (replaced by new row components)
+- [ ] Run `make knip` to verify no orphaned imports
+- [ ] **Verify:** `make typecheck` passes after removals
+
+### 6.2 New Result Components
+
+- [ ] Create `ResultsContainer.tsx`
+  - [ ] Receives `{ sources, shortcuts, commands }` from search
+  - [ ] Renders three sections in fixed order
+  - [ ] Each section: header + rows + "Show all X" when truncated
+  - [ ] Handles expand/collapse of sections
+  - [ ] Manages selected index across all sections (flat list navigation)
+  - [ ] Scroll selected row into view
+- [ ] Create `SectionHeader.tsx`
+  - [ ] Section title ("Sources", "Shortcuts", "Commands")
+  - [ ] Result count
+  - [ ] "Show all X results" row when truncated
+- [ ] Create `SourceRow.tsx`
+  - [ ] Source icon + name + entry count
+  - [ ] Selected state styling
+  - [ ] Enter triggers drill-in
+- [ ] Create `ShortcutRow.tsx`
+  - [ ] Left: key combo as kbd pills
+  - [ ] Center: command name + context badge (if present)
+  - [ ] Right: source label (in flat mode)
+  - [ ] Selected state styling
+  - [ ] Enter copies key combo
+  - [ ] Brief flash on copy
+- [ ] Create `CommandRow.tsx`
+  - [ ] Left: command name as code badge
+  - [ ] Center: description
+  - [ ] Selected state styling
+  - [ ] Enter copies command
+  - [ ] Tab/→ drills into details
+- [ ] Create `CommandDetailView.tsx`
+  - [ ] Header: ← command name
+  - [ ] Description
+  - [ ] Subcommands list (filterable via search bar)
+  - [ ] Flags list (filterable via search bar)
+  - [ ] "Enriching..." indicator if not yet enriched
+  - [ ] Enter copies selected subcommand/flag
+  - [ ] Esc returns to results
+- [ ] Update `KeyCombo.tsx` if needed for new row layout
+- [ ] Write component tests for each new component
+- [ ] **Verify:** `make test` passes, `make typecheck` passes
+
+### 6.3 Navigation State Machine
+
+- [ ] Implement navigation state in `App.tsx`
+  - [ ] States: `flat` | `drilled-source` | `command-detail`
+  - [ ] `flat`: default, search across all
+  - [ ] `drilled-source`: scoped to one source, search within
+  - [ ] `command-detail`: viewing command details, search filters within
+  - [ ] Transitions:
+    - [ ] `flat` → Enter on source → `drilled-source`
+    - [ ] `flat` → Tab/→ on command → `command-detail`
+    - [ ] `drilled-source` → Esc → `flat`
+    - [ ] `drilled-source` → Tab/→ on command → `command-detail`
+    - [ ] `command-detail` → Esc → previous state
+- [ ] Implement state-aware search behavior
+  - [ ] `flat`: search all indices
+  - [ ] `drilled-source`: search shortcuts for that source only
+  - [ ] `command-detail`: filter subcommands/flags within detail view
+- [ ] Implement state-aware keyboard handling
+  - [ ] Esc behavior changes per state
+  - [ ] Enter behavior changes per row type
+- [ ] **Verify:** all navigation transitions work correctly
+
+### 6.4 Update App.tsx
+
+- [ ] Refactor `App.tsx` to use new components and state machine
+  - [ ] `LauncherPanel` wraps everything
+  - [ ] `SearchInput` at top (always visible)
+  - [ ] `ResultsContainer` below (flat or drilled)
+  - [ ] `CommandDetailView` replaces results when active
+- [ ] Implement full state reset on window show
+  - [ ] Clear query
+  - [ ] Reset to flat mode
+  - [ ] Reset selected index
+- [ ] Implement dismiss after copy (respect setting)
+- [ ] Implement copy with visual feedback (row flash)
+- [ ] **Verify:** full user flow works — open, search, navigate, copy, dismiss
+
+### 6.5 Search Input Updates
+
+- [ ] Update `SearchInput.tsx`
+  - [ ] Update placeholder: "Search shortcuts and commands..."
+  - [ ] Support `>` prefix visual indicator when command prefix mode is on
+  - [ ] Auto-focus on mount
+  - [ ] Re-focus and select on window show
+  - [ ] `?` icon that shows keyboard shortcuts help on hover/click
+- [ ] **Verify:** search input works in all navigation states
 
 ---
 
-## Non-Goals (v1)
+## Phase 7: Preferences Overhaul
 
-- Custom keybinding editing (read-only viewer)
-- Conflict detection between tools
-- Plugin system for community parsers
-- Windows Store / Mac App Store distribution
-- Adobe apps (proprietary `.kys` binary format)
-- Magnet (binary-encoded keycode format in plist)
+### 7.1 General Tab Updates
+
+- [ ] Add "Show in Menu Bar" toggle
+- [ ] Add "Dismiss After Copy" toggle
+- [ ] Add "Window Position" selector (top-center, center, mouse)
+- [ ] Add "Theme" selector (light, dark, system)
+- [ ] Keep existing: Launch at Login, Show in Dock, Global Shortcut recorder
+- [ ] Implement both-off safety dialog (dock + menu bar both disabled)
+- [ ] **Verify:** all General settings persist and apply correctly
+
+### 7.2 Sources Tab Overhaul
+
+- [ ] Redesign Sources tab per SPECS.md §9.3 and §9.4
+  - [ ] List all sources (from cheatsheets + standalone parsers)
+  - [ ] Enable/disable toggle per source
+  - [ ] Detection status indicator (detected / not detected / cheatsheet only)
+  - [ ] Detected path display (green check / red X)
+  - [ ] Show auto-detected path greyed out when override is set
+  - [ ] Path override text input + file picker button
+  - [ ] Environment variable support hint text
+  - [ ] Validation warning if path doesn't exist
+  - [ ] Reset button to clear override
+  - [ ] Multi-path UI for Obsidian (list with add/remove)
+- [ ] **Verify:** source toggles, path overrides, and detection work end-to-end
+
+### 7.3 Search Tab Updates
+
+- [ ] Keep existing shortcut weight sliders
+- [ ] Add "Command Prefix Mode" toggle with explanation text
+- [ ] Add result section limit controls (Sources, Shortcuts, Commands)
+- [ ] **Verify:** search settings affect search behavior in real-time
+
+### 7.4 Commands Tab
+
+- [ ] Create Commands tab
+  - [ ] Enable/disable toggle for commands feature
+  - [ ] Enrichment status display (X of Y commands enriched)
+  - [ ] Reserved space for future settings
+- [ ] **Verify:** toggling commands feature enables/disables commands in search
+
+---
+
+## Phase 8: Logging & Error Handling
+
+### 8.1 Logging Infrastructure
+
+- [ ] Install and configure `electron-log`
+- [ ] Set up log rotation (3 files, 5MB each)
+- [ ] Set log level: info (production), debug (dev)
+- [ ] Log location: `app.getPath('userData')/logs/`
+- [ ] Add logging to:
+  - [ ] Parser results summaries ("Parsed 12 shortcuts from vscode")
+  - [ ] Cheatsheet loading ("Loaded 5 cheatsheets, 1 failed validation")
+  - [ ] Enrichment progress ("Enriched 50/4127 commands")
+  - [ ] File watcher events ("Config changed: vscode keybindings.json")
+  - [ ] Errors and warnings
+- [ ] Never log: file contents, shortcut data, user config data
+- [ ] **Verify:** logs appear in correct location, rotation works
+
+### 8.2 Error Boundaries
+
+- [ ] Add React error boundary around main app
+- [ ] Implement per-subsystem isolation:
+  - [ ] Parser failure → skip source, log, continue
+  - [ ] Cheatsheet validation failure → skip, log, continue
+  - [ ] Enrichment failure → mark failed, log, continue
+  - [ ] Commands engine failure → disable commands, log, shortcuts work
+  - [ ] File watcher failure → log, continue without live updates
+- [ ] **Verify:** simulate failures in each subsystem, app continues functioning
+
+---
+
+## Phase 9: Polish & Quality
+
+### 9.1 Accessibility
+
+- [ ] Respect `prefers-reduced-motion` — instant show/hide
+- [ ] Respect `prefers-reduced-transparency` — solid backgrounds
+- [ ] ARIA roles: search, listbox, option for results
+- [ ] Screen reader announcements for section changes
+- [ ] **Verify:** test with reduced motion/transparency enabled
+
+### 9.2 Component Tests
+
+- [ ] Write tests for `SearchInput.tsx`
+- [ ] Write tests for `ResultsContainer.tsx`
+- [ ] Write tests for `ShortcutRow.tsx`
+- [ ] Write tests for `CommandRow.tsx`
+- [ ] Write tests for `SourceRow.tsx`
+- [ ] Write tests for `CommandDetailView.tsx`
+- [ ] Write tests for navigation state machine
+- [ ] **Verify:** `make test` passes, all component tests green
+
+### 9.3 Integration Testing
+
+- [ ] Test full flow: startup → cheatsheet load → parser merge → search → results
+- [ ] Test file watcher: modify config → shortcuts update → UI reflects change
+- [ ] Test commands: startup → Tier 1 scan → search → enrichment → expanded results
+- [ ] Test settings: change setting → behavior changes → persists across restart
+- [ ] **Verify:** all integration tests pass
+
+### 9.4 Performance Validation
+
+- [ ] Measure startup time — target: <500ms to window ready
+- [ ] Measure search latency — target: <10ms per keystroke
+- [ ] Measure memory footprint — target: <100MB resident
+- [ ] Measure enrichment worker CPU impact — target: <5% while active
+- [ ] Profile Fuse.js with 50k+ command entries
+- [ ] **Verify:** all performance targets met
+
+### 9.5 Code Quality
+
+- [ ] Run `make lint` — fix all issues
+- [ ] Run `make typecheck` — no errors
+- [ ] Run `make knip` — no unused exports/files
+- [ ] Review all TODO/FIXME comments
+- [ ] **Verify:** `make precommit` passes clean
+
+---
+
+## Phase 10: Packaging & Distribution
+
+### 10.1 App Identity
+
+- [ ] Create app icons (.icns for macOS, .ico for Windows, .png for Linux)
+- [ ] Update `forge.config.ts` with icons
+- [ ] Update app name and metadata in `package.json`
+- [ ] **Verify:** icon appears correctly in dock, tray, and about dialog
+
+### 10.2 Code Signing & Notarization
+
+- [ ] Configure Apple Developer certificate in forge config
+- [ ] Set up notarization with `@electron/notarize`
+- [ ] Configure entitlements for file system access
+- [ ] **Verify:** signed DMG installs without Gatekeeper warnings
+
+### 10.3 Build & Release
+
+- [ ] Configure GitHub Actions for release builds
+  - [ ] Build on push to release branch/tag
+  - [ ] macOS: DMG (signed + notarized)
+  - [ ] Windows: Squirrel installer
+  - [ ] Linux: deb + rpm
+  - [ ] Upload artifacts to GitHub Releases
+- [ ] Test installation on clean machines:
+  - [ ] macOS (Apple Silicon + Intel)
+  - [ ] Windows 10/11
+  - [ ] Ubuntu/Fedora
+- [ ] **Verify:** `make make` produces installable artifacts, release pipeline works
+
+### 10.4 Auto-Update
+
+- [ ] Install and configure `electron-updater`
+- [ ] Configure update feed URL (GitHub Releases)
+- [ ] Implement update check on app launch
+- [ ] Implement update notification (download available, restart to apply)
+- [ ] **Verify:** publish update → app detects and installs it
+
+### 10.5 CLI Escape Hatch
+
+- [ ] Implement `shortty --reset-settings` command
+  - [ ] Clears electron-store to defaults
+  - [ ] Outputs confirmation message
+- [ ] **Verify:** settings reset works when both dock and menu bar are off
+
+---
+
+## Phase 11: Final Verification
+
+### 11.1 End-to-End Checklist
+
+- [ ] App launches silently (no window, tray icon visible)
+- [ ] Global hotkey toggles panel with animation
+- [ ] Panel opens blank, search bar focused
+- [ ] Typing shows results in three sections (Sources, Shortcuts, Commands)
+- [ ] Arrow keys navigate rows across sections with wrap-around
+- [ ] Enter on source drills in, Esc goes back
+- [ ] Enter on shortcut copies key combo, row flashes
+- [ ] Enter on command copies command, row flashes
+- [ ] Tab/→ on command drills into detail view
+- [ ] Command detail view shows subcommands and flags
+- [ ] Search filters within detail view
+- [ ] Esc from detail view returns to results
+- [ ] Panel dismisses on Esc (flat mode), click outside, blur, global hotkey
+- [ ] State fully resets on each open
+- [ ] Dismiss after copy setting works (both on and off)
+- [ ] File watcher: edit a config → shortcuts update without reopening
+- [ ] Preferences: all tabs functional, settings persist
+- [ ] Source path overrides work
+- [ ] Enable/disable sources works
+- [ ] Commands feature toggle works
+- [ ] Command prefix mode works (`>` prefix)
+- [ ] Theme switch works (light/dark/system)
+- [ ] Launch at login works
+- [ ] Dock/menu bar visibility settings work
+- [ ] Both-off safety dialog works
+- [ ] `shortty --reset-settings` works
+- [ ] `make precommit` passes (lint + typecheck + test + knip)
+- [ ] Performance targets met
+- [ ] Auto-update works
+- [ ] Signed DMG installs without warnings
