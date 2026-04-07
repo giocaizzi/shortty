@@ -105,7 +105,7 @@ function validate(
   return data as CheatsheetDefinition;
 }
 
-/** Default sources directory resolved relative to this file. */
+/** Default sources directory resolved relative to this file at build time. */
 function defaultSourcesDir(): string {
   return join(__dirname, '../../cheatsheets/sources');
 }
