@@ -21,13 +21,15 @@ export abstract class BaseParser implements ParserPlugin {
   }
 
   protected makeKeybinding(
-    partial: Omit<Keybinding, 'id' | 'source' | 'sourceLabel'>,
+    partial: Omit<Keybinding, 'id' | 'source' | 'sourceLabel' | 'origin'> &
+      Partial<Pick<Keybinding, 'origin'>>,
   ): Keybinding {
     return {
       ...partial,
       id: generateKeybindingId(this.meta.id, partial.key, partial.rawCommand, partial.context),
       source: this.meta.id,
       sourceLabel: this.meta.label,
+      origin: partial.origin ?? 'user-config',
     };
   }
 

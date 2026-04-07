@@ -1,0 +1,13 @@
+{
+  "id": "vscode",
+  "label": "VS Code",
+  "icon": "💻",
+  "platforms": ["darwin", "win32", "linux"],
+  "parser": "vscode",
+  "defaultPaths": {
+    "darwin": ["~/Library/Application Support/Code/User/keybindings.json"],
+    "win32": ["%APPDATA%/Code/User/keybindings.json"],
+    "linux": ["~/.config/Code/User/keybindings.json"]
+  },
+  "shortcuts": []
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["id", "label", "icon", "platforms", "shortcuts"],
+  "properties": {
+    "id": { "type": "string", "description": "Source ID, e.g. 'vscode'" },
+    "label": { "type": "string", "description": "Display name, e.g. 'VS Code'" },
+    "icon": { "type": "string", "description": "Emoji icon" },
+    "platforms": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["darwin", "win32", "linux"] },
+      "minItems": 1
+    },
+    "parser": {
+      "type": ["string", "null"],
+      "description": "Parser class ID, or null for cheatsheet-only"
+    },
+    "lastVerified": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "string" },
+        "date": { "type": "string", "format": "date" }
+      }
+    },
+    "defaultPaths": {
+      "type": "object",
+      "properties": {
+        "darwin": { "type": "array", "items": { "type": "string" } },
+        "win32": { "type": "array", "items": { "type": "string" } },
+        "linux": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "shortcuts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["command", "rawCommand", "key"],
+        "properties": {
+          "command": { "type": "string" },
+          "rawCommand": { "type": "string" },
+          "key": {
+            "type": "object",
+            "properties": {
+              "darwin": { "type": "string" },
+              "win32": { "type": "string" },
+              "linux": { "type": "string" }
+            }
+          },
+          "category": { "type": "string" },
+          "context": { "type": "string" },
+          "minVersion": { "type": "string" }
+        }
+      }
+    }
+  }
+}

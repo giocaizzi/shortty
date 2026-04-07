@@ -1,0 +1,12 @@
+{
+  "id": "ghostty",
+  "label": "Ghostty",
+  "icon": "👻",
+  "platforms": ["darwin", "linux"],
+  "parser": "ghostty",
+  "defaultPaths": {
+    "darwin": ["~/Library/Application Support/com.mitchellh.ghostty/config"],
+    "linux": ["~/.config/ghostty/config"]
+  },
+  "shortcuts": []
+}

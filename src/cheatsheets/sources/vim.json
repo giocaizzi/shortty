@@ -1,0 +1,12 @@
+{
+  "id": "vim",
+  "label": "vim",
+  "icon": "📝",
+  "platforms": ["darwin", "linux"],
+  "parser": "vim",
+  "defaultPaths": {
+    "darwin": ["~/.vimrc"],
+    "linux": ["~/.vimrc"]
+  },
+  "shortcuts": []
+}

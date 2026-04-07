@@ -1,0 +1,13 @@
+{
+  "id": "chrome",
+  "label": "Chrome",
+  "icon": "🌐",
+  "platforms": ["darwin", "win32", "linux"],
+  "parser": "chrome",
+  "defaultPaths": {
+    "darwin": ["~/Library/Application Support/Google/Chrome/Default/Preferences"],
+    "win32": ["%LOCALAPPDATA%/Google/Chrome/User Data/Default/Preferences"],
+    "linux": ["~/.config/google-chrome/Default/Preferences"]
+  },
+  "shortcuts": []
+}

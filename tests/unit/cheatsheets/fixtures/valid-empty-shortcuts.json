@@ -1,0 +1,7 @@
+{
+  "id": "minimal",
+  "label": "Minimal App",
+  "icon": "📦",
+  "platforms": ["darwin"],
+  "shortcuts": []
+}

@@ -1,0 +1,12 @@
+{
+  "id": "zsh",
+  "label": "Zsh",
+  "icon": "🐚",
+  "platforms": ["darwin", "linux"],
+  "parser": "zsh",
+  "defaultPaths": {
+    "darwin": ["~/.zshrc"],
+    "linux": ["~/.zshrc"]
+  },
+  "shortcuts": []
+}
