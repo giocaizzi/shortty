@@ -99,6 +99,10 @@ const electronAPI = {
   getCommandsStats(): Promise<{ total: number; enriched: number; running: boolean }> {
     return ipcRenderer.invoke(IPC_CHANNELS.COMMANDS_GET_STATS);
   },
+
+  setWindowHeight(height: number): void {
+    ipcRenderer.send(IPC_CHANNELS.SET_WINDOW_HEIGHT, height);
+  },
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

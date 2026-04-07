@@ -72,6 +72,22 @@ export function App() {
     setCopyFlashIndex(null);
   }, [query, nav]);
 
+  // Resize window: compact when empty in flat mode, expand when results exist
+  const hasResults = nav.mode !== 'flat' ||
+    results.sources.length > 0 ||
+    results.shortcuts.length > 0 ||
+    results.commands.length > 0;
+
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api) return;
+    if (hasResults) {
+      api.setWindowHeight(580);
+    } else {
+      api.setWindowHeight(72);
+    }
+  }, [hasResults]);
+
   // Scroll selected item into view
   useEffect(() => {
     const list = listRef.current;

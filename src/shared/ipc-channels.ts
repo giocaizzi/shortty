@@ -18,4 +18,6 @@ export const IPC_CHANNELS = {
   COMMANDS_REFRESH: 'commands:refresh',
   COMMANDS_ON_UPDATE: 'commands:onUpdate',
   COMMANDS_GET_STATS: 'commands:getStats',
+
+  SET_WINDOW_HEIGHT: 'app:setWindowHeight',
 } as const;

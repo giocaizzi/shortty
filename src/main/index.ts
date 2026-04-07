@@ -2,6 +2,7 @@ import {
   app,
   BrowserWindow,
   globalShortcut,
+  ipcMain,
   nativeTheme,
   screen,
 } from 'electron';
@@ -75,7 +76,7 @@ function createWindow(): BrowserWindow {
 
   const win = new BrowserWindow({
     width: windowWidth,
-    height: windowHeight,
+    height: SEARCH_BAR_HEIGHT,
     x,
     y,
     frame: false,
@@ -139,11 +140,11 @@ function createWindow(): BrowserWindow {
 function showWindow(): void {
   if (!mainWindow) return;
 
-  // Reposition window each time it's shown
+  // Reposition and reset to compact search bar height
   const windowWidth = 750;
   const windowHeight = 580;
   const { x, y } = getWindowPosition(windowWidth, windowHeight);
-  mainWindow.setPosition(x, y);
+  mainWindow.setBounds({ x, y, width: WINDOW_WIDTH, height: SEARCH_BAR_HEIGHT });
 
   mainWindow.show();
   mainWindow.focus();
@@ -297,6 +298,18 @@ function setupSettingsChangeListener(): void {
 function openPreferences(): void {
   openPreferencesWindow();
 }
+
+const WINDOW_WIDTH = 750;
+const SEARCH_BAR_HEIGHT = 72;
+const MAX_WINDOW_HEIGHT = 580;
+
+ipcMain.on(IPC_CHANNELS.SET_WINDOW_HEIGHT, (_event, height: number) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const clamped = Math.min(Math.max(height, SEARCH_BAR_HEIGHT), MAX_WINDOW_HEIGHT);
+  const [x] = mainWindow.getPosition();
+  const [, y] = mainWindow.getPosition();
+  mainWindow.setBounds({ x, y, width: WINDOW_WIDTH, height: clamped }, true);
+});
 
 app.on('ready', async () => {
   log.info('App starting');
