@@ -4,9 +4,191 @@
   "icon": "👻",
   "platforms": ["darwin", "linux"],
   "parser": "ghostty",
+  "lastVerified": { "version": "1.1", "date": "2026-04-01" },
   "defaultPaths": {
     "darwin": ["~/Library/Application Support/com.mitchellh.ghostty/config"],
     "linux": ["~/.config/ghostty/config"]
   },
-  "shortcuts": []
+  "shortcuts": [
+    {
+      "command": "New Tab",
+      "rawCommand": "ghostty.new_tab",
+      "key": { "darwin": "Cmd+T", "linux": "Ctrl+Shift+T" },
+      "category": "Tab"
+    },
+    {
+      "command": "Close Surface",
+      "rawCommand": "ghostty.close_surface",
+      "key": { "darwin": "Cmd+W", "linux": "Ctrl+Shift+W" },
+      "category": "Tab"
+    },
+    {
+      "command": "Next Tab",
+      "rawCommand": "ghostty.goto_tab:next",
+      "key": { "darwin": "Cmd+Shift+]", "linux": "Ctrl+PageDown" },
+      "category": "Tab"
+    },
+    {
+      "command": "Previous Tab",
+      "rawCommand": "ghostty.goto_tab:previous",
+      "key": { "darwin": "Cmd+Shift+[", "linux": "Ctrl+PageUp" },
+      "category": "Tab"
+    },
+    {
+      "command": "Go to Tab 1",
+      "rawCommand": "ghostty.goto_tab:1",
+      "key": { "darwin": "Cmd+1", "linux": "Alt+1" },
+      "category": "Tab"
+    },
+    {
+      "command": "Go to Tab 2",
+      "rawCommand": "ghostty.goto_tab:2",
+      "key": { "darwin": "Cmd+2", "linux": "Alt+2" },
+      "category": "Tab"
+    },
+    {
+      "command": "Go to Tab 3",
+      "rawCommand": "ghostty.goto_tab:3",
+      "key": { "darwin": "Cmd+3", "linux": "Alt+3" },
+      "category": "Tab"
+    },
+    {
+      "command": "Go to Tab 4",
+      "rawCommand": "ghostty.goto_tab:4",
+      "key": { "darwin": "Cmd+4", "linux": "Alt+4" },
+      "category": "Tab"
+    },
+    {
+      "command": "Go to Tab 5",
+      "rawCommand": "ghostty.goto_tab:5",
+      "key": { "darwin": "Cmd+5", "linux": "Alt+5" },
+      "category": "Tab"
+    },
+    {
+      "command": "New Window",
+      "rawCommand": "ghostty.new_window",
+      "key": { "darwin": "Cmd+N", "linux": "Ctrl+Shift+N" },
+      "category": "Window"
+    },
+    {
+      "command": "Toggle Fullscreen",
+      "rawCommand": "ghostty.toggle_fullscreen",
+      "key": { "darwin": "Ctrl+Cmd+F", "linux": "F11" },
+      "category": "Window"
+    },
+    {
+      "command": "New Split Right",
+      "rawCommand": "ghostty.new_split:right",
+      "key": { "darwin": "Cmd+D", "linux": "Ctrl+Shift+D" },
+      "category": "Split"
+    },
+    {
+      "command": "New Split Down",
+      "rawCommand": "ghostty.new_split:down",
+      "key": { "darwin": "Cmd+Shift+D", "linux": "Ctrl+Shift+Down" },
+      "category": "Split"
+    },
+    {
+      "command": "Navigate Split Left",
+      "rawCommand": "ghostty.goto_split:left",
+      "key": { "darwin": "Cmd+Alt+Left", "linux": "Ctrl+Alt+Left" },
+      "category": "Split"
+    },
+    {
+      "command": "Navigate Split Right",
+      "rawCommand": "ghostty.goto_split:right",
+      "key": { "darwin": "Cmd+Alt+Right", "linux": "Ctrl+Alt+Right" },
+      "category": "Split"
+    },
+    {
+      "command": "Navigate Split Up",
+      "rawCommand": "ghostty.goto_split:top",
+      "key": { "darwin": "Cmd+Alt+Up", "linux": "Ctrl+Alt+Up" },
+      "category": "Split"
+    },
+    {
+      "command": "Navigate Split Down",
+      "rawCommand": "ghostty.goto_split:bottom",
+      "key": { "darwin": "Cmd+Alt+Down", "linux": "Ctrl+Alt+Down" },
+      "category": "Split"
+    },
+    {
+      "command": "Equalize Splits",
+      "rawCommand": "ghostty.equalize_splits",
+      "key": { "darwin": "Cmd+Shift+=", "linux": "Ctrl+Shift+=" },
+      "category": "Split"
+    },
+    {
+      "command": "Toggle Split Zoom",
+      "rawCommand": "ghostty.toggle_split_zoom",
+      "key": { "darwin": "Cmd+Shift+Enter", "linux": "Ctrl+Shift+Enter" },
+      "category": "Split"
+    },
+    {
+      "command": "Increase Font Size",
+      "rawCommand": "ghostty.increase_font_size:1",
+      "key": { "darwin": "Cmd+=", "linux": "Ctrl+=" },
+      "category": "Font"
+    },
+    {
+      "command": "Decrease Font Size",
+      "rawCommand": "ghostty.decrease_font_size:1",
+      "key": { "darwin": "Cmd+-", "linux": "Ctrl+-" },
+      "category": "Font"
+    },
+    {
+      "command": "Reset Font Size",
+      "rawCommand": "ghostty.reset_font_size",
+      "key": { "darwin": "Cmd+0", "linux": "Ctrl+0" },
+      "category": "Font"
+    },
+    {
+      "command": "Copy",
+      "rawCommand": "ghostty.copy_to_clipboard",
+      "key": { "darwin": "Cmd+C", "linux": "Ctrl+Shift+C" },
+      "category": "Selection"
+    },
+    {
+      "command": "Paste",
+      "rawCommand": "ghostty.paste_from_clipboard",
+      "key": { "darwin": "Cmd+V", "linux": "Ctrl+Shift+V" },
+      "category": "Selection"
+    },
+    {
+      "command": "Select All",
+      "rawCommand": "ghostty.select_all",
+      "key": { "darwin": "Cmd+A", "linux": "Ctrl+Shift+A" },
+      "category": "Selection"
+    },
+    {
+      "command": "Search",
+      "rawCommand": "ghostty.open_search",
+      "key": { "darwin": "Cmd+F", "linux": "Ctrl+Shift+F" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Scroll to Top",
+      "rawCommand": "ghostty.scroll_to_top",
+      "key": { "darwin": "Cmd+Home", "linux": "Ctrl+Shift+Home" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Scroll to Bottom",
+      "rawCommand": "ghostty.scroll_to_bottom",
+      "key": { "darwin": "Cmd+End", "linux": "Ctrl+Shift+End" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Scroll Page Up",
+      "rawCommand": "ghostty.scroll_page_up",
+      "key": { "darwin": "Cmd+PageUp", "linux": "Shift+PageUp" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Scroll Page Down",
+      "rawCommand": "ghostty.scroll_page_down",
+      "key": { "darwin": "Cmd+PageDown", "linux": "Shift+PageDown" },
+      "category": "Navigation"
+    }
+  ]
 }

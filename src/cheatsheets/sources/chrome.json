@@ -4,10 +4,354 @@
   "icon": "🌐",
   "platforms": ["darwin", "win32", "linux"],
   "parser": "chrome",
+  "lastVerified": { "version": "131", "date": "2026-04-01" },
   "defaultPaths": {
     "darwin": ["~/Library/Application Support/Google/Chrome/Default/Preferences"],
     "win32": ["%LOCALAPPDATA%/Google/Chrome/User Data/Default/Preferences"],
     "linux": ["~/.config/google-chrome/Default/Preferences"]
   },
-  "shortcuts": []
+  "shortcuts": [
+    {
+      "command": "New Tab",
+      "rawCommand": "chrome.tabs.newTab",
+      "key": { "darwin": "Cmd+T", "win32": "Ctrl+T", "linux": "Ctrl+T" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Close Tab",
+      "rawCommand": "chrome.tabs.closeTab",
+      "key": { "darwin": "Cmd+W", "win32": "Ctrl+W", "linux": "Ctrl+W" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Reopen Closed Tab",
+      "rawCommand": "chrome.tabs.reopenClosedTab",
+      "key": { "darwin": "Cmd+Shift+T", "win32": "Ctrl+Shift+T", "linux": "Ctrl+Shift+T" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Next Tab",
+      "rawCommand": "chrome.tabs.nextTab",
+      "key": { "darwin": "Ctrl+Tab", "win32": "Ctrl+Tab", "linux": "Ctrl+Tab" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Previous Tab",
+      "rawCommand": "chrome.tabs.previousTab",
+      "key": { "darwin": "Ctrl+Shift+Tab", "win32": "Ctrl+Shift+Tab", "linux": "Ctrl+Shift+Tab" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Go to Tab 1",
+      "rawCommand": "chrome.tabs.goToTab1",
+      "key": { "darwin": "Cmd+1", "win32": "Ctrl+1", "linux": "Ctrl+1" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Go to Tab 2",
+      "rawCommand": "chrome.tabs.goToTab2",
+      "key": { "darwin": "Cmd+2", "win32": "Ctrl+2", "linux": "Ctrl+2" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Go to Tab 3",
+      "rawCommand": "chrome.tabs.goToTab3",
+      "key": { "darwin": "Cmd+3", "win32": "Ctrl+3", "linux": "Ctrl+3" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Go to Tab 4",
+      "rawCommand": "chrome.tabs.goToTab4",
+      "key": { "darwin": "Cmd+4", "win32": "Ctrl+4", "linux": "Ctrl+4" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Go to Tab 5",
+      "rawCommand": "chrome.tabs.goToTab5",
+      "key": { "darwin": "Cmd+5", "win32": "Ctrl+5", "linux": "Ctrl+5" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Go to Tab 6",
+      "rawCommand": "chrome.tabs.goToTab6",
+      "key": { "darwin": "Cmd+6", "win32": "Ctrl+6", "linux": "Ctrl+6" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Go to Tab 7",
+      "rawCommand": "chrome.tabs.goToTab7",
+      "key": { "darwin": "Cmd+7", "win32": "Ctrl+7", "linux": "Ctrl+7" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Go to Tab 8",
+      "rawCommand": "chrome.tabs.goToTab8",
+      "key": { "darwin": "Cmd+8", "win32": "Ctrl+8", "linux": "Ctrl+8" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Go to Last Tab",
+      "rawCommand": "chrome.tabs.goToLastTab",
+      "key": { "darwin": "Cmd+9", "win32": "Ctrl+9", "linux": "Ctrl+9" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Move Tab Right",
+      "rawCommand": "chrome.tabs.moveTabRight",
+      "key": { "darwin": "Ctrl+Shift+PageDown", "win32": "Ctrl+Shift+PageDown", "linux": "Ctrl+Shift+PageDown" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Move Tab Left",
+      "rawCommand": "chrome.tabs.moveTabLeft",
+      "key": { "darwin": "Ctrl+Shift+PageUp", "win32": "Ctrl+Shift+PageUp", "linux": "Ctrl+Shift+PageUp" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Pin/Unpin Tab",
+      "rawCommand": "chrome.tabs.pinTab",
+      "key": { "darwin": "Cmd+Shift+P", "win32": "Ctrl+Shift+P", "linux": "Ctrl+Shift+P" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Mute/Unmute Tab",
+      "rawCommand": "chrome.tabs.muteTab",
+      "key": { "darwin": "Cmd+Shift+M", "win32": "Ctrl+Shift+M", "linux": "Ctrl+Shift+M" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Back",
+      "rawCommand": "chrome.navigation.back",
+      "key": { "darwin": "Cmd+[", "win32": "Alt+Left", "linux": "Alt+Left" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Forward",
+      "rawCommand": "chrome.navigation.forward",
+      "key": { "darwin": "Cmd+]", "win32": "Alt+Right", "linux": "Alt+Right" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Reload Page",
+      "rawCommand": "chrome.navigation.reload",
+      "key": { "darwin": "Cmd+R", "win32": "Ctrl+R", "linux": "Ctrl+R" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Hard Reload (Bypass Cache)",
+      "rawCommand": "chrome.navigation.hardReload",
+      "key": { "darwin": "Cmd+Shift+R", "win32": "Ctrl+Shift+R", "linux": "Ctrl+Shift+R" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Stop Loading",
+      "rawCommand": "chrome.navigation.stop",
+      "key": { "darwin": "Cmd+.", "win32": "Escape", "linux": "Escape" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Focus Address Bar",
+      "rawCommand": "chrome.navigation.focusAddressBar",
+      "key": { "darwin": "Cmd+L", "win32": "Ctrl+L", "linux": "Ctrl+L" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Home Page",
+      "rawCommand": "chrome.navigation.home",
+      "key": { "darwin": "Cmd+Shift+H", "win32": "Alt+Home", "linux": "Alt+Home" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Scroll Down",
+      "rawCommand": "chrome.navigation.scrollDown",
+      "key": { "darwin": "Space", "win32": "Space", "linux": "Space" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Scroll Up",
+      "rawCommand": "chrome.navigation.scrollUp",
+      "key": { "darwin": "Shift+Space", "win32": "Shift+Space", "linux": "Shift+Space" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Go to Top of Page",
+      "rawCommand": "chrome.navigation.scrollToTop",
+      "key": { "darwin": "Cmd+Up", "win32": "Home", "linux": "Home" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Go to Bottom of Page",
+      "rawCommand": "chrome.navigation.scrollToBottom",
+      "key": { "darwin": "Cmd+Down", "win32": "End", "linux": "End" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Find on Page",
+      "rawCommand": "chrome.page.find",
+      "key": { "darwin": "Cmd+F", "win32": "Ctrl+F", "linux": "Ctrl+F" },
+      "category": "Page"
+    },
+    {
+      "command": "Find Next",
+      "rawCommand": "chrome.page.findNext",
+      "key": { "darwin": "Cmd+G", "win32": "Ctrl+G", "linux": "Ctrl+G" },
+      "category": "Page"
+    },
+    {
+      "command": "Find Previous",
+      "rawCommand": "chrome.page.findPrevious",
+      "key": { "darwin": "Cmd+Shift+G", "win32": "Ctrl+Shift+G", "linux": "Ctrl+Shift+G" },
+      "category": "Page"
+    },
+    {
+      "command": "Zoom In",
+      "rawCommand": "chrome.page.zoomIn",
+      "key": { "darwin": "Cmd+=", "win32": "Ctrl+=", "linux": "Ctrl+=" },
+      "category": "Page"
+    },
+    {
+      "command": "Zoom Out",
+      "rawCommand": "chrome.page.zoomOut",
+      "key": { "darwin": "Cmd+-", "win32": "Ctrl+-", "linux": "Ctrl+-" },
+      "category": "Page"
+    },
+    {
+      "command": "Reset Zoom",
+      "rawCommand": "chrome.page.resetZoom",
+      "key": { "darwin": "Cmd+0", "win32": "Ctrl+0", "linux": "Ctrl+0" },
+      "category": "Page"
+    },
+    {
+      "command": "Print Page",
+      "rawCommand": "chrome.page.print",
+      "key": { "darwin": "Cmd+P", "win32": "Ctrl+P", "linux": "Ctrl+P" },
+      "category": "Page"
+    },
+    {
+      "command": "Save Page As",
+      "rawCommand": "chrome.page.saveAs",
+      "key": { "darwin": "Cmd+S", "win32": "Ctrl+S", "linux": "Ctrl+S" },
+      "category": "Page"
+    },
+    {
+      "command": "View Page Source",
+      "rawCommand": "chrome.page.viewSource",
+      "key": { "darwin": "Cmd+Alt+U", "win32": "Ctrl+U", "linux": "Ctrl+U" },
+      "category": "Page"
+    },
+    {
+      "command": "Select All",
+      "rawCommand": "chrome.page.selectAll",
+      "key": { "darwin": "Cmd+A", "win32": "Ctrl+A", "linux": "Ctrl+A" },
+      "category": "Page"
+    },
+    {
+      "command": "Bookmark This Page",
+      "rawCommand": "chrome.bookmarks.bookmarkPage",
+      "key": { "darwin": "Cmd+D", "win32": "Ctrl+D", "linux": "Ctrl+D" },
+      "category": "Bookmarks"
+    },
+    {
+      "command": "Bookmark All Open Tabs",
+      "rawCommand": "chrome.bookmarks.bookmarkAllTabs",
+      "key": { "darwin": "Cmd+Shift+D", "win32": "Ctrl+Shift+D", "linux": "Ctrl+Shift+D" },
+      "category": "Bookmarks"
+    },
+    {
+      "command": "Toggle Bookmarks Bar",
+      "rawCommand": "chrome.bookmarks.toggleBar",
+      "key": { "darwin": "Cmd+Shift+B", "win32": "Ctrl+Shift+B", "linux": "Ctrl+Shift+B" },
+      "category": "Bookmarks"
+    },
+    {
+      "command": "Open Bookmarks Manager",
+      "rawCommand": "chrome.bookmarks.manager",
+      "key": { "darwin": "Cmd+Alt+B", "win32": "Ctrl+Shift+O", "linux": "Ctrl+Shift+O" },
+      "category": "Bookmarks"
+    },
+    {
+      "command": "Open DevTools",
+      "rawCommand": "chrome.devtools.open",
+      "key": { "darwin": "Cmd+Alt+I", "win32": "Ctrl+Shift+I", "linux": "Ctrl+Shift+I" },
+      "category": "DevTools"
+    },
+    {
+      "command": "Open DevTools (F12)",
+      "rawCommand": "chrome.devtools.openF12",
+      "key": { "darwin": "F12", "win32": "F12", "linux": "F12" },
+      "category": "DevTools"
+    },
+    {
+      "command": "Open Console",
+      "rawCommand": "chrome.devtools.console",
+      "key": { "darwin": "Cmd+Alt+J", "win32": "Ctrl+Shift+J", "linux": "Ctrl+Shift+J" },
+      "category": "DevTools"
+    },
+    {
+      "command": "Inspect Element",
+      "rawCommand": "chrome.devtools.inspectElement",
+      "key": { "darwin": "Cmd+Shift+C", "win32": "Ctrl+Shift+C", "linux": "Ctrl+Shift+C" },
+      "category": "DevTools"
+    },
+    {
+      "command": "Open Downloads",
+      "rawCommand": "chrome.window.downloads",
+      "key": { "darwin": "Cmd+Shift+J", "win32": "Ctrl+J", "linux": "Ctrl+J" },
+      "category": "Window"
+    },
+    {
+      "command": "Open History",
+      "rawCommand": "chrome.window.history",
+      "key": { "darwin": "Cmd+Y", "win32": "Ctrl+H", "linux": "Ctrl+H" },
+      "category": "Window"
+    },
+    {
+      "command": "New Window",
+      "rawCommand": "chrome.window.newWindow",
+      "key": { "darwin": "Cmd+N", "win32": "Ctrl+N", "linux": "Ctrl+N" },
+      "category": "Window"
+    },
+    {
+      "command": "New Incognito Window",
+      "rawCommand": "chrome.window.newIncognito",
+      "key": { "darwin": "Cmd+Shift+N", "win32": "Ctrl+Shift+N", "linux": "Ctrl+Shift+N" },
+      "category": "Window"
+    },
+    {
+      "command": "Close Window",
+      "rawCommand": "chrome.window.closeWindow",
+      "key": { "darwin": "Cmd+Shift+W", "win32": "Ctrl+Shift+W", "linux": "Ctrl+Shift+W" },
+      "category": "Window"
+    },
+    {
+      "command": "Toggle Full Screen",
+      "rawCommand": "chrome.window.fullScreen",
+      "key": { "darwin": "Ctrl+Cmd+F", "win32": "F11", "linux": "F11" },
+      "category": "Window"
+    },
+    {
+      "command": "Minimize Window",
+      "rawCommand": "chrome.window.minimize",
+      "key": { "darwin": "Cmd+M", "win32": "Alt+Space N", "linux": "Alt+F9" },
+      "category": "Window"
+    },
+    {
+      "command": "Open Settings",
+      "rawCommand": "chrome.window.settings",
+      "key": { "darwin": "Cmd+,", "win32": "Alt+F S", "linux": "Alt+F S" },
+      "category": "Window"
+    },
+    {
+      "command": "Clear Browsing Data",
+      "rawCommand": "chrome.window.clearData",
+      "key": { "darwin": "Cmd+Shift+Delete", "win32": "Ctrl+Shift+Delete", "linux": "Ctrl+Shift+Delete" },
+      "category": "Window"
+    },
+    {
+      "command": "Open Task Manager",
+      "rawCommand": "chrome.window.taskManager",
+      "key": { "darwin": "Shift+Escape", "win32": "Shift+Escape", "linux": "Shift+Escape" },
+      "category": "Window"
+    }
+  ]
 }

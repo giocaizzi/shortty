@@ -4,9 +4,1054 @@
   "icon": "📝",
   "platforms": ["darwin", "linux"],
   "parser": "vim",
+  "lastVerified": { "version": "9.1", "date": "2026-04-01" },
   "defaultPaths": {
     "darwin": ["~/.vimrc"],
     "linux": ["~/.vimrc"]
   },
-  "shortcuts": []
+  "shortcuts": [
+    {
+      "command": "Move Left",
+      "rawCommand": "vim.motion.left",
+      "key": { "darwin": "h", "linux": "h" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Move Down",
+      "rawCommand": "vim.motion.down",
+      "key": { "darwin": "j", "linux": "j" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Move Up",
+      "rawCommand": "vim.motion.up",
+      "key": { "darwin": "k", "linux": "k" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Move Right",
+      "rawCommand": "vim.motion.right",
+      "key": { "darwin": "l", "linux": "l" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Next Word",
+      "rawCommand": "vim.motion.word_forward",
+      "key": { "darwin": "w", "linux": "w" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Previous Word",
+      "rawCommand": "vim.motion.word_backward",
+      "key": { "darwin": "b", "linux": "b" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "End of Word",
+      "rawCommand": "vim.motion.word_end",
+      "key": { "darwin": "e", "linux": "e" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Next WORD",
+      "rawCommand": "vim.motion.WORD_forward",
+      "key": { "darwin": "W", "linux": "W" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Previous WORD",
+      "rawCommand": "vim.motion.WORD_backward",
+      "key": { "darwin": "B", "linux": "B" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "End of WORD",
+      "rawCommand": "vim.motion.WORD_end",
+      "key": { "darwin": "E", "linux": "E" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Beginning of Line",
+      "rawCommand": "vim.motion.line_start",
+      "key": { "darwin": "0", "linux": "0" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "End of Line",
+      "rawCommand": "vim.motion.line_end",
+      "key": { "darwin": "$", "linux": "$" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "First Non-Blank Character",
+      "rawCommand": "vim.motion.first_non_blank",
+      "key": { "darwin": "^", "linux": "^" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Go to First Line",
+      "rawCommand": "vim.motion.file_start",
+      "key": { "darwin": "gg", "linux": "gg" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Go to Last Line",
+      "rawCommand": "vim.motion.file_end",
+      "key": { "darwin": "G", "linux": "G" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Go to Line Number",
+      "rawCommand": "vim.motion.goto_line",
+      "key": { "darwin": "{n}G", "linux": "{n}G" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Half Page Down",
+      "rawCommand": "vim.motion.half_page_down",
+      "key": { "darwin": "Ctrl+D", "linux": "Ctrl+D" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Half Page Up",
+      "rawCommand": "vim.motion.half_page_up",
+      "key": { "darwin": "Ctrl+U", "linux": "Ctrl+U" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Full Page Down",
+      "rawCommand": "vim.motion.page_down",
+      "key": { "darwin": "Ctrl+F", "linux": "Ctrl+F" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Full Page Up",
+      "rawCommand": "vim.motion.page_up",
+      "key": { "darwin": "Ctrl+B", "linux": "Ctrl+B" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Go to Matching Bracket",
+      "rawCommand": "vim.motion.match_bracket",
+      "key": { "darwin": "%", "linux": "%" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Next Paragraph",
+      "rawCommand": "vim.motion.paragraph_forward",
+      "key": { "darwin": "}", "linux": "}" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Previous Paragraph",
+      "rawCommand": "vim.motion.paragraph_backward",
+      "key": { "darwin": "{", "linux": "{" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Next Sentence",
+      "rawCommand": "vim.motion.sentence_forward",
+      "key": { "darwin": ")", "linux": ")" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Previous Sentence",
+      "rawCommand": "vim.motion.sentence_backward",
+      "key": { "darwin": "(", "linux": "(" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Top of Screen",
+      "rawCommand": "vim.motion.screen_top",
+      "key": { "darwin": "H", "linux": "H" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Middle of Screen",
+      "rawCommand": "vim.motion.screen_middle",
+      "key": { "darwin": "M", "linux": "M" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Bottom of Screen",
+      "rawCommand": "vim.motion.screen_bottom",
+      "key": { "darwin": "L", "linux": "L" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Find Character Forward",
+      "rawCommand": "vim.motion.find_char_forward",
+      "key": { "darwin": "f{char}", "linux": "f{char}" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Find Character Backward",
+      "rawCommand": "vim.motion.find_char_backward",
+      "key": { "darwin": "F{char}", "linux": "F{char}" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Till Character Forward",
+      "rawCommand": "vim.motion.till_char_forward",
+      "key": { "darwin": "t{char}", "linux": "t{char}" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Till Character Backward",
+      "rawCommand": "vim.motion.till_char_backward",
+      "key": { "darwin": "T{char}", "linux": "T{char}" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Repeat Find Forward",
+      "rawCommand": "vim.motion.repeat_find",
+      "key": { "darwin": ";", "linux": ";" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Repeat Find Backward",
+      "rawCommand": "vim.motion.repeat_find_reverse",
+      "key": { "darwin": ",", "linux": "," },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Delete Line",
+      "rawCommand": "vim.editing.delete_line",
+      "key": { "darwin": "dd", "linux": "dd" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Yank (Copy) Line",
+      "rawCommand": "vim.editing.yank_line",
+      "key": { "darwin": "yy", "linux": "yy" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Put (Paste) After",
+      "rawCommand": "vim.editing.put_after",
+      "key": { "darwin": "p", "linux": "p" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Put (Paste) Before",
+      "rawCommand": "vim.editing.put_before",
+      "key": { "darwin": "P", "linux": "P" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Delete Character",
+      "rawCommand": "vim.editing.delete_char",
+      "key": { "darwin": "x", "linux": "x" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Delete Character Before",
+      "rawCommand": "vim.editing.delete_char_before",
+      "key": { "darwin": "X", "linux": "X" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Replace Character",
+      "rawCommand": "vim.editing.replace_char",
+      "key": { "darwin": "r{char}", "linux": "r{char}" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Substitute Character",
+      "rawCommand": "vim.editing.substitute_char",
+      "key": { "darwin": "s", "linux": "s" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Change Line",
+      "rawCommand": "vim.editing.change_line",
+      "key": { "darwin": "cc", "linux": "cc" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Change to End of Line",
+      "rawCommand": "vim.editing.change_to_end",
+      "key": { "darwin": "C", "linux": "C" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Delete to End of Line",
+      "rawCommand": "vim.editing.delete_to_end",
+      "key": { "darwin": "D", "linux": "D" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Substitute Line",
+      "rawCommand": "vim.editing.substitute_line",
+      "key": { "darwin": "S", "linux": "S" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Join Lines",
+      "rawCommand": "vim.editing.join_lines",
+      "key": { "darwin": "J", "linux": "J" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Undo",
+      "rawCommand": "vim.editing.undo",
+      "key": { "darwin": "u", "linux": "u" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Redo",
+      "rawCommand": "vim.editing.redo",
+      "key": { "darwin": "Ctrl+R", "linux": "Ctrl+R" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Repeat Last Change",
+      "rawCommand": "vim.editing.repeat",
+      "key": { "darwin": ".", "linux": "." },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Indent Line",
+      "rawCommand": "vim.editing.indent",
+      "key": { "darwin": ">>", "linux": ">>" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Outdent Line",
+      "rawCommand": "vim.editing.outdent",
+      "key": { "darwin": "<<", "linux": "<<" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Yank (Copy)",
+      "rawCommand": "vim.editing.yank",
+      "key": { "darwin": "y{motion}", "linux": "y{motion}" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Delete",
+      "rawCommand": "vim.editing.delete",
+      "key": { "darwin": "d{motion}", "linux": "d{motion}" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Change",
+      "rawCommand": "vim.editing.change",
+      "key": { "darwin": "c{motion}", "linux": "c{motion}" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Open Line Below",
+      "rawCommand": "vim.editing.open_line_below",
+      "key": { "darwin": "o", "linux": "o" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Open Line Above",
+      "rawCommand": "vim.editing.open_line_above",
+      "key": { "darwin": "O", "linux": "O" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Toggle Case",
+      "rawCommand": "vim.editing.toggle_case",
+      "key": { "darwin": "~", "linux": "~" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Increment Number",
+      "rawCommand": "vim.editing.increment",
+      "key": { "darwin": "Ctrl+A", "linux": "Ctrl+A" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Decrement Number",
+      "rawCommand": "vim.editing.decrement",
+      "key": { "darwin": "Ctrl+X", "linux": "Ctrl+X" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Search Forward",
+      "rawCommand": "vim.search.forward",
+      "key": { "darwin": "/", "linux": "/" },
+      "category": "Search",
+      "context": "normal"
+    },
+    {
+      "command": "Search Backward",
+      "rawCommand": "vim.search.backward",
+      "key": { "darwin": "?", "linux": "?" },
+      "category": "Search",
+      "context": "normal"
+    },
+    {
+      "command": "Next Search Match",
+      "rawCommand": "vim.search.next",
+      "key": { "darwin": "n", "linux": "n" },
+      "category": "Search",
+      "context": "normal"
+    },
+    {
+      "command": "Previous Search Match",
+      "rawCommand": "vim.search.previous",
+      "key": { "darwin": "N", "linux": "N" },
+      "category": "Search",
+      "context": "normal"
+    },
+    {
+      "command": "Search Word Under Cursor Forward",
+      "rawCommand": "vim.search.word_forward",
+      "key": { "darwin": "*", "linux": "*" },
+      "category": "Search",
+      "context": "normal"
+    },
+    {
+      "command": "Search Word Under Cursor Backward",
+      "rawCommand": "vim.search.word_backward",
+      "key": { "darwin": "#", "linux": "#" },
+      "category": "Search",
+      "context": "normal"
+    },
+    {
+      "command": "Substitute",
+      "rawCommand": "vim.search.substitute",
+      "key": { "darwin": ":s/old/new/", "linux": ":s/old/new/" },
+      "category": "Search",
+      "context": "command"
+    },
+    {
+      "command": "Substitute All in Line",
+      "rawCommand": "vim.search.substitute_line",
+      "key": { "darwin": ":s/old/new/g", "linux": ":s/old/new/g" },
+      "category": "Search",
+      "context": "command"
+    },
+    {
+      "command": "Substitute All in File",
+      "rawCommand": "vim.search.substitute_all",
+      "key": { "darwin": ":%s/old/new/g", "linux": ":%s/old/new/g" },
+      "category": "Search",
+      "context": "command"
+    },
+    {
+      "command": "Substitute with Confirmation",
+      "rawCommand": "vim.search.substitute_confirm",
+      "key": { "darwin": ":%s/old/new/gc", "linux": ":%s/old/new/gc" },
+      "category": "Search",
+      "context": "command"
+    },
+    {
+      "command": "Clear Search Highlight",
+      "rawCommand": "vim.search.clear_highlight",
+      "key": { "darwin": ":noh", "linux": ":noh" },
+      "category": "Search",
+      "context": "command"
+    },
+    {
+      "command": "Enter Insert Mode",
+      "rawCommand": "vim.mode.insert",
+      "key": { "darwin": "i", "linux": "i" },
+      "category": "Mode Switching",
+      "context": "normal"
+    },
+    {
+      "command": "Append After Cursor",
+      "rawCommand": "vim.mode.append",
+      "key": { "darwin": "a", "linux": "a" },
+      "category": "Mode Switching",
+      "context": "normal"
+    },
+    {
+      "command": "Insert at Beginning of Line",
+      "rawCommand": "vim.mode.insert_line_start",
+      "key": { "darwin": "I", "linux": "I" },
+      "category": "Mode Switching",
+      "context": "normal"
+    },
+    {
+      "command": "Append at End of Line",
+      "rawCommand": "vim.mode.append_line_end",
+      "key": { "darwin": "A", "linux": "A" },
+      "category": "Mode Switching",
+      "context": "normal"
+    },
+    {
+      "command": "Open Line Below and Insert",
+      "rawCommand": "vim.mode.open_below",
+      "key": { "darwin": "o", "linux": "o" },
+      "category": "Mode Switching",
+      "context": "normal"
+    },
+    {
+      "command": "Open Line Above and Insert",
+      "rawCommand": "vim.mode.open_above",
+      "key": { "darwin": "O", "linux": "O" },
+      "category": "Mode Switching",
+      "context": "normal"
+    },
+    {
+      "command": "Enter Visual Mode",
+      "rawCommand": "vim.mode.visual",
+      "key": { "darwin": "v", "linux": "v" },
+      "category": "Mode Switching",
+      "context": "normal"
+    },
+    {
+      "command": "Enter Visual Line Mode",
+      "rawCommand": "vim.mode.visual_line",
+      "key": { "darwin": "V", "linux": "V" },
+      "category": "Mode Switching",
+      "context": "normal"
+    },
+    {
+      "command": "Enter Visual Block Mode",
+      "rawCommand": "vim.mode.visual_block",
+      "key": { "darwin": "Ctrl+V", "linux": "Ctrl+V" },
+      "category": "Mode Switching",
+      "context": "normal"
+    },
+    {
+      "command": "Enter Replace Mode",
+      "rawCommand": "vim.mode.replace",
+      "key": { "darwin": "R", "linux": "R" },
+      "category": "Mode Switching",
+      "context": "normal"
+    },
+    {
+      "command": "Return to Normal Mode",
+      "rawCommand": "vim.mode.normal",
+      "key": { "darwin": "Escape", "linux": "Escape" },
+      "category": "Mode Switching",
+      "context": "insert"
+    },
+    {
+      "command": "Enter Command Mode",
+      "rawCommand": "vim.mode.command",
+      "key": { "darwin": ":", "linux": ":" },
+      "category": "Mode Switching",
+      "context": "normal"
+    },
+    {
+      "command": "Split Window Horizontally",
+      "rawCommand": "vim.window.split_horizontal",
+      "key": { "darwin": "Ctrl+W s", "linux": "Ctrl+W s" },
+      "category": "Window",
+      "context": "normal"
+    },
+    {
+      "command": "Split Window Vertically",
+      "rawCommand": "vim.window.split_vertical",
+      "key": { "darwin": "Ctrl+W v", "linux": "Ctrl+W v" },
+      "category": "Window",
+      "context": "normal"
+    },
+    {
+      "command": "Move to Left Window",
+      "rawCommand": "vim.window.move_left",
+      "key": { "darwin": "Ctrl+W h", "linux": "Ctrl+W h" },
+      "category": "Window",
+      "context": "normal"
+    },
+    {
+      "command": "Move to Below Window",
+      "rawCommand": "vim.window.move_down",
+      "key": { "darwin": "Ctrl+W j", "linux": "Ctrl+W j" },
+      "category": "Window",
+      "context": "normal"
+    },
+    {
+      "command": "Move to Above Window",
+      "rawCommand": "vim.window.move_up",
+      "key": { "darwin": "Ctrl+W k", "linux": "Ctrl+W k" },
+      "category": "Window",
+      "context": "normal"
+    },
+    {
+      "command": "Move to Right Window",
+      "rawCommand": "vim.window.move_right",
+      "key": { "darwin": "Ctrl+W l", "linux": "Ctrl+W l" },
+      "category": "Window",
+      "context": "normal"
+    },
+    {
+      "command": "Close Window",
+      "rawCommand": "vim.window.close",
+      "key": { "darwin": "Ctrl+W q", "linux": "Ctrl+W q" },
+      "category": "Window",
+      "context": "normal"
+    },
+    {
+      "command": "Close Other Windows",
+      "rawCommand": "vim.window.close_others",
+      "key": { "darwin": "Ctrl+W o", "linux": "Ctrl+W o" },
+      "category": "Window",
+      "context": "normal"
+    },
+    {
+      "command": "Equalize Window Sizes",
+      "rawCommand": "vim.window.equalize",
+      "key": { "darwin": "Ctrl+W =", "linux": "Ctrl+W =" },
+      "category": "Window",
+      "context": "normal"
+    },
+    {
+      "command": "Increase Window Height",
+      "rawCommand": "vim.window.increase_height",
+      "key": { "darwin": "Ctrl+W +", "linux": "Ctrl+W +" },
+      "category": "Window",
+      "context": "normal"
+    },
+    {
+      "command": "Decrease Window Height",
+      "rawCommand": "vim.window.decrease_height",
+      "key": { "darwin": "Ctrl+W -", "linux": "Ctrl+W -" },
+      "category": "Window",
+      "context": "normal"
+    },
+    {
+      "command": "Increase Window Width",
+      "rawCommand": "vim.window.increase_width",
+      "key": { "darwin": "Ctrl+W >", "linux": "Ctrl+W >" },
+      "category": "Window",
+      "context": "normal"
+    },
+    {
+      "command": "Decrease Window Width",
+      "rawCommand": "vim.window.decrease_width",
+      "key": { "darwin": "Ctrl+W <", "linux": "Ctrl+W <" },
+      "category": "Window",
+      "context": "normal"
+    },
+    {
+      "command": "Cycle Through Windows",
+      "rawCommand": "vim.window.cycle",
+      "key": { "darwin": "Ctrl+W w", "linux": "Ctrl+W w" },
+      "category": "Window",
+      "context": "normal"
+    },
+    {
+      "command": "Set Mark",
+      "rawCommand": "vim.marks.set",
+      "key": { "darwin": "m{a-z}", "linux": "m{a-z}" },
+      "category": "Marks",
+      "context": "normal"
+    },
+    {
+      "command": "Jump to Mark",
+      "rawCommand": "vim.marks.jump",
+      "key": { "darwin": "'{a-z}", "linux": "'{a-z}" },
+      "category": "Marks",
+      "context": "normal"
+    },
+    {
+      "command": "Jump to Mark (Exact Position)",
+      "rawCommand": "vim.marks.jump_exact",
+      "key": { "darwin": "`{a-z}", "linux": "`{a-z}" },
+      "category": "Marks",
+      "context": "normal"
+    },
+    {
+      "command": "Jump to Last Position",
+      "rawCommand": "vim.marks.last_position",
+      "key": { "darwin": "''", "linux": "''" },
+      "category": "Marks",
+      "context": "normal"
+    },
+    {
+      "command": "Jump to Last Edit Position",
+      "rawCommand": "vim.marks.last_edit",
+      "key": { "darwin": "'.", "linux": "'." },
+      "category": "Marks",
+      "context": "normal"
+    },
+    {
+      "command": "List Marks",
+      "rawCommand": "vim.marks.list",
+      "key": { "darwin": ":marks", "linux": ":marks" },
+      "category": "Marks",
+      "context": "command"
+    },
+    {
+      "command": "Yank to Register",
+      "rawCommand": "vim.registers.yank",
+      "key": { "darwin": "\"{a-z}y", "linux": "\"{a-z}y" },
+      "category": "Registers",
+      "context": "normal"
+    },
+    {
+      "command": "Paste from Register",
+      "rawCommand": "vim.registers.paste",
+      "key": { "darwin": "\"{a-z}p", "linux": "\"{a-z}p" },
+      "category": "Registers",
+      "context": "normal"
+    },
+    {
+      "command": "List Registers",
+      "rawCommand": "vim.registers.list",
+      "key": { "darwin": ":registers", "linux": ":registers" },
+      "category": "Registers",
+      "context": "command"
+    },
+    {
+      "command": "Yank to System Clipboard",
+      "rawCommand": "vim.registers.yank_clipboard",
+      "key": { "darwin": "\"+y", "linux": "\"+y" },
+      "category": "Registers",
+      "context": "normal"
+    },
+    {
+      "command": "Paste from System Clipboard",
+      "rawCommand": "vim.registers.paste_clipboard",
+      "key": { "darwin": "\"+p", "linux": "\"+p" },
+      "category": "Registers",
+      "context": "normal"
+    },
+    {
+      "command": "Toggle Fold",
+      "rawCommand": "vim.folding.toggle",
+      "key": { "darwin": "za", "linux": "za" },
+      "category": "Folding",
+      "context": "normal"
+    },
+    {
+      "command": "Close Fold",
+      "rawCommand": "vim.folding.close",
+      "key": { "darwin": "zc", "linux": "zc" },
+      "category": "Folding",
+      "context": "normal"
+    },
+    {
+      "command": "Open Fold",
+      "rawCommand": "vim.folding.open",
+      "key": { "darwin": "zo", "linux": "zo" },
+      "category": "Folding",
+      "context": "normal"
+    },
+    {
+      "command": "Open All Folds",
+      "rawCommand": "vim.folding.open_all",
+      "key": { "darwin": "zR", "linux": "zR" },
+      "category": "Folding",
+      "context": "normal"
+    },
+    {
+      "command": "Close All Folds",
+      "rawCommand": "vim.folding.close_all",
+      "key": { "darwin": "zM", "linux": "zM" },
+      "category": "Folding",
+      "context": "normal"
+    },
+    {
+      "command": "Open Fold Recursively",
+      "rawCommand": "vim.folding.open_recursive",
+      "key": { "darwin": "zO", "linux": "zO" },
+      "category": "Folding",
+      "context": "normal"
+    },
+    {
+      "command": "Close Fold Recursively",
+      "rawCommand": "vim.folding.close_recursive",
+      "key": { "darwin": "zC", "linux": "zC" },
+      "category": "Folding",
+      "context": "normal"
+    },
+    {
+      "command": "Delete in Visual",
+      "rawCommand": "vim.visual.delete",
+      "key": { "darwin": "d", "linux": "d" },
+      "category": "Visual",
+      "context": "visual"
+    },
+    {
+      "command": "Yank in Visual",
+      "rawCommand": "vim.visual.yank",
+      "key": { "darwin": "y", "linux": "y" },
+      "category": "Visual",
+      "context": "visual"
+    },
+    {
+      "command": "Change in Visual",
+      "rawCommand": "vim.visual.change",
+      "key": { "darwin": "c", "linux": "c" },
+      "category": "Visual",
+      "context": "visual"
+    },
+    {
+      "command": "Indent in Visual",
+      "rawCommand": "vim.visual.indent",
+      "key": { "darwin": ">", "linux": ">" },
+      "category": "Visual",
+      "context": "visual"
+    },
+    {
+      "command": "Outdent in Visual",
+      "rawCommand": "vim.visual.outdent",
+      "key": { "darwin": "<", "linux": "<" },
+      "category": "Visual",
+      "context": "visual"
+    },
+    {
+      "command": "Uppercase in Visual",
+      "rawCommand": "vim.visual.uppercase",
+      "key": { "darwin": "U", "linux": "U" },
+      "category": "Visual",
+      "context": "visual"
+    },
+    {
+      "command": "Lowercase in Visual",
+      "rawCommand": "vim.visual.lowercase",
+      "key": { "darwin": "u", "linux": "u" },
+      "category": "Visual",
+      "context": "visual"
+    },
+    {
+      "command": "Reselect Last Visual",
+      "rawCommand": "vim.visual.reselect",
+      "key": { "darwin": "gv", "linux": "gv" },
+      "category": "Visual",
+      "context": "normal"
+    },
+    {
+      "command": "Write (Save) File",
+      "rawCommand": "vim.command.write",
+      "key": { "darwin": ":w", "linux": ":w" },
+      "category": "Mode Switching",
+      "context": "command"
+    },
+    {
+      "command": "Quit",
+      "rawCommand": "vim.command.quit",
+      "key": { "darwin": ":q", "linux": ":q" },
+      "category": "Mode Switching",
+      "context": "command"
+    },
+    {
+      "command": "Write and Quit",
+      "rawCommand": "vim.command.write_quit",
+      "key": { "darwin": ":wq", "linux": ":wq" },
+      "category": "Mode Switching",
+      "context": "command"
+    },
+    {
+      "command": "Force Quit",
+      "rawCommand": "vim.command.force_quit",
+      "key": { "darwin": ":q!", "linux": ":q!" },
+      "category": "Mode Switching",
+      "context": "command"
+    },
+    {
+      "command": "Quit All",
+      "rawCommand": "vim.command.quit_all",
+      "key": { "darwin": ":qa", "linux": ":qa" },
+      "category": "Mode Switching",
+      "context": "command"
+    },
+    {
+      "command": "Edit File",
+      "rawCommand": "vim.command.edit",
+      "key": { "darwin": ":e {file}", "linux": ":e {file}" },
+      "category": "Mode Switching",
+      "context": "command"
+    },
+    {
+      "command": "Next Buffer",
+      "rawCommand": "vim.command.next_buffer",
+      "key": { "darwin": ":bn", "linux": ":bn" },
+      "category": "Window",
+      "context": "command"
+    },
+    {
+      "command": "Previous Buffer",
+      "rawCommand": "vim.command.prev_buffer",
+      "key": { "darwin": ":bp", "linux": ":bp" },
+      "category": "Window",
+      "context": "command"
+    },
+    {
+      "command": "Delete Buffer",
+      "rawCommand": "vim.command.delete_buffer",
+      "key": { "darwin": ":bd", "linux": ":bd" },
+      "category": "Window",
+      "context": "command"
+    },
+    {
+      "command": "List Buffers",
+      "rawCommand": "vim.command.list_buffers",
+      "key": { "darwin": ":ls", "linux": ":ls" },
+      "category": "Window",
+      "context": "command"
+    },
+    {
+      "command": "Record Macro",
+      "rawCommand": "vim.editing.record_macro",
+      "key": { "darwin": "q{a-z}", "linux": "q{a-z}" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Stop Recording Macro",
+      "rawCommand": "vim.editing.stop_macro",
+      "key": { "darwin": "q", "linux": "q" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Play Macro",
+      "rawCommand": "vim.editing.play_macro",
+      "key": { "darwin": "@{a-z}", "linux": "@{a-z}" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Replay Last Macro",
+      "rawCommand": "vim.editing.replay_last_macro",
+      "key": { "darwin": "@@", "linux": "@@" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Scroll Line to Center",
+      "rawCommand": "vim.motion.scroll_center",
+      "key": { "darwin": "zz", "linux": "zz" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Scroll Line to Top",
+      "rawCommand": "vim.motion.scroll_top",
+      "key": { "darwin": "zt", "linux": "zt" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Scroll Line to Bottom",
+      "rawCommand": "vim.motion.scroll_bottom",
+      "key": { "darwin": "zb", "linux": "zb" },
+      "category": "Motion",
+      "context": "normal"
+    },
+    {
+      "command": "Delete Inner Word",
+      "rawCommand": "vim.editing.delete_inner_word",
+      "key": { "darwin": "diw", "linux": "diw" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Change Inner Word",
+      "rawCommand": "vim.editing.change_inner_word",
+      "key": { "darwin": "ciw", "linux": "ciw" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Yank Inner Word",
+      "rawCommand": "vim.editing.yank_inner_word",
+      "key": { "darwin": "yiw", "linux": "yiw" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Delete Around Word",
+      "rawCommand": "vim.editing.delete_around_word",
+      "key": { "darwin": "daw", "linux": "daw" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Change Inner Parentheses",
+      "rawCommand": "vim.editing.change_inner_paren",
+      "key": { "darwin": "ci(", "linux": "ci(" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Delete Inner Parentheses",
+      "rawCommand": "vim.editing.delete_inner_paren",
+      "key": { "darwin": "di(", "linux": "di(" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Change Inner Quotes",
+      "rawCommand": "vim.editing.change_inner_quotes",
+      "key": { "darwin": "ci\"", "linux": "ci\"" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Delete Inner Braces",
+      "rawCommand": "vim.editing.delete_inner_braces",
+      "key": { "darwin": "di{", "linux": "di{" },
+      "category": "Editing",
+      "context": "normal"
+    },
+    {
+      "command": "Change Inner Brackets",
+      "rawCommand": "vim.editing.change_inner_brackets",
+      "key": { "darwin": "ci[", "linux": "ci[" },
+      "category": "Editing",
+      "context": "normal"
+    }
+  ]
 }
