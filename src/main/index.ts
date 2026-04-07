@@ -91,7 +91,7 @@ function createWindow(): BrowserWindow {
     alwaysOnTop: true,
     skipTaskbar: true,
     hasShadow: true,
-    show: true,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       sandbox: false,
@@ -107,6 +107,14 @@ function createWindow(): BrowserWindow {
   }
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    // Retry on connection refused — Vite dev server may not be ready yet
+    let retries = 0;
+    win.webContents.on('did-fail-load', (_event, errorCode) => {
+      if (errorCode === -102 && retries < 10) { // ERR_CONNECTION_REFUSED
+        retries++;
+        setTimeout(() => win.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL), 500);
+      }
+    });
     win.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
     win.loadFile(
