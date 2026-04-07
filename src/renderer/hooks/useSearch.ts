@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback } from 'react';
 import Fuse, { type IFuseOptions } from 'fuse.js';
 import type { Keybinding } from '../../shared/types';
+import { useAppSettings } from '../context/SettingsContext';
 
 interface UseSearchReturn {
   query: string;
@@ -8,25 +9,26 @@ interface UseSearchReturn {
   results: Keybinding[];
 }
 
-const FUSE_OPTIONS: IFuseOptions<Keybinding> = {
-  keys: [
-    { name: 'key', weight: 0.3 },
-    { name: 'searchKey', weight: 0.3 },
-    { name: 'command', weight: 0.3 },
-    { name: 'sourceLabel', weight: 0.05 },
-    { name: 'context', weight: 0.05 },
-  ],
-  threshold: 0.35,
-  ignoreLocation: true,
-  includeScore: true,
-};
-
 export function useSearch(keybindings: Keybinding[]): UseSearchReturn {
   const [query, setQuery] = useState('');
+  const { search: searchSettings } = useAppSettings();
+
+  const fuseOptions = useMemo((): IFuseOptions<Keybinding> => ({
+    keys: [
+      { name: 'key', weight: searchSettings.keyWeight / 2 },
+      { name: 'searchKey', weight: searchSettings.keyWeight / 2 },
+      { name: 'command', weight: searchSettings.commandWeight },
+      { name: 'sourceLabel', weight: searchSettings.sourceWeight },
+      { name: 'context', weight: searchSettings.contextWeight },
+    ],
+    threshold: searchSettings.threshold,
+    ignoreLocation: true,
+    includeScore: true,
+  }), [searchSettings]);
 
   const fuse = useMemo(
-    () => new Fuse(keybindings, FUSE_OPTIONS),
-    [keybindings],
+    () => new Fuse(keybindings, fuseOptions),
+    [keybindings, fuseOptions],
   );
 
   const results = useMemo(() => {

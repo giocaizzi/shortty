@@ -1,9 +1,20 @@
-import { app, BrowserWindow, globalShortcut, screen } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  globalShortcut,
+  nativeTheme,
+  screen,
+} from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { registerIpcHandlers } from './ipc';
 import { ParserRegistry } from './parsers/registry';
-import { startWatching, stopWatching } from './watcher';
+import { startWatching, stopWatching, restartWatching } from './watcher';
+import { getSettings, getSetting, setSetting, onSettingsChange } from './settings-store';
+import { createTray, destroyTray } from './tray';
+import { openPreferencesWindow } from './preferences-window';
+import { IPC_CHANNELS } from '../shared/ipc-channels';
+import type { AppSettings } from '../shared/settings';
 
 if (started) {
   app.quit();
@@ -14,18 +25,56 @@ const parserRegistry = new ParserRegistry();
 
 const isDev = !!MAIN_WINDOW_VITE_DEV_SERVER_URL;
 
-function createWindow(): BrowserWindow {
+function getWindowPosition(
+  windowWidth: number,
+  windowHeight: number,
+): { x: number; y: number } {
+  const position = getSetting('windowPosition');
+
+  if (position === 'mouse') {
+    const cursor = screen.getCursorScreenPoint();
+    const display = screen.getDisplayNearestPoint(cursor);
+    const { x: dx, y: dy, width: dw, height: dh } = display.workArea;
+
+    return {
+      x: Math.min(
+        Math.max(cursor.x - windowWidth / 2, dx),
+        dx + dw - windowWidth,
+      ),
+      y: Math.min(
+        Math.max(cursor.y - windowHeight / 2, dy),
+        dy + dh - windowHeight,
+      ),
+    };
+  }
+
   const { width: screenWidth, height: screenHeight } =
     screen.getPrimaryDisplay().workAreaSize;
 
+  if (position === 'center') {
+    return {
+      x: Math.round((screenWidth - windowWidth) / 2),
+      y: Math.round((screenHeight - windowHeight) / 2),
+    };
+  }
+
+  // top-center (default)
+  return {
+    x: Math.round((screenWidth - windowWidth) / 2),
+    y: Math.round(screenHeight * 0.2),
+  };
+}
+
+function createWindow(): BrowserWindow {
   const windowWidth = 680;
   const windowHeight = 500;
+  const { x, y } = getWindowPosition(windowWidth, windowHeight);
 
   const win = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
-    x: Math.round((screenWidth - windowWidth) / 2),
-    y: Math.round(screenHeight * 0.2),
+    x,
+    y,
     frame: false,
     transparent: false,
     backgroundColor: '#00000000',
@@ -78,6 +127,13 @@ function createWindow(): BrowserWindow {
 
 function showWindow(): void {
   if (!mainWindow) return;
+
+  // Reposition window each time it's shown
+  const windowWidth = 680;
+  const windowHeight = 500;
+  const { x, y } = getWindowPosition(windowWidth, windowHeight);
+  mainWindow.setPosition(x, y);
+
   mainWindow.show();
   mainWindow.focus();
   mainWindow.webContents.send('window:shown');
@@ -98,23 +154,131 @@ function toggleWindow(): void {
   }
 }
 
+function registerGlobalShortcut(accelerator: string): boolean {
+  return globalShortcut.register(accelerator, toggleWindow);
+}
+
+function broadcastSettingsChange(settings: AppSettings): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send(IPC_CHANNELS.SETTINGS_ON_CHANGE, settings);
+    }
+  }
+}
+
+function applyInitialSettings(): void {
+  const settings = getSettings();
+
+  // Theme
+  nativeTheme.themeSource = settings.theme;
+
+  // Dock visibility (macOS)
+  if (process.platform === 'darwin' && app.dock) {
+    if (settings.showDockIcon) {
+      app.dock.show();
+    } else {
+      app.dock.hide();
+    }
+  }
+
+  // Launch at login
+  app.setLoginItemSettings({
+    openAtLogin: settings.launchAtLogin,
+    openAsHidden: true,
+  });
+
+  // Global shortcut
+  registerGlobalShortcut(settings.globalShortcut);
+}
+
+function setupSettingsChangeListener(): void {
+  onSettingsChange((newSettings, oldSettings) => {
+    // Theme
+    if (newSettings.theme !== oldSettings.theme) {
+      nativeTheme.themeSource = newSettings.theme;
+    }
+
+    // Dock visibility (macOS)
+    if (
+      newSettings.showDockIcon !== oldSettings.showDockIcon &&
+      process.platform === 'darwin' &&
+      app.dock
+    ) {
+      if (newSettings.showDockIcon) {
+        app.dock.show();
+      } else {
+        app.dock.hide();
+      }
+    }
+
+    // Launch at login
+    if (newSettings.launchAtLogin !== oldSettings.launchAtLogin) {
+      app.setLoginItemSettings({
+        openAtLogin: newSettings.launchAtLogin,
+        openAsHidden: true,
+      });
+    }
+
+    // Global shortcut
+    if (newSettings.globalShortcut !== oldSettings.globalShortcut) {
+      globalShortcut.unregister(oldSettings.globalShortcut);
+      const registered = registerGlobalShortcut(newSettings.globalShortcut);
+      if (!registered) {
+        // Revert to old shortcut if new one fails
+        registerGlobalShortcut(oldSettings.globalShortcut);
+        setSetting('globalShortcut', oldSettings.globalShortcut);
+      }
+    }
+
+    // Parser enable/disable
+    if (
+      JSON.stringify(newSettings.disabledParsers) !==
+      JSON.stringify(oldSettings.disabledParsers)
+    ) {
+      parserRegistry.updateActiveParsers(newSettings.disabledParsers).then(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          restartWatching(parserRegistry, mainWindow);
+        }
+      });
+    }
+
+    // Broadcast to all renderer windows
+    broadcastSettingsChange(newSettings);
+  });
+}
+
+function openPreferences(): void {
+  openPreferencesWindow();
+}
+
 app.on('ready', async () => {
   mainWindow = createWindow();
 
-  // Register global shortcut
-  globalShortcut.register('CommandOrControl+Shift+Space', toggleWindow);
+  // Apply initial settings (shortcut, dock, theme, login items)
+  applyInitialSettings();
+
+  // Listen for settings changes
+  setupSettingsChangeListener();
+
+  // System tray
+  createTray({
+    onToggle: toggleWindow,
+    onPreferences: openPreferences,
+  });
 
   // Register IPC handlers
-  registerIpcHandlers(parserRegistry);
+  registerIpcHandlers(parserRegistry, { openPreferences });
 
-  // Initialize parsers and start file watching
-  await parserRegistry.initialize();
+  // Initialize parsers (respecting disabled list) and start file watching
+  const disabledParsers = getSetting('disabledParsers');
+  await parserRegistry.initialize(disabledParsers);
   startWatching(parserRegistry, mainWindow);
 });
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   stopWatching();
+  destroyTray();
 });
 
 app.on('window-all-closed', () => {
@@ -128,4 +292,3 @@ app.on('activate', () => {
     mainWindow = createWindow();
   }
 });
-

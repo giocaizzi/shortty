@@ -12,6 +12,7 @@ export class ParserRegistry {
   private parsers: ParserPlugin[] = [];
   private cache: Map<string, Keybinding[]> = new Map();
   private activeParsers: ParserPlugin[] = [];
+  private availableParsers: ParserPlugin[] = [];
 
   constructor() {
     this.parsers = [
@@ -25,7 +26,7 @@ export class ParserRegistry {
     ];
   }
 
-  async initialize(): Promise<void> {
+  async initialize(disabledIds: string[] = []): Promise<void> {
     const results = await Promise.allSettled(
       this.parsers.map(async (p) => ({
         parser: p,
@@ -33,15 +34,40 @@ export class ParserRegistry {
       })),
     );
 
-    this.activeParsers = results
+    this.availableParsers = results
       .filter(
         (r): r is PromiseFulfilledResult<{ parser: ParserPlugin; available: boolean }> =>
           r.status === 'fulfilled' && r.value.available,
       )
       .map((r) => r.value.parser);
 
+    this.activeParsers = this.availableParsers.filter(
+      (p) => !disabledIds.includes(p.meta.id),
+    );
+
     // Initial parse of all available sources
     await this.parseAll();
+  }
+
+  async updateActiveParsers(disabledIds: string[]): Promise<void> {
+    const previousIds = new Set(this.activeParsers.map((p) => p.meta.id));
+
+    this.activeParsers = this.availableParsers.filter(
+      (p) => !disabledIds.includes(p.meta.id),
+    );
+
+    // Remove cache entries for parsers that are now disabled
+    for (const id of previousIds) {
+      if (!this.activeParsers.some((p) => p.meta.id === id)) {
+        this.cache.delete(id);
+      }
+    }
+
+    await this.parseAll();
+  }
+
+  getAvailableSources(): ParserMeta[] {
+    return this.availableParsers.map((p) => p.meta);
   }
 
   async parseAll(): Promise<Keybinding[]> {

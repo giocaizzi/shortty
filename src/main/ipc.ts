@@ -1,10 +1,21 @@
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import type { ParserRegistry } from './parsers/registry';
+import type { AppSettings } from '../shared/settings';
+import { getSettings, setSetting } from './settings-store';
 
-export function registerIpcHandlers(registry: ParserRegistry): void {
+export function registerIpcHandlers(
+  registry: ParserRegistry,
+  callbacks: {
+    openPreferences: () => void;
+  },
+): void {
   ipcMain.handle(IPC_CHANNELS.GET_SOURCES, () => {
     return registry.getSources();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.GET_AVAILABLE_SOURCES, () => {
+    return registry.getAvailableSources();
   });
 
   ipcMain.handle(IPC_CHANNELS.GET_ALL, () => {
@@ -17,5 +28,28 @@ export function registerIpcHandlers(registry: ParserRegistry): void {
 
   ipcMain.handle(IPC_CHANNELS.REFRESH, async () => {
     return registry.parseAll();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_GET_ALL, () => {
+    return getSettings();
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.SETTINGS_SET,
+    (_event, key: keyof AppSettings, value: unknown) => {
+      try {
+        setSetting(key, value as AppSettings[typeof key]);
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    },
+  );
+
+  ipcMain.on(IPC_CHANNELS.OPEN_PREFERENCES, () => {
+    callbacks.openPreferences();
   });
 }

@@ -45,3 +45,11 @@ export function stopWatching(): void {
   watcher?.close();
   watcher = null;
 }
+
+export function restartWatching(
+  registry: ParserRegistry,
+  window: BrowserWindow,
+): void {
+  stopWatching();
+  startWatching(registry, window);
+}

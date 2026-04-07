@@ -1,10 +1,15 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import type { Keybinding, ParserMeta } from '../shared/types';
+import type { AppSettings } from '../shared/settings';
 
 const electronAPI = {
   getSources(): Promise<ParserMeta[]> {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_SOURCES);
+  },
+
+  getAvailableSources(): Promise<ParserMeta[]> {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_AVAILABLE_SOURCES);
   },
 
   getAllKeybindings(): Promise<Keybinding[]> {
@@ -40,6 +45,31 @@ const electronAPI = {
     const handler = () => cb();
     ipcRenderer.on('window:hidden', handler);
     return () => ipcRenderer.removeListener('window:hidden', handler);
+  },
+
+  getSettings(): Promise<AppSettings> {
+    return ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET_ALL);
+  },
+
+  setSetting(
+    key: keyof AppSettings,
+    value: unknown,
+  ): Promise<{ success: boolean; error?: string }> {
+    return ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET, key, value);
+  },
+
+  onSettingsChange(cb: (settings: AppSettings) => void): () => void {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      settings: AppSettings,
+    ) => cb(settings);
+    ipcRenderer.on(IPC_CHANNELS.SETTINGS_ON_CHANGE, handler);
+    return () =>
+      ipcRenderer.removeListener(IPC_CHANNELS.SETTINGS_ON_CHANGE, handler);
+  },
+
+  openPreferences(): void {
+    ipcRenderer.send(IPC_CHANNELS.OPEN_PREFERENCES);
   },
 };
 
