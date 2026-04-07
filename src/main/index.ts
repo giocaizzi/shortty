@@ -330,7 +330,11 @@ app.on('ready', async () => {
   const disabledParsers = getSetting('disabledParsers');
   const pathOverrides = getSetting('sourcePathOverrides');
   const cheatsheetsDir = join(app.getAppPath(), 'src/cheatsheets/sources');
-  await parserRegistry.initialize(disabledParsers, pathOverrides, cheatsheetsDir);
+  try {
+    await parserRegistry.initialize(disabledParsers, pathOverrides, cheatsheetsDir);
+  } catch (err) {
+    log.error('Parser registry initialization failed', err);
+  }
   startWatching(parserRegistry, mainWindow);
 
   log.info('App ready');

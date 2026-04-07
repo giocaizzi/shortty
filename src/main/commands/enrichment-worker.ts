@@ -38,6 +38,9 @@ export class EnrichmentWorker {
         await new Promise(r => setTimeout(r, 500));
       }
 
+      // Yield to event loop between commands to avoid starving other async work
+      await new Promise(r => setImmediate(r));
+
       const enriched = this.enrichCommand(cmd);
       if (enriched) {
         batch.push(enriched);
