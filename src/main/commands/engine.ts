@@ -1,4 +1,5 @@
 import type { Command } from '../../shared/types';
+import log from '../logger';
 import { scanPath } from './path-scanner';
 import { readWhatis } from './whatis-reader';
 import { CommandCache } from './cache';
@@ -23,12 +24,14 @@ export class CommandsEngine {
     if (this.cache.isValid()) {
       const cached = this.cache.readIndex();
       if (cached) {
+        log.info(`Commands loaded from cache: ${cached.length} commands`);
         this.commands = cached;
         this.startEnrichment();
         return this.commands;
       }
     }
 
+    log.info('Commands cache miss, performing full scan');
     return this.fullScan();
   }
 
@@ -48,6 +51,7 @@ export class CommandsEngine {
       flags: [],
     }));
 
+    log.info(`Commands scan complete: ${this.commands.length} commands found`);
     this.cache.writeIndex(this.commands);
     this.cache.writeMeta({
       pathHash: this.cache.computePathHash(),

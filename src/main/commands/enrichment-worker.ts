@@ -1,4 +1,5 @@
 import type { Command } from '../../shared/types';
+import log from '../logger';
 import { parseManPage } from './parsers/man-parser';
 import { parseHelp, isBlocklisted } from './parsers/help-parser';
 import type { CommandCache } from './cache';
@@ -26,6 +27,8 @@ export class EnrichmentWorker {
     });
 
     const unenriched = sorted.filter(c => c.enrichment === 'basic');
+    log.info(`Enrichment started: ${unenriched.length} commands to enrich`);
+    let enrichedCount = 0;
     const batch: Command[] = [];
 
     for (const cmd of unenriched) {
@@ -42,7 +45,9 @@ export class EnrichmentWorker {
       }
 
       this.batchCount++;
+      enrichedCount++;
       if (this.batchCount >= 50) {
+        log.debug(`Enriched ${enrichedCount}/${unenriched.length} commands`);
         this.onBatchComplete(batch.splice(0));
         this.batchCount = 0;
       }
@@ -52,6 +57,7 @@ export class EnrichmentWorker {
       this.onBatchComplete(batch);
     }
 
+    log.info(`Enrichment complete: ${enrichedCount}/${unenriched.length} commands processed`);
     this.running = false;
   }
 

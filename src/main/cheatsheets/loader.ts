@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import log from '../logger';
 
 type Platform = 'darwin' | 'win32' | 'linux';
 
@@ -35,7 +36,7 @@ function validate(
   filePath: string,
 ): CheatsheetDefinition | null {
   if (typeof data !== 'object' || data === null || Array.isArray(data)) {
-    console.warn(`[cheatsheet] ${filePath}: root must be an object`);
+    log.warn(`[cheatsheet] ${filePath}: root must be an object`);
     return null;
   }
 
@@ -44,7 +45,7 @@ function validate(
   // Required string fields
   for (const field of ['id', 'label', 'icon'] as const) {
     if (typeof obj[field] !== 'string' || obj[field] === '') {
-      console.warn(
+      log.warn(
         `[cheatsheet] ${filePath}: missing or invalid required field "${field}"`,
       );
       return null;
@@ -53,14 +54,14 @@ function validate(
 
   // platforms
   if (!Array.isArray(obj.platforms) || obj.platforms.length === 0) {
-    console.warn(
+    log.warn(
       `[cheatsheet] ${filePath}: "platforms" must be a non-empty array`,
     );
     return null;
   }
   for (const p of obj.platforms) {
     if (!VALID_PLATFORMS.has(p as string)) {
-      console.warn(
+      log.warn(
         `[cheatsheet] ${filePath}: invalid platform "${String(p)}"`,
       );
       return null;
@@ -69,32 +70,32 @@ function validate(
 
   // shortcuts
   if (!Array.isArray(obj.shortcuts)) {
-    console.warn(`[cheatsheet] ${filePath}: "shortcuts" must be an array`);
+    log.warn(`[cheatsheet] ${filePath}: "shortcuts" must be an array`);
     return null;
   }
 
   for (const [i, shortcut] of obj.shortcuts.entries()) {
     if (typeof shortcut !== 'object' || shortcut === null) {
-      console.warn(
+      log.warn(
         `[cheatsheet] ${filePath}: shortcuts[${i}] must be an object`,
       );
       return null;
     }
     const s = shortcut as Record<string, unknown>;
     if (typeof s.command !== 'string') {
-      console.warn(
+      log.warn(
         `[cheatsheet] ${filePath}: shortcuts[${i}] missing "command"`,
       );
       return null;
     }
     if (typeof s.rawCommand !== 'string') {
-      console.warn(
+      log.warn(
         `[cheatsheet] ${filePath}: shortcuts[${i}] missing "rawCommand"`,
       );
       return null;
     }
     if (typeof s.key !== 'object' || s.key === null || Array.isArray(s.key)) {
-      console.warn(
+      log.warn(
         `[cheatsheet] ${filePath}: shortcuts[${i}] "key" must be an object`,
       );
       return null;
@@ -123,12 +124,13 @@ export async function loadCheatsheets(
   try {
     entries = await readdir(dir);
   } catch {
-    console.warn(`[cheatsheet] could not read sources directory: ${dir}`);
+    log.warn(`[cheatsheet] could not read sources directory: ${dir}`);
     return [];
   }
 
   const jsonFiles = entries.filter((f) => f.endsWith('.json'));
   const results: CheatsheetDefinition[] = [];
+  let failedCount = 0;
 
   for (const file of jsonFiles) {
     const filePath = join(dir, file);
@@ -138,13 +140,20 @@ export async function loadCheatsheets(
       const definition = validate(parsed, filePath);
       if (definition) {
         results.push(definition);
+      } else {
+        failedCount++;
       }
     } catch (err) {
-      console.warn(
+      failedCount++;
+      log.warn(
         `[cheatsheet] failed to load ${filePath}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
+
+  log.info(
+    `Loaded ${results.length} cheatsheets${failedCount > 0 ? `, ${failedCount} failed validation` : ''}`,
+  );
 
   return results;
 }

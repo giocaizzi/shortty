@@ -7,6 +7,7 @@ import {
 } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
+import log from './logger';
 import { registerIpcHandlers } from './ipc';
 import { ParserRegistry } from './parsers/registry';
 import { startWatching, stopWatching, restartWatching } from './watcher';
@@ -163,7 +164,13 @@ function toggleWindow(): void {
 }
 
 function registerGlobalShortcut(accelerator: string): boolean {
-  return globalShortcut.register(accelerator, toggleWindow);
+  const registered = globalShortcut.register(accelerator, toggleWindow);
+  if (registered) {
+    log.info(`Global shortcut registered: ${accelerator}`);
+  } else {
+    log.warn(`Failed to register global shortcut: ${accelerator}`);
+  }
+  return registered;
 }
 
 function broadcastSettingsChange(settings: AppSettings): void {
@@ -203,6 +210,7 @@ function setupSettingsChangeListener(): void {
   onSettingsChange((newSettings, oldSettings) => {
     // Theme
     if (newSettings.theme !== oldSettings.theme) {
+      log.info(`Theme changed: ${oldSettings.theme} -> ${newSettings.theme}`);
       nativeTheme.themeSource = newSettings.theme;
     }
 
@@ -229,10 +237,12 @@ function setupSettingsChangeListener(): void {
 
     // Global shortcut
     if (newSettings.globalShortcut !== oldSettings.globalShortcut) {
+      log.info(`Global shortcut changing: ${oldSettings.globalShortcut} -> ${newSettings.globalShortcut}`);
       globalShortcut.unregister(oldSettings.globalShortcut);
       const registered = registerGlobalShortcut(newSettings.globalShortcut);
       if (!registered) {
         // Revert to old shortcut if new one fails
+        log.warn(`Reverting to previous shortcut: ${oldSettings.globalShortcut}`);
         registerGlobalShortcut(oldSettings.globalShortcut);
         setSetting('globalShortcut', oldSettings.globalShortcut);
       }
@@ -240,6 +250,7 @@ function setupSettingsChangeListener(): void {
 
     // Commands engine toggle
     if (newSettings.commandsEnabled !== oldSettings.commandsEnabled) {
+      log.info(`Commands engine ${newSettings.commandsEnabled ? 'enabled' : 'disabled'}`);
       if (newSettings.commandsEnabled && !commandsEngine) {
         commandsEngine = new CommandsEngine(app.getPath('userData'));
         commandsEngine.onUpdate((updated) => {
@@ -280,6 +291,7 @@ function openPreferences(): void {
 }
 
 app.on('ready', async () => {
+  log.info('App starting');
   mainWindow = createWindow();
 
   // Apply initial settings (shortcut, dock, theme, login items)
@@ -296,13 +308,19 @@ app.on('ready', async () => {
 
   // Initialize commands engine if enabled
   if (getSetting('commandsEnabled')) {
-    commandsEngine = new CommandsEngine(app.getPath('userData'));
-    commandsEngine.onUpdate((updated) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send(IPC_CHANNELS.COMMANDS_ON_UPDATE, updated);
-      }
-    });
-    commandsEngine.initialize();
+    try {
+      commandsEngine = new CommandsEngine(app.getPath('userData'));
+      commandsEngine.onUpdate((updated) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(IPC_CHANNELS.COMMANDS_ON_UPDATE, updated);
+        }
+      });
+      await commandsEngine.initialize();
+      log.info(`Commands engine initialized with ${commandsEngine.getAll().length} commands`);
+    } catch (err) {
+      log.error('Commands engine failed to initialize', err);
+      commandsEngine = null;
+    }
   }
 
   // Register IPC handlers
@@ -313,6 +331,8 @@ app.on('ready', async () => {
   const pathOverrides = getSetting('sourcePathOverrides');
   await parserRegistry.initialize(disabledParsers, pathOverrides);
   startWatching(parserRegistry, mainWindow);
+
+  log.info('App ready');
 });
 
 app.on('will-quit', () => {

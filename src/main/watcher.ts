@@ -1,5 +1,6 @@
 import { watch, type FSWatcher } from 'chokidar';
 import type { BrowserWindow } from 'electron';
+import log from './logger';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import type { ParserRegistry } from './parsers/registry';
 
@@ -19,7 +20,12 @@ export function startWatching(
   }
 
   const allPaths = Array.from(pathToSource.keys());
-  if (allPaths.length === 0) return;
+  if (allPaths.length === 0) {
+    log.debug('File watcher: no paths to watch');
+    return;
+  }
+
+  log.info(`File watcher started: watching ${allPaths.length} paths`);
 
   watcher = watch(allPaths, {
     ignoreInitial: true,
@@ -30,13 +36,19 @@ export function startWatching(
     const sourceId = pathToSource.get(changedPath);
     if (!sourceId) return;
 
-    const keybindings = await registry.parseSingleSource(sourceId);
+    log.info(`Config changed: ${sourceId} (${changedPath})`);
 
-    if (!window.isDestroyed()) {
-      window.webContents.send(IPC_CHANNELS.ON_UPDATE, {
-        sourceId,
-        keybindings,
-      });
+    try {
+      const keybindings = await registry.parseSingleSource(sourceId);
+
+      if (!window.isDestroyed()) {
+        window.webContents.send(IPC_CHANNELS.ON_UPDATE, {
+          sourceId,
+          keybindings,
+        });
+      }
+    } catch (err) {
+      log.error(`Failed to re-parse ${sourceId} after file change`, err);
     }
   });
 }

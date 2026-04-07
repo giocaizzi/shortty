@@ -1,6 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { join } from 'node:path';
-import { loadCheatsheets, type CheatsheetDefinition, type CheatsheetShortcut } from '../../../src/main/cheatsheets/loader';
+
+vi.mock('../../../src/main/logger', () => ({
+  default: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
+import log from '../../../src/main/logger';
+import { loadCheatsheets } from '../../../src/main/cheatsheets/loader';
 
 const FIXTURES_DIR = join(__dirname, 'fixtures');
 
@@ -30,35 +41,32 @@ describe('loadCheatsheets', () => {
   });
 
   it('skips file with missing required field "id" with warning', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockReturnValue(undefined);
     const results = await loadCheatsheets(FIXTURES_DIR);
 
     expect(results.find((d) => d.label === 'No ID App')).toBeUndefined();
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(log.warn).toHaveBeenCalledWith(
       expect.stringContaining('missing or invalid required field "id"'),
     );
   });
 
   it('skips file with missing required field "platforms" with warning', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockReturnValue(undefined);
     const results = await loadCheatsheets(FIXTURES_DIR);
 
     expect(
       results.find((d) => d.id === 'noplatforms'),
     ).toBeUndefined();
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(log.warn).toHaveBeenCalledWith(
       expect.stringContaining('"platforms" must be a non-empty array'),
     );
   });
 
   it('skips file with invalid shortcut (key not an object) with warning', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockReturnValue(undefined);
     const results = await loadCheatsheets(FIXTURES_DIR);
 
     expect(
       results.find((d) => d.id === 'badshortcut'),
     ).toBeUndefined();
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(log.warn).toHaveBeenCalledWith(
       expect.stringContaining('"key" must be an object'),
     );
   });
@@ -81,11 +89,10 @@ describe('loadCheatsheets', () => {
   });
 
   it('returns empty array for non-existent directory', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockReturnValue(undefined);
     const results = await loadCheatsheets('/tmp/nonexistent-cheatsheets-dir');
 
     expect(results).toEqual([]);
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(log.warn).toHaveBeenCalledWith(
       expect.stringContaining('could not read sources directory'),
     );
   });
