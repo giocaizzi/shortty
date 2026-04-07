@@ -1,18 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { join } from 'node:path';
 import { VscodeParser } from '../../../src/main/parsers/vscode.parser';
 
 const FIXTURE_PATH = join(__dirname, '../../../fixtures/vscode-keybindings.json');
-
-vi.mock('../../../src/main/platform/paths', () => ({
-  getConfigPaths: () => [FIXTURE_PATH],
-}));
 
 describe('VscodeParser', () => {
   let parser: VscodeParser;
 
   beforeEach(() => {
     parser = new VscodeParser();
+    parser.setConfigPaths([FIXTURE_PATH]);
   });
 
   it('has correct metadata', () => {
@@ -73,18 +70,16 @@ describe('VscodeParser', () => {
   });
 
   it('returns empty for missing file', async () => {
-    vi.resetModules();
-    const mod = await import('../../../src/main/parsers/vscode.parser');
-    const p = new mod.VscodeParser();
-    // Override getWatchPaths to return non-existent path
-    vi.spyOn(p, 'getWatchPaths').mockReturnValue(['/tmp/nonexistent.json']);
+    const p = new VscodeParser();
+    p.setConfigPaths(['/tmp/nonexistent.json']);
     const result = await p.parse();
     expect(result).toEqual([]);
   });
 
   it('handles empty file gracefully', async () => {
-    vi.spyOn(parser, 'getWatchPaths').mockReturnValue([]);
-    const result = await parser.parse();
+    const p = new VscodeParser();
+    p.setConfigPaths([]);
+    const result = await p.parse();
     expect(result).toEqual([]);
   });
 });

@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
-import type { ParserRegistry } from './parsers/registry';
+import type { ParserRegistry, SourceInfo } from './parsers/registry';
 import type { AppSettings } from '../shared/settings';
 import { getSettings, setSetting } from './settings-store';
 
@@ -16,6 +16,10 @@ export function registerIpcHandlers(
 
   ipcMain.handle(IPC_CHANNELS.GET_AVAILABLE_SOURCES, () => {
     return registry.getAvailableSources();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.GET_ALL_SOURCES, (): SourceInfo[] => {
+    return registry.getAllSources();
   });
 
   ipcMain.handle(IPC_CHANNELS.GET_ALL, () => {

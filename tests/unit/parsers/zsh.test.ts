@@ -1,18 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { join } from 'node:path';
 import { ZshParser } from '../../../src/main/parsers/zsh.parser';
 
 const FIXTURE_PATH = join(__dirname, '../../../fixtures/zshrc');
-
-vi.mock('../../../src/main/platform/paths', () => ({
-  getConfigPaths: () => [FIXTURE_PATH],
-}));
 
 describe('ZshParser', () => {
   let parser: ZshParser;
 
   beforeEach(() => {
     parser = new ZshParser();
+    parser.setConfigPaths([FIXTURE_PATH]);
   });
 
   it('has correct metadata', () => {
@@ -27,7 +24,7 @@ describe('ZshParser', () => {
     expect(result.every((kb) => kb.source === 'zsh')).toBe(true);
   });
 
-  it('normalizes ^ to ⌃ (Ctrl)', async () => {
+  it('normalizes ^ to ctrl (Ctrl)', async () => {
     const result = await parser.parse();
     const histSearch = result.find(
       (kb) => kb.rawCommand.includes('history-incremental-search-backward'),
@@ -56,8 +53,9 @@ describe('ZshParser', () => {
   });
 
   it('returns empty for no watch paths', async () => {
-    vi.spyOn(parser, 'getWatchPaths').mockReturnValue([]);
-    const result = await parser.parse();
+    const p = new ZshParser();
+    p.setConfigPaths([]);
+    const result = await p.parse();
     expect(result).toEqual([]);
   });
 });

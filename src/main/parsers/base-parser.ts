@@ -10,10 +10,22 @@ import {
 } from './key-normalizer';
 
 export abstract class BaseParser implements ParserPlugin {
+  private _configPaths: string[] = [];
+
   abstract get meta(): ParserPlugin['meta'];
   abstract isAvailable(): Promise<boolean>;
   abstract getWatchPaths(): string[];
   abstract parse(): Promise<Keybinding[]>;
+
+  /** Set config paths for this parser (called by registry). */
+  setConfigPaths(paths: string[]): void {
+    this._configPaths = paths;
+  }
+
+  /** Get the config paths for this parser. */
+  getConfigPaths(): string[] {
+    return this._configPaths;
+  }
 
   protected async readFileIfExists(filePath: string): Promise<string | null> {
     if (!existsSync(filePath)) return null;

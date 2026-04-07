@@ -1,6 +1,5 @@
 import { existsSync } from 'node:fs';
 import type { Keybinding, ParserMeta } from '../../shared/types';
-import { getConfigPaths } from '../platform/paths';
 import { BaseParser } from './base-parser';
 
 export class GhosttyParser extends BaseParser {
@@ -14,11 +13,11 @@ export class GhosttyParser extends BaseParser {
   }
 
   async isAvailable(): Promise<boolean> {
-    return getConfigPaths('ghostty').some((p) => existsSync(p));
+    return this.getConfigPaths().some((p) => existsSync(p));
   }
 
   getWatchPaths(): string[] {
-    return getConfigPaths('ghostty').filter((p) => existsSync(p));
+    return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
   async parse(): Promise<Keybinding[]> {

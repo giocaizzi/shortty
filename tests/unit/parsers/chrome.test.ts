@@ -1,18 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { join } from 'node:path';
 import { ChromeParser } from '../../../src/main/parsers/chrome.parser';
 
 const FIXTURE_PATH = join(__dirname, '../../../fixtures/chrome-preferences.json');
-
-vi.mock('../../../src/main/platform/paths', () => ({
-  getConfigPaths: () => [FIXTURE_PATH],
-}));
 
 describe('ChromeParser', () => {
   let parser: ChromeParser;
 
   beforeEach(() => {
     parser = new ChromeParser();
+    parser.setConfigPaths([FIXTURE_PATH]);
   });
 
   it('has correct metadata', () => {
@@ -62,8 +59,9 @@ describe('ChromeParser', () => {
   });
 
   it('returns empty for no watch paths', async () => {
-    vi.spyOn(parser, 'getWatchPaths').mockReturnValue([]);
-    const result = await parser.parse();
+    const p = new ChromeParser();
+    p.setConfigPaths([]);
+    const result = await p.parse();
     expect(result).toEqual([]);
   });
 });

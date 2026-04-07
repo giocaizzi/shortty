@@ -1,19 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { join } from 'node:path';
 import { ObsidianParser } from '../../../src/main/parsers/obsidian.parser';
 
 const FIXTURE_PATH = join(__dirname, '../../../fixtures/obsidian-hotkeys.json');
 
-vi.mock('../../../src/main/platform/paths', () => ({
-  discoverObsidianVaults: () => [FIXTURE_PATH],
-}));
-
 describe('ObsidianParser', () => {
   let parser: ObsidianParser;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     parser = new ObsidianParser();
-    await parser.isAvailable(); // triggers vault discovery
+    parser.setConfigPaths([FIXTURE_PATH]);
   });
 
   it('has correct metadata', () => {
@@ -31,15 +27,15 @@ describe('ObsidianParser', () => {
   it('normalizes Mod to platform-appropriate modifier', async () => {
     const result = await parser.parse();
     const bold = result.find((kb) => kb.rawCommand === 'editor:toggle-bold');
-    // On macOS Mod -> ⌘, on others -> ⌃
-    const expectedMod = process.platform === 'darwin' ? '⌘' : '⌃';
+    // On macOS Mod -> cmd, on others -> ctrl
+    const expectedMod = process.platform === 'darwin' ? '\u2318' : '\u2303';
     expect(bold?.key).toBe(`${expectedMod}B`);
   });
 
   it('handles multiple modifiers', async () => {
     const result = await parser.parse();
     const goBack = result.find((kb) => kb.rawCommand === 'app:go-back');
-    expect(goBack?.key).toContain('⌥');
+    expect(goBack?.key).toContain('\u2325');
     expect(goBack?.key).toContain('ArrowLeft');
   });
 

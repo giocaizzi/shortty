@@ -230,16 +230,20 @@ function setupSettingsChangeListener(): void {
       }
     }
 
-    // Parser enable/disable
+    // Parser enable/disable or path overrides change
     if (
       JSON.stringify(newSettings.disabledParsers) !==
-      JSON.stringify(oldSettings.disabledParsers)
+        JSON.stringify(oldSettings.disabledParsers) ||
+      JSON.stringify(newSettings.sourcePathOverrides) !==
+        JSON.stringify(oldSettings.sourcePathOverrides)
     ) {
-      parserRegistry.updateActiveParsers(newSettings.disabledParsers).then(() => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          restartWatching(parserRegistry, mainWindow);
-        }
-      });
+      parserRegistry
+        .updateActiveParsers(newSettings.disabledParsers, newSettings.sourcePathOverrides)
+        .then(() => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            restartWatching(parserRegistry, mainWindow);
+          }
+        });
     }
 
     // Broadcast to all renderer windows
@@ -269,9 +273,10 @@ app.on('ready', async () => {
   // Register IPC handlers
   registerIpcHandlers(parserRegistry, { openPreferences });
 
-  // Initialize parsers (respecting disabled list) and start file watching
+  // Initialize parsers (respecting disabled list and path overrides) and start file watching
   const disabledParsers = getSetting('disabledParsers');
-  await parserRegistry.initialize(disabledParsers);
+  const pathOverrides = getSetting('sourcePathOverrides');
+  await parserRegistry.initialize(disabledParsers, pathOverrides);
   startWatching(parserRegistry, mainWindow);
 });
 

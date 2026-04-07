@@ -30,7 +30,7 @@ export function startWatching(
     const sourceId = pathToSource.get(changedPath);
     if (!sourceId) return;
 
-    const keybindings = await registry.parseSource(sourceId);
+    const keybindings = await registry.parseSingleSource(sourceId);
 
     if (!window.isDestroyed()) {
       window.webContents.send(IPC_CHANNELS.ON_UPDATE, {

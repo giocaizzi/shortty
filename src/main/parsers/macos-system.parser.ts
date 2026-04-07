@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import type { Keybinding, ParserMeta } from '../../shared/types';
-import { getConfigPaths } from '../platform/paths';
 import { BaseParser } from './base-parser';
 import {
   type ParsedKey,
@@ -82,12 +81,12 @@ export class MacosSystemParser extends BaseParser {
   async isAvailable(): Promise<boolean> {
     return (
       process.platform === 'darwin' &&
-      getConfigPaths('macos-system').some((p) => existsSync(p))
+      this.getConfigPaths().some((p) => existsSync(p))
     );
   }
 
   getWatchPaths(): string[] {
-    return getConfigPaths('macos-system').filter((p) => existsSync(p));
+    return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
   async parse(): Promise<Keybinding[]> {

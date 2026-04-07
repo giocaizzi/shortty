@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import type { Keybinding, ParserMeta } from '../../shared/types';
-import { getConfigPaths } from '../platform/paths';
 import { BaseParser } from './base-parser';
 import {
   type ParsedKey,
@@ -48,7 +47,7 @@ export class TmuxParser extends BaseParser {
   }
 
   getWatchPaths(): string[] {
-    return getConfigPaths('tmux').filter((p) => existsSync(p));
+    return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
   async parse(): Promise<Keybinding[]> {

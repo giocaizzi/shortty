@@ -1,12 +1,11 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import type { Keybinding, ParserMeta } from '../../shared/types';
-import { discoverObsidianVaults } from '../platform/paths';
 import { BaseParser } from './base-parser';
 import { parseModifierWord, normalizeToCanonical } from './key-normalizer';
 
 export class ObsidianParser extends BaseParser {
-  private vaultPaths: string[] = [];
-
   get meta(): ParserMeta {
     return {
       id: 'obsidian',
@@ -17,12 +16,52 @@ export class ObsidianParser extends BaseParser {
   }
 
   async isAvailable(): Promise<boolean> {
-    this.vaultPaths = discoverObsidianVaults();
-    return this.vaultPaths.length > 0;
+    // If no config paths were set by the registry, discover vaults
+    if (this.getConfigPaths().length === 0) {
+      this.setConfigPaths(ObsidianParser.discoverVaults());
+    }
+    return this.getConfigPaths().some((p) => existsSync(p));
   }
 
   getWatchPaths(): string[] {
-    return this.vaultPaths.filter((p) => existsSync(p));
+    return this.getConfigPaths().filter((p) => existsSync(p));
+  }
+
+  /** Discover Obsidian vaults by scanning common directories. */
+  static discoverVaults(): string[] {
+    const home = homedir();
+    const vaults: string[] = [];
+    const searchDirs = [
+      join(home, 'Documents'),
+      join(home, 'Desktop'),
+      home,
+    ];
+
+    for (const dir of searchDirs) {
+      if (!existsSync(dir)) continue;
+      try {
+        for (const entry of readdirSync(dir)) {
+          if (entry.startsWith('.')) continue;
+          const entryPath = join(dir, entry);
+          try {
+            if (!statSync(entryPath).isDirectory()) continue;
+            const obsidianDir = join(entryPath, '.obsidian');
+            if (existsSync(obsidianDir)) {
+              const hotkeysPath = join(obsidianDir, 'hotkeys.json');
+              if (existsSync(hotkeysPath)) {
+                vaults.push(hotkeysPath);
+              }
+            }
+          } catch {
+            // Skip inaccessible entries
+          }
+        }
+      } catch {
+        // Skip inaccessible directories
+      }
+    }
+
+    return vaults;
   }
 
   async parse(): Promise<Keybinding[]> {
