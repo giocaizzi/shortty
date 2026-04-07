@@ -1,0 +1,11 @@
+# Bash configuration
+export EDITOR=vim
+
+# Bind commands
+bind '"\C-l": clear-screen'
+bind '"\C-p": history-search-backward'
+bind -x '"\C-g": git status'
+bind -x '"\C-t": tmux new-session'
+
+# Aliases
+alias ll="ls -la"

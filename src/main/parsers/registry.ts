@@ -11,6 +11,8 @@ import { ZshParser } from './zsh.parser';
 import { ObsidianParser } from './obsidian.parser';
 import { ChromeParser } from './chrome.parser';
 import { MacosSystemParser } from './macos-system.parser';
+import { VimParser } from './vim.parser';
+import { BashParser } from './bash.parser';
 import { BaseParser } from './base-parser';
 
 type Platform = 'darwin' | 'win32' | 'linux';
@@ -24,6 +26,8 @@ const PARSERS: Record<string, new () => BaseParser> = {
   obsidian: ObsidianParser,
   chrome: ChromeParser,
   'macos-system': MacosSystemParser,
+  vim: VimParser,
+  bash: BashParser,
 };
 
 export interface SourceInfo {
