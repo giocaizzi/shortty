@@ -92,9 +92,27 @@ kbd {
   animation: panel-hide 80ms ease-in forwards;
 }
 
+/* Copy flash animation */
+@keyframes copy-flash {
+  0% {
+    background-color: rgba(34, 197, 94, 0.3);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.copy-flash {
+  animation: copy-flash 300ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .panel-enter,
   .panel-exit {
+    animation: none;
+  }
+
+  .copy-flash {
     animation: none;
   }
 }

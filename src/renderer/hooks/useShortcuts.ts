@@ -1,16 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Keybinding, ParserMeta } from '../../shared/types';
+import type { Shortcut, ParserMeta } from '../../shared/types';
 import { getElectronAPI } from '../lib/ipc';
 
-interface UseKeybindingsReturn {
-  keybindings: Keybinding[];
+interface UseShortcutsReturn {
+  shortcuts: Shortcut[];
   sources: ParserMeta[];
   loading: boolean;
   refresh: () => Promise<void>;
 }
 
-export function useKeybindings(): UseKeybindingsReturn {
-  const [keybindings, setKeybindings] = useState<Keybinding[]>([]);
+export function useShortcuts(): UseShortcutsReturn {
+  const [shortcuts, setShortcuts] = useState<Shortcut[]>([]);
   const [sources, setSources] = useState<ParserMeta[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -21,7 +21,7 @@ export function useKeybindings(): UseKeybindingsReturn {
       api.getAllKeybindings(),
     ]);
     setSources(srcData);
-    setKeybindings(kbData);
+    setShortcuts(kbData);
     setLoading(false);
   }, []);
 
@@ -29,7 +29,7 @@ export function useKeybindings(): UseKeybindingsReturn {
     setLoading(true);
     const api = getElectronAPI();
     const data = await api.refreshKeybindings();
-    setKeybindings(data);
+    setShortcuts(data);
     setLoading(false);
   }, []);
 
@@ -38,15 +38,15 @@ export function useKeybindings(): UseKeybindingsReturn {
 
     const api = getElectronAPI();
 
-    // Listen for live updates from file watcher
-    const unsubUpdate = api.onKeybindingsUpdate(({ keybindings: updated, sourceId }) => {
-      setKeybindings((prev) => {
-        const filtered = prev.filter((kb) => kb.source !== sourceId);
-        return [...filtered, ...updated];
-      });
-    });
+    const unsubUpdate = api.onKeybindingsUpdate(
+      ({ keybindings: updated, sourceId }) => {
+        setShortcuts((prev) => {
+          const filtered = prev.filter((kb) => kb.source !== sourceId);
+          return [...filtered, ...updated];
+        });
+      },
+    );
 
-    // Refresh data when window becomes visible
     const unsubShown = api.onWindowShown(() => {
       loadData();
     });
@@ -57,5 +57,5 @@ export function useKeybindings(): UseKeybindingsReturn {
     };
   }, [loadData]);
 
-  return { keybindings, sources, loading, refresh };
+  return { shortcuts, sources, loading, refresh };
 }
