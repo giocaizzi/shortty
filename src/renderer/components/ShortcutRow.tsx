@@ -21,7 +21,7 @@ export function ShortcutRow({
       data-index={dataIndex}
       role="option"
       aria-selected={selected}
-      style={{ padding: '16px 28px' }}
+      style={{ padding: '12px 28px' }}
       className={`
         flex items-center gap-5
         rounded-xl

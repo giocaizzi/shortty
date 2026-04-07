@@ -83,7 +83,7 @@ export function CommandDetailView({
                     data-index={idx}
                     role="option"
                     aria-selected={idx === selectedIndex}
-                    style={{ padding: '16px 28px' }}
+                    style={{ padding: '12px 28px' }}
                     className={`
                       flex items-center gap-5
                       rounded-xl text-[13px]

@@ -16,7 +16,7 @@ export function SectionHeader({
   const hasMore = totalCount !== undefined && totalCount > count && !showAll;
 
   return (
-    <div role="presentation" style={{ padding: '16px 28px 8px' }} className="flex items-center justify-between">
+    <div role="presentation" style={{ padding: '2px 28px 8px' }} className="flex items-center justify-between">
       <span className="text-[12px] font-medium tracking-wider text-white/25">
         {title}
       </span>
