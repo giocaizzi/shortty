@@ -30,14 +30,14 @@ describe('TmuxParser', () => {
     const result = parser.parseTmuxListKeys(output);
 
     const newWindow = result.find((kb) => kb.command === 'New Window');
-    expect(newWindow?.key).toBe('prefix C');
+    expect(newWindow?.key).toBe('⌃B C');
   });
 
   it('no prefix for root-table bindings', () => {
     const output = readFileSync(FIXTURE_PATH, 'utf-8');
     const result = parser.parseTmuxListKeys(output);
 
-    const rootBindings = result.filter((kb) => !kb.key.startsWith('prefix'));
+    const rootBindings = result.filter((kb) => !kb.key.startsWith('⌃B'));
     expect(rootBindings.length).toBeGreaterThan(0);
     expect(rootBindings[0].key).toBe('⌥↑');
   });
@@ -52,7 +52,7 @@ describe('TmuxParser', () => {
     const output = readFileSync(FIXTURE_PATH, 'utf-8');
     const result = parser.parseTmuxListKeys(output);
 
-    const splitH = result.find((kb) => kb.key === 'prefix %');
+    const splitH = result.find((kb) => kb.key === '⌃B %');
     expect(splitH?.command).toBe('Split Window');
   });
 

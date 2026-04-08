@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import type { Keybinding, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
@@ -27,7 +27,19 @@ const TMUX_SPECIAL_KEYS: Record<string, string> = {
   End: 'End',
 };
 
+/** Default tmux prefix in tmux notation. */
+const DEFAULT_PREFIX = 'C-b';
+
 export class TmuxParser extends BaseParser {
+  /** Resolved display form of the tmux prefix key. Initialized to default, updated on parse(). */
+  private resolvedPrefix: string;
+
+  constructor() {
+    super();
+    const { displayKey } = this.normalizeTmuxKey(DEFAULT_PREFIX);
+    this.resolvedPrefix = displayKey;
+  }
+
   get meta(): ParserMeta {
     return {
       id: 'tmux',
@@ -51,9 +63,41 @@ export class TmuxParser extends BaseParser {
   }
 
   async parse(): Promise<Keybinding[]> {
+    this.resolvedPrefix = this.detectPrefix();
     const configKeybindings = await this.parseConfigFiles();
     if (configKeybindings.length > 0) return configKeybindings;
     return this.parseLiveKeys();
+  }
+
+  /** Detect the user's tmux prefix key and return its normalized display form. */
+  private detectPrefix(): string {
+    // Try live tmux first
+    try {
+      const raw = execSync('tmux show-option -gv prefix 2>/dev/null', {
+        encoding: 'utf-8',
+        timeout: 2000,
+      }).trim();
+      if (raw) {
+        const { displayKey } = this.normalizeTmuxKey(raw);
+        return displayKey;
+      }
+    } catch { /* tmux not running */ }
+
+    // Fall back to parsing config files
+    for (const filePath of this.getConfigPaths()) {
+      try {
+        const content = readFileSync(filePath, 'utf-8');
+        const match = content.match(/^\s*set(?:-option)?\s+(?:-g\s+)?prefix\s+(\S+)/m);
+        if (match) {
+          const { displayKey } = this.normalizeTmuxKey(match[1]);
+          return displayKey;
+        }
+      } catch { /* file not found */ }
+    }
+
+    // Default tmux prefix
+    const { displayKey } = this.normalizeTmuxKey(DEFAULT_PREFIX);
+    return displayKey;
   }
 
   private async parseConfigFiles(): Promise<Keybinding[]> {
@@ -91,8 +135,8 @@ export class TmuxParser extends BaseParser {
 
         if (TmuxParser.MOUSE_KEY_RE.test(key)) continue;
 
-        const prefix = isRoot ? undefined : 'prefix';
-        const { displayKey, searchKey } = this.normalizeTmuxKey(key, prefix);
+        const prefixKey = isRoot ? undefined : this.resolvedPrefix;
+        const { displayKey, searchKey } = this.normalizeTmuxKey(key, prefixKey);
 
         keybindings.push(
           this.makeKeybinding({
@@ -147,8 +191,8 @@ export class TmuxParser extends BaseParser {
       if (TmuxParser.IGNORED_TABLES.has(table)) continue;
       if (TmuxParser.MOUSE_KEY_RE.test(key)) continue;
 
-      const prefix = table === 'root' ? undefined : 'prefix';
-      const { displayKey, searchKey } = this.normalizeTmuxKey(key, prefix);
+      const prefixKey = table === 'root' ? undefined : this.resolvedPrefix;
+      const { displayKey, searchKey } = this.normalizeTmuxKey(key, prefixKey);
 
       keybindings.push(
         this.makeKeybinding({
