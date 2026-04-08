@@ -80,8 +80,23 @@ export function SearchInput({
         <input
           ref={inputRef}
           type="text"
-          value={query}
-          onChange={(e) => onChange(e.target.value)}
+          value={commandPrefixActive ? query.slice(1) : query}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (commandPrefixActive) {
+              // Keep the > prefix in the underlying state
+              onChange('>' + val);
+            } else {
+              onChange(val);
+            }
+          }}
+          onKeyDown={(e) => {
+            // Backspace on empty input with prefix active → deactivate prefix
+            if (commandPrefixActive && e.key === 'Backspace' && query === '>') {
+              e.preventDefault();
+              onChange('');
+            }
+          }}
           placeholder={getPlaceholder(navMode, sourceLabel)}
           className="
             flex-1 bg-transparent text-xl font-light text-white
