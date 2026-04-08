@@ -149,18 +149,12 @@ function showWindow(): void {
   mainWindow.show();
   mainWindow.focus();
   mainWindow.webContents.send('window:shown');
-
-  // Pause enrichment while user is interacting
-  commandsEngine?.pause();
 }
 
 function hideWindow(): void {
   if (!mainWindow) return;
   mainWindow.hide();
   mainWindow.webContents.send('window:hidden');
-
-  // Resume enrichment in background
-  commandsEngine?.resume();
 }
 
 function toggleWindow(): void {

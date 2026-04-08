@@ -50,8 +50,11 @@ export function useCommands(): UseCommandsReturn {
 
     const api = getElectronAPI();
 
-    const unsubUpdate = api.onCommandsUpdate((updatedCommands) => {
-      setCommands(updatedCommands);
+    const unsubUpdate = api.onCommandsUpdate((updatedBatch) => {
+      setCommands((prev) => {
+        const updated = new Map(updatedBatch.map((c) => [c.name, c]));
+        return prev.map((c) => updated.get(c.name) ?? c);
+      });
       api.getCommandsStats().then(setStats);
     });
 

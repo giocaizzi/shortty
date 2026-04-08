@@ -26,6 +26,7 @@ export class CommandsEngine {
       if (cached) {
         log.info(`Commands loaded from cache: ${cached.length} commands`);
         this.commands = cached;
+        this.reconcileWithDetails();
         this.startEnrichment();
         return this.commands;
       }
@@ -83,14 +84,6 @@ export class CommandsEngine {
     this.updateCallback = callback;
   }
 
-  pause(): void {
-    this.worker.pause();
-  }
-
-  resume(): void {
-    this.worker.resume();
-  }
-
   stop(): void {
     this.worker.stop();
   }
@@ -101,6 +94,35 @@ export class CommandsEngine {
       enriched: this.commands.filter(c => c.enrichment !== 'basic').length,
       running: this.worker.isRunning,
     };
+  }
+
+  private reconcileWithDetails(): void {
+    const detailNames = this.cache.listDetailNames();
+    if (detailNames.size === 0) return;
+
+    let reconciled = 0;
+    for (let i = 0; i < this.commands.length; i++) {
+      const cmd = this.commands[i];
+      if (cmd.enrichment !== 'basic') continue;
+      if (!detailNames.has(cmd.name)) continue;
+
+      const detail = this.cache.readDetail(cmd.name);
+      if (detail && detail.enrichment !== 'basic') {
+        this.commands[i] = { ...cmd, ...detail };
+        reconciled++;
+      }
+    }
+
+    if (reconciled > 0) {
+      log.info(`Reconciled ${reconciled} commands from detail cache`);
+      this.cache.writeIndex(this.commands);
+      const meta = this.cache.readMeta();
+      if (meta) {
+        meta.enrichedCount = this.commands.filter(c => c.enrichment !== 'basic').length;
+        meta.timestamp = new Date().toISOString();
+        this.cache.writeMeta(meta);
+      }
+    }
   }
 
   private startEnrichment(): void {

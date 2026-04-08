@@ -5,10 +5,22 @@ import { join } from 'node:path';
 import type { CommandDetail, FlagDetail } from '../../../shared/types';
 
 const BLOCKLIST = new Set([
+  // Destructive system commands
   'shutdown', 'reboot', 'halt', 'poweroff', 'init', 'rm', 'mkfs', 'fdisk', 'dd', 'kill', 'killall', 'pkill',
+  // Services/daemons
   'httpd', 'nginx', 'postgres', 'mysqld', 'mongod', 'redis-server', 'dockerd', 'sshd', 'cupsd',
+  // Interactive/network commands
   'ssh', 'telnet', 'ftp', 'sftp', 'nc', 'ncat', 'python', 'python3', 'node', 'ruby', 'irb', 'lua', 'perl',
+  // Shells
   'bash', 'zsh', 'sh', 'fish', 'tcsh', 'csh',
+  // macOS security/signing tools that trigger Keychain or admin prompts
+  'security', 'codesign', 'productsign', 'pkgbuild', 'productbuild',
+  'notarytool', 'stapler', 'xcrun', 'xcodebuild', 'spctl',
+  'systemsetup', 'systemkeychain', 'certtool', 'authorizationdb',
+  'csreq', 'csrutil', 'kinit', 'klist',
+  'sudo', 'su', 'login', 'passwd', 'dscl', 'dseditgroup',
+  // GUI apps that open windows when invoked
+  'jconsole', 'electron',
 ]);
 
 export function isBlocklisted(name: string): boolean {
@@ -32,7 +44,7 @@ export async function parseHelp(commandName: string, binPath: string): Promise<{
   let output: string;
   try {
     output = await new Promise<string>((resolve, reject) => {
-      exec(`"${binPath}" --help 2>&1`, {
+      exec(`"${binPath}" --help 2>&1 < /dev/null`, {
         encoding: 'utf-8',
         timeout: 2000,
         maxBuffer: 1 * 1024 * 1024,

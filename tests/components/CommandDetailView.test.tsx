@@ -16,8 +16,8 @@ const mockCommand: Command = {
   hasManPage: true,
   hasCompletion: true,
   subcommands: [
-    { name: 'commit', description: 'Record changes to the repository' },
-    { name: 'push', description: 'Update remote refs' },
+    { name: 'git commit', description: 'Record changes to the repository' },
+    { name: 'git push', description: 'Update remote refs' },
   ],
   flags: [
     { short: '-v', long: '--verbose', description: 'Be more verbose' },
@@ -48,8 +48,8 @@ describe('CommandDetailView', () => {
         copyFlashIndex={null}
       />,
     );
-    expect(screen.getByText('commit')).toBeInTheDocument();
-    expect(screen.getByText('push')).toBeInTheDocument();
+    expect(screen.getByText('git commit')).toBeInTheDocument();
+    expect(screen.getByText('git push')).toBeInTheDocument();
     expect(screen.getByText('--verbose')).toBeInTheDocument();
   });
 
@@ -62,8 +62,8 @@ describe('CommandDetailView', () => {
         copyFlashIndex={null}
       />,
     );
-    expect(screen.getByText('commit')).toBeInTheDocument();
-    expect(screen.queryByText('push')).not.toBeInTheDocument();
+    expect(screen.getByText('git commit')).toBeInTheDocument();
+    expect(screen.queryByText('git push')).not.toBeInTheDocument();
   });
 
   it('shows enriching message when partially enriched', () => {

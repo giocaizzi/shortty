@@ -11,7 +11,6 @@ const BATCH_SIZE = 50;
 
 export class EnrichmentWorker {
   private running = false;
-  private paused = false;
 
   constructor(
     private cache: CommandCache,
@@ -36,10 +35,6 @@ export class EnrichmentWorker {
     let i = 0;
 
     while (i < unenriched.length && this.running) {
-      while (this.paused && this.running) {
-        await new Promise(r => setTimeout(r, 500));
-      }
-      if (!this.running) break;
 
       // Take a chunk of CONCURRENCY commands and process in parallel
       const chunk = unenriched.slice(i, i + CONCURRENCY);
@@ -106,24 +101,11 @@ export class EnrichmentWorker {
     };
   }
 
-  pause(): void {
-    this.paused = true;
-  }
-
-  resume(): void {
-    this.paused = false;
-  }
-
   stop(): void {
     this.running = false;
-    this.paused = false;
   }
 
   get isRunning(): boolean {
     return this.running;
-  }
-
-  get isPaused(): boolean {
-    return this.paused;
   }
 }

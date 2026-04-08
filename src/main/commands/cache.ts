@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, statSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { Command } from '../../shared/types';
@@ -72,6 +72,17 @@ export class CommandCache {
 
   writeDetail(name: string, detail: Command): void {
     writeFileSync(join(this.cacheDir, 'details', `${name}.json`), JSON.stringify(detail));
+  }
+
+  listDetailNames(): Set<string> {
+    try {
+      const files = readdirSync(join(this.cacheDir, 'details'));
+      return new Set(
+        files.filter(f => f.endsWith('.json')).map(f => f.slice(0, -5)),
+      );
+    } catch {
+      return new Set();
+    }
   }
 
   isValid(): boolean {

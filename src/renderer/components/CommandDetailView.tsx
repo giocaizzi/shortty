@@ -210,7 +210,7 @@ export function getCommandDetailCopyText(
     : command.flags;
 
   if (index < subcommands.length) {
-    return `${command.name} ${subcommands[index].name}`;
+    return subcommands[index].name;
   }
   const flagIndex = index - subcommands.length;
   if (flagIndex < flags.length) {
