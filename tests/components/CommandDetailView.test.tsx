@@ -2,8 +2,9 @@
 import { render, screen } from '@testing-library/react';
 import {
   CommandDetailView,
-  getCommandDetailItemCount,
-  getCommandDetailCopyText,
+  getDetailItemCount,
+  getDetailCopyText,
+  isSubcommandAtIndex,
 } from '../../src/renderer/components/CommandDetailView';
 import type { Command } from '../../src/shared/types';
 
@@ -28,7 +29,7 @@ describe('CommandDetailView', () => {
   it('renders command name and description', () => {
     render(
       <CommandDetailView
-        command={mockCommand}
+        data={mockCommand}
         filterQuery=""
         selectedIndex={0}
         copyFlashIndex={null}
@@ -42,7 +43,7 @@ describe('CommandDetailView', () => {
   it('renders subcommands and flags', () => {
     render(
       <CommandDetailView
-        command={mockCommand}
+        data={mockCommand}
         filterQuery=""
         selectedIndex={0}
         copyFlashIndex={null}
@@ -56,7 +57,7 @@ describe('CommandDetailView', () => {
   it('filters items by query', () => {
     render(
       <CommandDetailView
-        command={mockCommand}
+        data={mockCommand}
         filterQuery="commit"
         selectedIndex={0}
         copyFlashIndex={null}
@@ -70,7 +71,7 @@ describe('CommandDetailView', () => {
     const partialCommand: Command = { ...mockCommand, enrichment: 'partial' };
     render(
       <CommandDetailView
-        command={partialCommand}
+        data={partialCommand}
         filterQuery=""
         selectedIndex={0}
         copyFlashIndex={null}
@@ -78,28 +79,52 @@ describe('CommandDetailView', () => {
     );
     expect(screen.getByText('— Enriching...')).toBeInTheDocument();
   });
+
+  it('shows loading state', () => {
+    render(
+      <CommandDetailView
+        data={mockCommand}
+        filterQuery=""
+        selectedIndex={0}
+        copyFlashIndex={null}
+        loading={true}
+      />,
+    );
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+  });
 });
 
-describe('getCommandDetailItemCount', () => {
+describe('getDetailItemCount', () => {
   it('returns total subcommands + flags', () => {
-    expect(getCommandDetailItemCount(mockCommand, '')).toBe(3);
+    expect(getDetailItemCount(mockCommand, '')).toBe(3);
   });
 
   it('filters by query', () => {
-    expect(getCommandDetailItemCount(mockCommand, 'commit')).toBe(1);
+    expect(getDetailItemCount(mockCommand, 'commit')).toBe(1);
   });
 });
 
-describe('getCommandDetailCopyText', () => {
-  it('returns prefixed subcommand name for subcommand index', () => {
-    expect(getCommandDetailCopyText(mockCommand, '', 0)).toBe('git commit');
+describe('getDetailCopyText', () => {
+  it('returns subcommand name for subcommand index', () => {
+    expect(getDetailCopyText(mockCommand, '', 0)).toBe('git commit');
   });
 
   it('returns flag for flag index', () => {
-    expect(getCommandDetailCopyText(mockCommand, '', 2)).toBe('--verbose');
+    expect(getDetailCopyText(mockCommand, '', 2)).toBe('--verbose');
   });
 
   it('returns null for out-of-range index', () => {
-    expect(getCommandDetailCopyText(mockCommand, '', 10)).toBeNull();
+    expect(getDetailCopyText(mockCommand, '', 10)).toBeNull();
+  });
+});
+
+describe('isSubcommandAtIndex', () => {
+  it('returns true for subcommand index', () => {
+    expect(isSubcommandAtIndex(mockCommand, '', 0)).toBe(true);
+    expect(isSubcommandAtIndex(mockCommand, '', 1)).toBe(true);
+  });
+
+  it('returns false for flag index', () => {
+    expect(isSubcommandAtIndex(mockCommand, '', 2)).toBe(false);
   });
 });

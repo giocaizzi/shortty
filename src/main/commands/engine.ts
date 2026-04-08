@@ -1,9 +1,10 @@
-import type { Command } from '../../shared/types';
+import type { Command, SubcommandDetail } from '../../shared/types';
 import log from '../logger';
 import { scanPath } from './path-scanner';
 import { readWhatis } from './whatis-reader';
 import { CommandCache } from './cache';
 import { EnrichmentWorker } from './enrichment-worker';
+import { enrichSubcommand } from './subcommand-enricher';
 
 type CommandsUpdateCallback = (commands: Command[]) => void;
 
@@ -82,6 +83,13 @@ export class CommandsEngine {
 
   onUpdate(callback: CommandsUpdateCallback): void {
     this.updateCallback = callback;
+  }
+
+  async getSubcommandDetail(qualifiedName: string): Promise<SubcommandDetail> {
+    const baseName = qualifiedName.split(' ')[0];
+    const cmd = this.commands.find(c => c.name === baseName);
+    const binPath = cmd?.bin ?? baseName;
+    return enrichSubcommand(binPath, qualifiedName, this.cache);
   }
 
   stop(): void {

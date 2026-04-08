@@ -123,7 +123,7 @@ function createWindow(): BrowserWindow {
     );
   }
 
-  if (isDev) {
+  if (isDev && process.env.DEVTOOLS === '1') {
     win.webContents.openDevTools({ mode: 'detach' });
   }
 
@@ -147,7 +147,9 @@ function showWindow(): void {
   mainWindow.setBounds({ x, y, width: WINDOW_WIDTH, height: SEARCH_BAR_HEIGHT });
 
   mainWindow.show();
+  app.focus({ steal: true });
   mainWindow.focus();
+  mainWindow.webContents.focus();
   mainWindow.webContents.send('window:shown');
 }
 

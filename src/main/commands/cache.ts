@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync, statSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import type { Command } from '../../shared/types';
+import type { Command, SubcommandDetail } from '../../shared/types';
 
 interface CacheMeta {
   pathHash: string;
@@ -17,6 +17,7 @@ export class CommandCache {
     this.cacheDir = join(userDataPath, 'cache');
     mkdirSync(this.cacheDir, { recursive: true });
     mkdirSync(join(this.cacheDir, 'details'), { recursive: true });
+    mkdirSync(join(this.cacheDir, 'details', 'sub'), { recursive: true });
   }
 
   computePathHash(): string {
@@ -72,6 +73,29 @@ export class CommandCache {
 
   writeDetail(name: string, detail: Command): void {
     writeFileSync(join(this.cacheDir, 'details', `${name}.json`), JSON.stringify(detail));
+  }
+
+  private subFilename(qualifiedName: string): string {
+    return qualifiedName.replace(/ /g, '__') + '.json';
+  }
+
+  readSubcommandDetail(qualifiedName: string): SubcommandDetail | null {
+    try {
+      const raw = readFileSync(
+        join(this.cacheDir, 'details', 'sub', this.subFilename(qualifiedName)),
+        'utf-8',
+      );
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  writeSubcommandDetail(qualifiedName: string, detail: SubcommandDetail): void {
+    writeFileSync(
+      join(this.cacheDir, 'details', 'sub', this.subFilename(qualifiedName)),
+      JSON.stringify(detail),
+    );
   }
 
   listDetailNames(): Set<string> {

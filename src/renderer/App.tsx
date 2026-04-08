@@ -3,21 +3,33 @@ import type { Command, Shortcut } from '../shared/types';
 import { useShortcuts } from './hooks/useShortcuts';
 import { useCommands } from './hooks/useCommands';
 import { useSearch } from './hooks/useSearch';
+import { useSubcommandDetail } from './hooks/useSubcommandDetail';
 import { useAppSettings } from './context/SettingsContext';
 import { LauncherPanel } from './components/LauncherPanel';
 import { SearchInput } from './components/SearchInput';
 import { ResultsContainer } from './components/ResultsContainer';
 import {
   CommandDetailView,
-  getCommandDetailItemCount,
-  getCommandDetailCopyText,
+  getDetailItemCount,
+  getDetailCopyText,
+  isSubcommandAtIndex,
 } from './components/CommandDetailView';
 import { KeyboardHelp } from './components/KeyboardHelp';
 
-type NavState =
-  | { mode: 'flat' }
-  | { mode: 'drilled-source'; sourceId: string; sourceLabel: string }
-  | { mode: 'command-detail'; command: Command };
+type NavLevel =
+  | { kind: 'flat' }
+  | { kind: 'drilled-source'; sourceId: string; sourceLabel: string }
+  | { kind: 'command'; command: Command }
+  | { kind: 'subcommand'; qualifiedName: string; baseBinPath: string };
+
+interface StackEntry {
+  level: NavLevel;
+  selectedIndex: number;
+}
+
+function isDetailLevel(level: NavLevel): level is NavLevel & { kind: 'command' | 'subcommand' } {
+  return level.kind === 'command' || level.kind === 'subcommand';
+}
 
 export function App() {
   const { shortcuts, sources, loading } = useShortcuts();
@@ -25,7 +37,9 @@ export function App() {
   const { commandPrefixMode, dismissAfterCopy, commandsEnabled } =
     useAppSettings();
 
-  const [nav, setNav] = useState<NavState>({ mode: 'flat' });
+  const [navStack, setNavStack] = useState<StackEntry[]>([
+    { level: { kind: 'flat' }, selectedIndex: 0 },
+  ]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [copyFlashIndex, setCopyFlashIndex] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
@@ -37,10 +51,23 @@ export function App() {
 
   const listRef = useRef<HTMLDivElement>(null);
 
+  const currentLevel = navStack[navStack.length - 1].level;
+
+  // Subcommand detail fetching (only when on a subcommand level)
+  const subcommandName = currentLevel.kind === 'subcommand' ? currentLevel.qualifiedName : null;
+  const { detail: subcommandDetail, loading: subcommandLoading } = useSubcommandDetail(subcommandName);
+
+  // Get the detail data for the current level (if in a detail view)
+  const detailData = (() => {
+    if (currentLevel.kind === 'command') return currentLevel.command;
+    if (currentLevel.kind === 'subcommand' && subcommandDetail) return subcommandDetail;
+    return null;
+  })();
+
   // Filter shortcuts when drilled into a source
   const activeShortcuts =
-    nav.mode === 'drilled-source'
-      ? shortcuts.filter((s) => s.source === nav.sourceId)
+    currentLevel.kind === 'drilled-source'
+      ? shortcuts.filter((s) => s.source === currentLevel.sourceId)
       : shortcuts;
 
   const activeCommands = commandsEnabled ? commands : [];
@@ -56,7 +83,7 @@ export function App() {
     const api = window.electronAPI;
     if (!api) return;
     const unsub = api.onWindowShown(() => {
-      setNav({ mode: 'flat' });
+      setNavStack([{ level: { kind: 'flat' }, selectedIndex: 0 }]);
       setQuery('');
       setSelectedIndex(0);
       setCopyFlashIndex(null);
@@ -70,10 +97,10 @@ export function App() {
   useEffect(() => {
     setSelectedIndex(0);
     setCopyFlashIndex(null);
-  }, [query, nav]);
+  }, [query, currentLevel]);
 
   // Resize window: compact when empty in flat mode, expand when results exist
-  const hasResults = nav.mode !== 'flat' ||
+  const hasResults = !['flat'].includes(currentLevel.kind) ||
     results.sources.length > 0 ||
     results.shortcuts.length > 0 ||
     results.commands.length > 0;
@@ -101,7 +128,6 @@ export function App() {
       setCopyFlashIndex(index);
       setTimeout(() => setCopyFlashIndex(null), 300);
       if (dismissAfterCopy) {
-        // Blurring the window triggers the main process hideWindow() handler
         setTimeout(() => window.blur(), 300);
       }
     },
@@ -109,15 +135,14 @@ export function App() {
   );
 
   const getTotalItemCount = useCallback((): number => {
-    if (nav.mode === 'command-detail') {
-      return getCommandDetailItemCount(nav.command, query);
+    if (isDetailLevel(currentLevel) && detailData) {
+      return getDetailItemCount(detailData, query);
     }
     return (
       results.sources.length + results.shortcuts.length + results.commands.length
     );
-  }, [nav, results, query]);
+  }, [currentLevel, detailData, results, query]);
 
-  /** Resolve what item the current selectedIndex points to. */
   const getItemAtIndex = useCallback(
     (
       index: number,
@@ -158,9 +183,35 @@ export function App() {
     [results],
   );
 
+  const pushLevel = useCallback((level: NavLevel) => {
+    setNavStack((prev) => {
+      const updated = [...prev];
+      // Save current selectedIndex in the current stack entry
+      updated[updated.length - 1] = {
+        ...updated[updated.length - 1],
+        selectedIndex,
+      };
+      return [...updated, { level, selectedIndex: 0 }];
+    });
+    setSelectedIndex(0);
+    setQuery('');
+  }, [selectedIndex, setQuery]);
+
+  const popLevel = useCallback(() => {
+    setNavStack((prev) => {
+      if (prev.length <= 1) return prev;
+      const newStack = prev.slice(0, -1);
+      const restored = newStack[newStack.length - 1];
+      // Restore selectedIndex after state update
+      setTimeout(() => setSelectedIndex(restored.selectedIndex), 0);
+      return newStack;
+    });
+    setQuery('');
+  }, [setQuery]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (showHelp) return; // KeyboardHelp handles its own dismissal
+      if (showHelp) return;
 
       if (e.key === '?' && !query) {
         e.preventDefault();
@@ -188,12 +239,8 @@ export function App() {
         case 'Enter': {
           e.preventDefault();
 
-          if (nav.mode === 'command-detail') {
-            const text = getCommandDetailCopyText(
-              nav.command,
-              query,
-              selectedIndex,
-            );
+          if (isDetailLevel(currentLevel) && detailData) {
+            const text = getDetailCopyText(detailData, query, selectedIndex);
             if (text) {
               navigator.clipboard.writeText(text);
               triggerCopyFlash(selectedIndex);
@@ -205,12 +252,11 @@ export function App() {
           if (!item) return;
 
           if (item.type === 'source') {
-            setNav({
-              mode: 'drilled-source',
+            pushLevel({
+              kind: 'drilled-source',
               sourceId: item.sourceId,
               sourceLabel: item.sourceLabel,
             });
-            setQuery('');
           } else if (item.type === 'shortcut') {
             navigator.clipboard.writeText(item.shortcut.key);
             triggerCopyFlash(selectedIndex);
@@ -223,12 +269,31 @@ export function App() {
 
         case 'Tab':
         case 'ArrowRight': {
-          if (nav.mode === 'flat' || nav.mode === 'drilled-source') {
+          // Drill into command from flat/drilled-source
+          if (currentLevel.kind === 'flat' || currentLevel.kind === 'drilled-source') {
             const item = getItemAtIndex(selectedIndex);
             if (item?.type === 'command') {
               e.preventDefault();
-              setNav({ mode: 'command-detail', command: item.command });
-              setQuery('');
+              pushLevel({ kind: 'command', command: item.command });
+            }
+            break;
+          }
+
+          // Drill deeper into subcommand from detail view
+          if (isDetailLevel(currentLevel) && detailData) {
+            if (isSubcommandAtIndex(detailData, query, selectedIndex)) {
+              e.preventDefault();
+              const subName = getDetailCopyText(detailData, query, selectedIndex);
+              if (subName) {
+                const baseBin = currentLevel.kind === 'command'
+                  ? currentLevel.command.bin
+                  : currentLevel.baseBinPath;
+                pushLevel({
+                  kind: 'subcommand',
+                  qualifiedName: subName,
+                  baseBinPath: baseBin,
+                });
+              }
             }
           }
           break;
@@ -236,25 +301,22 @@ export function App() {
 
         case 'Escape':
           e.preventDefault();
-          if (nav.mode === 'command-detail') {
-            setNav({ mode: 'flat' });
-            setQuery('');
-          } else if (nav.mode === 'drilled-source') {
-            setNav({ mode: 'flat' });
-            setQuery('');
-          }
+          popLevel();
           break;
       }
     },
     [
       showHelp,
       query,
-      nav,
+      currentLevel,
+      detailData,
       selectedIndex,
       getTotalItemCount,
       getItemAtIndex,
       setQuery,
       triggerCopyFlash,
+      pushLevel,
+      popLevel,
     ],
   );
 
@@ -268,12 +330,36 @@ export function App() {
   const commandPrefixActive =
     commandPrefixMode && query.startsWith('>');
 
+  // Build breadcrumb names from nav stack
+  const breadcrumbs = navStack
+    .map((entry) => {
+      switch (entry.level.kind) {
+        case 'command': return entry.level.command.name;
+        case 'subcommand': {
+          // Show only the last part of the qualified name
+          const parts = entry.level.qualifiedName.split(' ');
+          return parts[parts.length - 1];
+        }
+        case 'drilled-source': return entry.level.sourceLabel;
+        default: return null;
+      }
+    })
+    .filter((b): b is string => b !== null);
+
+  const navMode = isDetailLevel(currentLevel)
+    ? 'command-detail' as const
+    : currentLevel.kind === 'drilled-source'
+      ? 'drilled-source' as const
+      : 'flat' as const;
+
   const navAnnouncement = (() => {
-    switch (nav.mode) {
+    switch (currentLevel.kind) {
       case 'drilled-source':
-        return `Drilled into ${nav.sourceLabel} shortcuts`;
-      case 'command-detail':
-        return `Viewing ${nav.command.name} command details`;
+        return `Drilled into ${currentLevel.sourceLabel} shortcuts`;
+      case 'command':
+        return `Viewing ${currentLevel.command.name} command details`;
+      case 'subcommand':
+        return `Viewing ${currentLevel.qualifiedName} subcommand details`;
       default:
         return 'Search all shortcuts';
     }
@@ -287,13 +373,11 @@ export function App() {
       <SearchInput
         query={query}
         onChange={setQuery}
-        navMode={nav.mode}
+        navMode={navMode}
         sourceLabel={
-          nav.mode === 'drilled-source' ? nav.sourceLabel : undefined
+          currentLevel.kind === 'drilled-source' ? currentLevel.sourceLabel : undefined
         }
-        commandName={
-          nav.mode === 'command-detail' ? nav.command.name : undefined
-        }
+        breadcrumbs={breadcrumbs}
         commandPrefixActive={commandPrefixActive}
         onHelpToggle={() => setShowHelp((v) => !v)}
       />
@@ -301,12 +385,13 @@ export function App() {
         <div className="flex items-center justify-center py-16 text-sm text-white/30">
           Loading shortcuts...
         </div>
-      ) : nav.mode === 'command-detail' ? (
+      ) : isDetailLevel(currentLevel) ? (
         <CommandDetailView
-          command={nav.command}
+          data={detailData ?? { description: '', subcommands: [], flags: [], enrichment: 'none' }}
           filterQuery={query}
           selectedIndex={selectedIndex}
           copyFlashIndex={copyFlashIndex}
+          loading={currentLevel.kind === 'subcommand' && subcommandLoading}
         />
       ) : (
         <ResultsContainer

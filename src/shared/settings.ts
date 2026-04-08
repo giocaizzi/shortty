@@ -45,7 +45,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     contextWeight: 0.1,
     threshold: 0.35,
   },
-  commandPrefixMode: false,
+  commandPrefixMode: true,
   resultLimits: {
     sources: 3,
     shortcuts: 8,

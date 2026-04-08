@@ -2,7 +2,7 @@ import { exec } from 'node:child_process';
 import { stat, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { CommandDetail, FlagDetail } from '../../../shared/types';
+import type { CommandDetail, FlagDetail, SubcommandDetail } from '../../../shared/types';
 
 const BLOCKLIST = new Set([
   // Destructive system commands
@@ -78,9 +78,12 @@ function extractSubcommands(output: string, commandName: string): CommandDetail[
 
   let match: RegExpExecArray | null;
   while ((match = regex.exec(output)) !== null) {
-    const name = match[1];
-    if (name.startsWith('-')) continue;
-    if (name.length > 30) continue;
+    const raw = match[1];
+    if (raw.startsWith('-')) continue;
+    if (raw.length > 30) continue;
+    // Strip trailing punctuation (e.g. "login:" → "login", "given." → "given")
+    const name = raw.replace(/[^a-zA-Z0-9_-]+$/, '');
+    if (!name || !/^[\w][\w-]*$/.test(name)) continue;
     subcommands.push({
       name: `${commandName} ${name}`,
       description: match[2].trim(),
@@ -116,4 +119,47 @@ function extractFlags(output: string): FlagDetail[] {
   }
 
   return flags;
+}
+
+export async function parseSubcommandHelp(
+  baseBinPath: string,
+  subcommandParts: string[],
+  qualifiedName: string,
+): Promise<Omit<SubcommandDetail, 'enrichment' | 'enrichedAt'> | null> {
+  const args = subcommandParts.map(p => `"${p}"`).join(' ');
+  const sandboxDir = await mkdtemp(join(tmpdir(), 'shortty-sub-'));
+  let output: string;
+  try {
+    output = await new Promise<string>((resolve, reject) => {
+      exec(`"${baseBinPath}" ${args} --help 2>&1 < /dev/null`, {
+        encoding: 'utf-8',
+        timeout: 2000,
+        maxBuffer: 1 * 1024 * 1024,
+        cwd: sandboxDir,
+      }, (error, stdout, stderr) => {
+        if (error) {
+          const fallback = stderr || stdout || '';
+          if (fallback) resolve(fallback);
+          else reject(error);
+        } else {
+          resolve(stdout);
+        }
+      });
+    });
+  } catch {
+    return null;
+  } finally {
+    try { await rm(sandboxDir, { recursive: true, force: true }); } catch { /* ignore */ }
+  }
+
+  const subcommands = extractSubcommands(output, qualifiedName);
+  const flags = extractFlags(output);
+
+  if (subcommands.length === 0 && flags.length === 0) return null;
+
+  // Extract description from first non-empty line that looks like a description
+  const descMatch = output.match(/^\S.*?[-\u2013\u2014]\s+(.+)/m);
+  const description = descMatch?.[1]?.trim() ?? '';
+
+  return { name: qualifiedName, description, subcommands, flags };
 }

@@ -8,7 +8,7 @@ interface SearchInputProps {
   onChange: (value: string) => void;
   navMode: NavMode;
   sourceLabel?: string;
-  commandName?: string;
+  breadcrumbs?: string[];
   commandPrefixActive?: boolean;
   onHelpToggle: () => void;
 }
@@ -32,7 +32,7 @@ export function SearchInput({
   onChange,
   navMode,
   sourceLabel,
-  commandName,
+  breadcrumbs,
   commandPrefixActive,
 }: SearchInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,10 +65,17 @@ export function SearchInput({
             {sourceLabel}
           </span>
         )}
-        {navMode === 'command-detail' && commandName && (
-          <span className="shrink-0 rounded-md bg-white/[0.08] px-2.5 py-1 font-mono text-sm font-medium text-white/70">
-            {commandName}
-          </span>
+        {navMode === 'command-detail' && breadcrumbs && breadcrumbs.length > 0 && (
+          <div className="flex shrink-0 items-center gap-1">
+            {breadcrumbs.map((crumb, i) => (
+              <span key={i} className="flex items-center gap-1">
+                {i > 0 && <span className="text-[10px] text-white/20">{'>'}</span>}
+                <span className="rounded-md bg-white/[0.08] px-2 py-0.5 font-mono text-xs font-medium text-white/70">
+                  {crumb}
+                </span>
+              </span>
+            ))}
+          </div>
         )}
         <input
           ref={inputRef}

@@ -38,6 +38,15 @@ export interface FlagDetail {
   description: string;
 }
 
+export interface SubcommandDetail {
+  name: string;
+  description: string;
+  enrichment: 'none' | 'full' | 'failed';
+  enrichedAt?: string;
+  subcommands: CommandDetail[];
+  flags: FlagDetail[];
+}
+
 export interface Command {
   name: string;
   description: string;

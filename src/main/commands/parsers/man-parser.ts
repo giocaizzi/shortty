@@ -1,5 +1,5 @@
 import { exec } from 'node:child_process';
-import type { CommandDetail, FlagDetail } from '../../../shared/types';
+import type { CommandDetail, FlagDetail, SubcommandDetail } from '../../../shared/types';
 
 export async function parseManPage(commandName: string): Promise<{
   description?: string;
@@ -105,4 +105,37 @@ function extractSubcommands(content: string, commandName: string): CommandDetail
   }
 
   return subcommands;
+}
+
+export async function parseSubcommandManPage(
+  qualifiedName: string,
+): Promise<Omit<SubcommandDetail, 'enrichment' | 'enrichedAt'> | null> {
+  // Try man page with hyphenated name convention: "git commit" → man git-commit
+  const manName = qualifiedName.replace(/ /g, '-');
+
+  let content: string;
+  try {
+    content = await new Promise<string>((resolve, reject) => {
+      exec(`man ${manName} 2>/dev/null | col -bx`, {
+        encoding: 'utf-8',
+        timeout: 5000,
+        maxBuffer: 5 * 1024 * 1024,
+      }, (error, stdout) => {
+        if (error) reject(error);
+        else resolve(stdout);
+      });
+    });
+  } catch {
+    return null;
+  }
+
+  if (!content.trim()) return null;
+
+  const description = extractNameSection(content) ?? '';
+  const flags = extractFlags(content);
+  const subcommands = extractSubcommands(content, qualifiedName);
+
+  if (subcommands.length === 0 && flags.length === 0) return null;
+
+  return { name: qualifiedName, description, subcommands, flags };
 }

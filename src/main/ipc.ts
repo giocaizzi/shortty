@@ -85,6 +85,11 @@ export function registerIpcHandlers(
     return commandsEngine.getAll();
   });
 
+  ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_SUBCOMMAND_DETAIL, async (_event, qualifiedName: string) => {
+    if (!commandsEngine) return null;
+    return commandsEngine.getSubcommandDetail(qualifiedName);
+  });
+
   ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_STATS, () => {
     return commandsEngine?.getEnrichmentStats() ?? { total: 0, enriched: 0, running: false };
   });
