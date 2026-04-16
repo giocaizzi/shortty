@@ -45,6 +45,7 @@ export async function enrichSubcommand(
     enrichedAt: new Date().toISOString(),
     subcommands: [],
     flags: [],
+    arguments: [],
   };
   cache.writeSubcommandDetail(qualifiedName, failed);
   return failed;

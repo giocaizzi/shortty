@@ -8,7 +8,8 @@ const SHORTCUTS = [
   { keys: '↑ ↓', description: 'Navigate results' },
   { keys: 'Enter', description: 'Copy / drill into source' },
   { keys: 'Tab / →', description: 'Drill into command details' },
-  { keys: 'Esc', description: 'Go back / dismiss' },
+  { keys: '← / Backspace', description: 'Go back (when input empty)' },
+  { keys: 'Esc', description: 'Clear search / go back / dismiss' },
   { keys: '> prefix', description: 'Search commands only' },
   { keys: '?', description: 'Toggle this help' },
 ] as const;
@@ -16,6 +17,7 @@ const SHORTCUTS = [
 export function KeyboardHelp({ onDismiss }: KeyboardHelpProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
       e.preventDefault();
       onDismiss();
     };

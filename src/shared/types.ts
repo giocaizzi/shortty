@@ -38,18 +38,30 @@ export interface FlagDetail {
   description: string;
 }
 
+export interface ArgumentDetail {
+  name: string;
+  required: boolean;
+  variadic: boolean;
+  description: string;
+}
+
 export interface SubcommandDetail {
   name: string;
   description: string;
+  synopsis?: string;
+  longDescription?: string;
   enrichment: 'none' | 'full' | 'failed';
   enrichedAt?: string;
   subcommands: CommandDetail[];
   flags: FlagDetail[];
+  arguments: ArgumentDetail[];
 }
 
 export interface Command {
   name: string;
   description: string;
+  synopsis?: string;
+  longDescription?: string;
   bin: string;
   mtime: number;
   enrichment: 'basic' | 'partial' | 'full' | 'failed';
@@ -59,6 +71,7 @@ export interface Command {
   hasCompletion: boolean;
   subcommands: CommandDetail[];
   flags: FlagDetail[];
+  arguments: ArgumentDetail[];
 }
 
 export interface SourceStatus {

@@ -51,6 +51,7 @@ export class CommandsEngine {
       hasCompletion: false,
       subcommands: [],
       flags: [],
+      arguments: [],
     }));
 
     log.info(`Commands scan complete: ${this.commands.length} commands found`);

@@ -50,6 +50,7 @@ export function App() {
   }>({ sources: false, shortcuts: false, commands: false });
 
   const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const currentLevel = navStack[navStack.length - 1].level;
 
@@ -213,6 +214,9 @@ export function App() {
     (e: React.KeyboardEvent) => {
       if (showHelp) return;
 
+      // Let system shortcuts through (Cmd+A, Cmd+C, Cmd+V, etc.)
+      if (e.metaKey || e.ctrlKey) return;
+
       if (e.key === '?' && !query) {
         e.preventDefault();
         setShowHelp(true);
@@ -269,6 +273,14 @@ export function App() {
 
         case 'Tab':
         case 'ArrowRight': {
+          // ArrowRight: only drill when cursor is at end of input (preserve cursor movement)
+          if (e.key === 'ArrowRight') {
+            const input = inputRef.current;
+            if (input && input.selectionStart !== null && input.selectionStart < input.value.length) {
+              break;
+            }
+          }
+
           // Drill into command from flat/drilled-source
           if (currentLevel.kind === 'flat' || currentLevel.kind === 'drilled-source') {
             const item = getItemAtIndex(selectedIndex);
@@ -299,15 +311,41 @@ export function App() {
           break;
         }
 
+        case 'ArrowLeft': {
+          const input = inputRef.current;
+          const atStart = !input || input.selectionStart === 0 || input.value.length === 0;
+          if (atStart && navStack.length > 1) {
+            e.preventDefault();
+            popLevel();
+          }
+          break;
+        }
+
+        case 'Backspace': {
+          if (e.defaultPrevented) break;
+          if (navStack.length > 1 && !query) {
+            e.preventDefault();
+            popLevel();
+          }
+          break;
+        }
+
         case 'Escape':
           e.preventDefault();
-          popLevel();
+          if (query) {
+            setQuery('');
+          } else if (navStack.length > 1) {
+            popLevel();
+          } else {
+            window.blur();
+          }
           break;
       }
     },
     [
       showHelp,
       query,
+      navStack,
       currentLevel,
       detailData,
       selectedIndex,
@@ -380,6 +418,7 @@ export function App() {
         breadcrumbs={breadcrumbs}
         commandPrefixActive={commandPrefixActive}
         onHelpToggle={() => setShowHelp((v) => !v)}
+        inputRef={inputRef}
       />
       {loading ? (
         <div className="flex items-center justify-center py-16 text-sm text-white/30">
@@ -387,7 +426,7 @@ export function App() {
         </div>
       ) : isDetailLevel(currentLevel) ? (
         <CommandDetailView
-          data={detailData ?? { description: '', subcommands: [], flags: [], enrichment: 'none' }}
+          data={detailData ?? { description: '', subcommands: [], flags: [], arguments: [], enrichment: 'none' }}
           filterQuery={query}
           selectedIndex={selectedIndex}
           copyFlashIndex={copyFlashIndex}

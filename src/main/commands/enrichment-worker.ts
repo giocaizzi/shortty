@@ -68,12 +68,15 @@ export class EnrichmentWorker {
 
   private async enrichCommand(cmd: Command): Promise<Command | null> {
     const manResult = await parseManPage(cmd.name);
-    if (manResult && (manResult.subcommands.length > 0 || manResult.flags.length > 0)) {
+    if (manResult && (manResult.subcommands.length > 0 || manResult.flags.length > 0 || manResult.arguments.length > 0)) {
       return {
         ...cmd,
         description: manResult.description ?? cmd.description,
+        synopsis: manResult.synopsis,
+        longDescription: manResult.longDescription,
         subcommands: manResult.subcommands,
         flags: manResult.flags,
+        arguments: manResult.arguments,
         enrichment: 'full',
         enrichedFrom: 'man',
         enrichedAt: new Date().toISOString(),
@@ -82,11 +85,14 @@ export class EnrichmentWorker {
 
     if (!isBlocklisted(cmd.name)) {
       const helpResult = await parseHelp(cmd.name, cmd.bin);
-      if (helpResult && (helpResult.subcommands.length > 0 || helpResult.flags.length > 0)) {
+      if (helpResult && (helpResult.subcommands.length > 0 || helpResult.flags.length > 0 || helpResult.arguments.length > 0)) {
         return {
           ...cmd,
+          synopsis: helpResult.synopsis,
+          longDescription: helpResult.longDescription,
           subcommands: helpResult.subcommands,
           flags: helpResult.flags,
+          arguments: helpResult.arguments,
           enrichment: 'full',
           enrichedFrom: 'help',
           enrichedAt: new Date().toISOString(),

@@ -2,7 +2,13 @@ import { exec } from 'node:child_process';
 import { stat, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { CommandDetail, FlagDetail, SubcommandDetail } from '../../../shared/types';
+import type { ArgumentDetail, CommandDetail, FlagDetail, SubcommandDetail } from '../../../shared/types';
+import {
+  parseFlagsFromText,
+  parseArgumentsFromSynopsis,
+  extractFirstParagraph,
+  extractUsageLine,
+} from './parse-utils';
 
 const BLOCKLIST = new Set([
   // Destructive system commands
@@ -27,9 +33,107 @@ export function isBlocklisted(name: string): boolean {
   return BLOCKLIST.has(name);
 }
 
+function execHelp(command: string, sandboxDir: string): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    exec(`${command} 2>&1 < /dev/null`, {
+      encoding: 'utf-8',
+      timeout: 2000,
+      maxBuffer: 1 * 1024 * 1024,
+      cwd: sandboxDir,
+    }, (error, stdout, stderr) => {
+      if (error) {
+        const fallback = stderr || stdout || '';
+        if (fallback) resolve(fallback);
+        else reject(error);
+      } else {
+        resolve(stdout);
+      }
+    });
+  });
+}
+
+/** Extract description from help output (first paragraph after usage line). */
+function extractHelpDescription(output: string): string | undefined {
+  // Skip past the Usage line and any blank lines
+  const usageEnd = output.match(/^[Uu]sage:.*(?:\n[ \t]+.*)*/m);
+  if (!usageEnd) return undefined;
+
+  const afterUsage = output.slice((usageEnd.index ?? 0) + usageEnd[0].length);
+  // Strip all leading blank lines
+  const trimmed = afterUsage.replace(/^[\s\n]+/, '');
+
+  // Take text before the first section header or options block
+  const sectionStart = trimmed.search(/^(?:[A-Z][\w ]*:|\s{2,}-\w)/m);
+  const descText = sectionStart === -1 ? trimmed : trimmed.slice(0, sectionStart);
+
+  if (!descText.trim()) return undefined;
+  return extractFirstParagraph(descText, 500);
+}
+
+/** Extract flags from help output, using section detection when possible. */
+function extractHelpFlags(output: string): FlagDetail[] {
+  // Try to find an Options/Flags section
+  const optionsMatch = output.match(
+    /^(?:(?:Global )?[Oo]ptions|[Ff]lags):?\s*\n([\s\S]*?)(?=\n[A-Za-z][\w ]*:\s*\n|\n\n\S|$)/m,
+  );
+  if (optionsMatch) {
+    return parseFlagsFromText(optionsMatch[1]);
+  }
+
+  // Fallback: parse flags from the entire output
+  return parseFlagsFromText(output);
+}
+
+function extractSubcommands(output: string, commandName: string): CommandDetail[] {
+  const subcommands: CommandDetail[] = [];
+  const seen = new Set<string>();
+
+  // Find command sections (Common Commands, Management Commands, Commands, etc.)
+  const sectionRe = /^(?:[\w ]*[Cc]ommands?|[Ss]ubcommands?):?\s*\n([\s\S]*?)(?=\n[A-Za-z][\w ]*:\s*\n|\n\n\S|$)/gm;
+  let sectionMatch: RegExpExecArray | null;
+  while ((sectionMatch = sectionRe.exec(output)) !== null) {
+    const section = sectionMatch[1];
+    parseSubcommandSection(section, commandName, subcommands, seen);
+  }
+
+  // If no sections found, try the whole output with the simpler pattern
+  if (subcommands.length === 0) {
+    parseSubcommandSection(output, commandName, subcommands, seen);
+  }
+
+  return subcommands;
+}
+
+function parseSubcommandSection(
+  text: string,
+  commandName: string,
+  subcommands: CommandDetail[],
+  seen: Set<string>,
+): void {
+  const regex = /^\s{2,}(\S+)\s{2,}(.+)$/gm;
+
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    const raw = match[1];
+    if (raw.startsWith('-')) continue;
+    if (raw.length > 30) continue;
+    const name = raw.replace(/[^a-zA-Z0-9_-]+$/, '');
+    if (!name || !/^[\w][\w-]*$/.test(name)) continue;
+    if (seen.has(name)) continue;
+    seen.add(name);
+    subcommands.push({
+      name: `${commandName} ${name}`,
+      description: match[2].trim(),
+    });
+  }
+}
+
 export async function parseHelp(commandName: string, binPath: string): Promise<{
+  synopsis?: string;
+  longDescription?: string;
   subcommands: CommandDetail[];
   flags: FlagDetail[];
+  arguments: ArgumentDetail[];
 } | null> {
   if (isBlocklisted(commandName)) return null;
 
@@ -43,82 +147,21 @@ export async function parseHelp(commandName: string, binPath: string): Promise<{
   const sandboxDir = await mkdtemp(join(tmpdir(), 'shortty-help-'));
   let output: string;
   try {
-    output = await new Promise<string>((resolve, reject) => {
-      exec(`"${binPath}" --help 2>&1 < /dev/null`, {
-        encoding: 'utf-8',
-        timeout: 2000,
-        maxBuffer: 1 * 1024 * 1024,
-        cwd: sandboxDir,
-      }, (error, stdout, stderr) => {
-        if (error) {
-          const fallback = stderr || stdout || '';
-          if (fallback) resolve(fallback);
-          else reject(error);
-        } else {
-          resolve(stdout);
-        }
-      });
-    });
+    output = await execHelp(`"${binPath}" --help`, sandboxDir);
   } catch {
     return null;
   } finally {
     try { await rm(sandboxDir, { recursive: true, force: true }); } catch { /* ignore */ }
   }
 
+  const synopsis = extractUsageLine(output);
+  const longDescription = extractHelpDescription(output);
   const subcommands = extractSubcommands(output, commandName);
-  const flags = extractFlags(output);
+  const flags = extractHelpFlags(output);
+  const args = synopsis ? parseArgumentsFromSynopsis(synopsis) : [];
 
-  if (subcommands.length === 0 && flags.length === 0) return null;
-  return { subcommands, flags };
-}
-
-function extractSubcommands(output: string, commandName: string): CommandDetail[] {
-  const subcommands: CommandDetail[] = [];
-  const regex = /^\s{2,}(\S+)\s{2,}(.+)$/gm;
-
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(output)) !== null) {
-    const raw = match[1];
-    if (raw.startsWith('-')) continue;
-    if (raw.length > 30) continue;
-    // Strip trailing punctuation (e.g. "login:" → "login", "given." → "given")
-    const name = raw.replace(/[^a-zA-Z0-9_-]+$/, '');
-    if (!name || !/^[\w][\w-]*$/.test(name)) continue;
-    subcommands.push({
-      name: `${commandName} ${name}`,
-      description: match[2].trim(),
-    });
-  }
-
-  return subcommands;
-}
-
-function extractFlags(output: string): FlagDetail[] {
-  const flags: FlagDetail[] = [];
-  const regex = /^\s{2,}(-\w),?\s*(--[\w-]+)?\s*(?:(\S+))?\s{2,}(.+)$/gm;
-  const longOnly = /^\s{2,}(--[\w-]+)\s*(?:(\S+))?\s{2,}(.+)$/gm;
-
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(output)) !== null) {
-    flags.push({
-      short: match[1],
-      long: match[2] || undefined,
-      arg: match[3] || undefined,
-      description: match[4].trim(),
-    });
-  }
-
-  const seenLong = new Set(flags.map(f => f.long).filter(Boolean));
-  while ((match = longOnly.exec(output)) !== null) {
-    if (seenLong.has(match[1])) continue;
-    flags.push({
-      long: match[1],
-      arg: match[2] || undefined,
-      description: match[3].trim(),
-    });
-  }
-
-  return flags;
+  if (subcommands.length === 0 && flags.length === 0 && args.length === 0) return null;
+  return { synopsis, longDescription, subcommands, flags, arguments: args };
 }
 
 export async function parseSubcommandHelp(
@@ -126,40 +169,28 @@ export async function parseSubcommandHelp(
   subcommandParts: string[],
   qualifiedName: string,
 ): Promise<Omit<SubcommandDetail, 'enrichment' | 'enrichedAt'> | null> {
-  const args = subcommandParts.map(p => `"${p}"`).join(' ');
+  const cmdArgs = subcommandParts.map(p => `"${p}"`).join(' ');
   const sandboxDir = await mkdtemp(join(tmpdir(), 'shortty-sub-'));
   let output: string;
   try {
-    output = await new Promise<string>((resolve, reject) => {
-      exec(`"${baseBinPath}" ${args} --help 2>&1 < /dev/null`, {
-        encoding: 'utf-8',
-        timeout: 2000,
-        maxBuffer: 1 * 1024 * 1024,
-        cwd: sandboxDir,
-      }, (error, stdout, stderr) => {
-        if (error) {
-          const fallback = stderr || stdout || '';
-          if (fallback) resolve(fallback);
-          else reject(error);
-        } else {
-          resolve(stdout);
-        }
-      });
-    });
+    output = await execHelp(`"${baseBinPath}" ${cmdArgs} --help`, sandboxDir);
   } catch {
     return null;
   } finally {
     try { await rm(sandboxDir, { recursive: true, force: true }); } catch { /* ignore */ }
   }
 
+  const synopsis = extractUsageLine(output);
+  const longDescription = extractHelpDescription(output);
   const subcommands = extractSubcommands(output, qualifiedName);
-  const flags = extractFlags(output);
+  const flags = extractHelpFlags(output);
+  const args = synopsis ? parseArgumentsFromSynopsis(synopsis) : [];
 
-  if (subcommands.length === 0 && flags.length === 0) return null;
+  if (subcommands.length === 0 && flags.length === 0 && args.length === 0) return null;
 
-  // Extract description from first non-empty line that looks like a description
+  // Extract description from first line that looks like "name - description"
   const descMatch = output.match(/^\S.*?[-\u2013\u2014]\s+(.+)/m);
   const description = descMatch?.[1]?.trim() ?? '';
 
-  return { name: qualifiedName, description, subcommands, flags };
+  return { name: qualifiedName, description, synopsis, longDescription, subcommands, flags, arguments: args };
 }

@@ -1,0 +1,169 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { parseHelp, parseSubcommandHelp, isBlocklisted } from '../../../src/main/commands/parsers/help-parser';
+
+// Mock child_process and fs
+vi.mock('node:child_process', () => ({
+  exec: vi.fn(),
+}));
+
+vi.mock('node:fs/promises', () => ({
+  stat: vi.fn(),
+  mkdtemp: vi.fn(),
+  rm: vi.fn(),
+}));
+
+import { exec } from 'node:child_process';
+import { stat, mkdtemp, rm } from 'node:fs/promises';
+
+const mockExec = vi.mocked(exec);
+const mockStat = vi.mocked(stat);
+const mockMkdtemp = vi.mocked(mkdtemp);
+const mockRm = vi.mocked(rm);
+
+function setupMocks(helpOutput: string) {
+  mockStat.mockResolvedValue({ uid: 0 } as Awaited<ReturnType<typeof stat>>);
+  mockMkdtemp.mockResolvedValue('/tmp/shortty-help-test');
+  mockRm.mockResolvedValue();
+  mockExec.mockImplementation((_cmd, _opts, callback) => {
+    (callback as (error: Error | null, stdout: string, stderr: string) => void)(
+      null, helpOutput, '',
+    );
+    return {} as ReturnType<typeof exec>;
+  });
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+const DOCKER_HELP = `Usage:  docker [OPTIONS] COMMAND
+
+A self-sufficient runtime for containers
+
+Common Commands:
+  run         Create and run a new container from an image
+  exec        Execute a command in a running container
+  ps          List containers
+  build       Build an image from a Dockerfile
+
+Management Commands:
+  builder     Manage builds
+  container   Manage containers
+
+Global Options:
+  -D, --debug              Enable debug mode
+      --host list          Daemon socket to connect to
+  -l, --log-level string   Set the logging level
+  -v, --version            Print version information and quit
+`;
+
+const SIMPLE_HELP = `Usage: mytool <input> [output]
+
+A simple tool for processing files.
+
+Options:
+  -v, --verbose   Show verbose output
+  -q, --quiet     Suppress output
+`;
+
+describe('isBlocklisted', () => {
+  it('blocks dangerous commands', () => {
+    expect(isBlocklisted('rm')).toBe(true);
+    expect(isBlocklisted('ssh')).toBe(true);
+    expect(isBlocklisted('python')).toBe(true);
+  });
+
+  it('allows safe commands', () => {
+    expect(isBlocklisted('git')).toBe(false);
+    expect(isBlocklisted('docker')).toBe(false);
+    expect(isBlocklisted('curl')).toBe(false);
+  });
+});
+
+describe('parseHelp', () => {
+  it('extracts synopsis from Usage line', async () => {
+    setupMocks(DOCKER_HELP);
+    const result = await parseHelp('docker', '/usr/bin/docker');
+
+    expect(result).not.toBeNull();
+    expect(result!.synopsis).toBe('docker [OPTIONS] COMMAND');
+  });
+
+  it('extracts description from text after Usage', async () => {
+    setupMocks(DOCKER_HELP);
+    const result = await parseHelp('docker', '/usr/bin/docker');
+
+    expect(result).not.toBeNull();
+    expect(result!.longDescription).toBeDefined();
+    expect(result!.longDescription).toContain('self-sufficient runtime');
+  });
+
+  it('extracts subcommands from multiple sections', async () => {
+    setupMocks(DOCKER_HELP);
+    const result = await parseHelp('docker', '/usr/bin/docker');
+
+    const run = result!.subcommands.find(sc => sc.name === 'docker run');
+    expect(run).toBeDefined();
+    expect(run!.description).toContain('Create and run');
+
+    const builder = result!.subcommands.find(sc => sc.name === 'docker builder');
+    expect(builder).toBeDefined();
+  });
+
+  it('extracts flags from Global Options section', async () => {
+    setupMocks(DOCKER_HELP);
+    const result = await parseHelp('docker', '/usr/bin/docker');
+
+    const debug = result!.flags.find(f => f.short === '-D');
+    expect(debug).toBeDefined();
+    expect(debug!.long).toBe('--debug');
+  });
+
+  it('extracts arguments from synopsis', async () => {
+    setupMocks(SIMPLE_HELP);
+    const result = await parseHelp('mytool', '/usr/bin/mytool');
+
+    expect(result!.arguments.length).toBeGreaterThan(0);
+    const input = result!.arguments.find(a => a.name === 'input');
+    expect(input).toBeDefined();
+    expect(input!.required).toBe(true);
+
+    const output = result!.arguments.find(a => a.name === 'output');
+    expect(output).toBeDefined();
+    expect(output!.required).toBe(false);
+  });
+
+  it('returns null for blocklisted commands', async () => {
+    const result = await parseHelp('rm', '/bin/rm');
+    expect(result).toBeNull();
+  });
+
+  it('returns null when stat fails', async () => {
+    mockStat.mockRejectedValue(new Error('ENOENT'));
+    const result = await parseHelp('git', '/usr/bin/git');
+    expect(result).toBeNull();
+  });
+});
+
+describe('parseSubcommandHelp', () => {
+  it('extracts synopsis and flags', async () => {
+    setupMocks(SIMPLE_HELP);
+    const result = await parseSubcommandHelp('/usr/bin/git', ['commit'], 'git commit');
+
+    expect(result).not.toBeNull();
+    expect(result!.name).toBe('git commit');
+    expect(result!.synopsis).toBeDefined();
+    expect(result!.flags.length).toBeGreaterThan(0);
+  });
+
+  it('constructs correct command', async () => {
+    setupMocks(SIMPLE_HELP);
+    await parseSubcommandHelp('/usr/bin/git', ['commit'], 'git commit');
+
+    expect(mockExec).toHaveBeenCalledWith(
+      expect.stringContaining('"commit" --help'),
+      expect.any(Object),
+      expect.any(Function),
+    );
+  });
+});

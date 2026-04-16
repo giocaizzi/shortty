@@ -1,82 +1,56 @@
 import { exec } from 'node:child_process';
-import type { CommandDetail, FlagDetail, SubcommandDetail } from '../../../shared/types';
+import type { ArgumentDetail, CommandDetail, FlagDetail, SubcommandDetail } from '../../../shared/types';
+import {
+  splitManSections,
+  parseFlagsFromText,
+  parseArgumentsFromSynopsis,
+  resolveArgumentDescriptions,
+  extractFirstParagraph,
+  extractSynopsis,
+} from './parse-utils';
 
-export async function parseManPage(commandName: string): Promise<{
-  description?: string;
-  subcommands: CommandDetail[];
-  flags: FlagDetail[];
-} | null> {
-  let content: string;
-  try {
-    content = await new Promise<string>((resolve, reject) => {
-      exec(`man ${commandName} 2>/dev/null | col -bx`, {
-        encoding: 'utf-8',
-        timeout: 5000,
-        maxBuffer: 5 * 1024 * 1024,
-      }, (error, stdout) => {
-        if (error) reject(error);
-        else resolve(stdout);
-      });
+function fetchManPage(name: string): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    exec(`man ${name} 2>/dev/null | col -bx`, {
+      encoding: 'utf-8',
+      timeout: 5000,
+      maxBuffer: 5 * 1024 * 1024,
+    }, (error, stdout) => {
+      if (error) reject(error);
+      else resolve(stdout);
     });
-  } catch {
-    return null;
-  }
-
-  if (!content.trim()) return null;
-
-  const description = extractNameSection(content);
-  const flags = extractFlags(content);
-  const subcommands = extractSubcommands(content, commandName);
-
-  return { description, subcommands, flags };
+  });
 }
 
-function extractNameSection(content: string): string | undefined {
-  const nameMatch = content.match(/^NAME\s*\n\s+\S+\s+[-\u2013\u2014]\s+(.+)/m);
-  return nameMatch?.[1]?.trim();
+function extractNameDescription(sections: Map<string, string>): string | undefined {
+  const nameSection = sections.get('NAME');
+  if (!nameSection) return undefined;
+  const match = nameSection.match(/\S+\s+[-\u2013\u2014]\s+(.+)/);
+  return match?.[1]?.trim();
 }
 
-function extractFlags(content: string): FlagDetail[] {
-  const flags: FlagDetail[] = [];
-  const flagRegex = /^\s{2,8}(-\w)(?:,\s*(--[\w-]+))?\s*(?:(\S+))?\s{2,}(.+)/gm;
-  const longOnlyRegex = /^\s{2,8}(--[\w-]+)\s*(?:(\S+))?\s{2,}(.+)/gm;
-
-  let match: RegExpExecArray | null;
-  while ((match = flagRegex.exec(content)) !== null) {
-    flags.push({
-      short: match[1],
-      long: match[2] || undefined,
-      arg: match[3] || undefined,
-      description: match[4].trim(),
-    });
+function findSection(sections: Map<string, string>, ...candidates: string[]): string | undefined {
+  for (const name of candidates) {
+    const section = sections.get(name);
+    if (section) return section;
   }
-
-  const seenLong = new Set(flags.map(f => f.long).filter(Boolean));
-  while ((match = longOnlyRegex.exec(content)) !== null) {
-    if (seenLong.has(match[1])) continue;
-    flags.push({
-      long: match[1],
-      arg: match[2] || undefined,
-      description: match[3].trim(),
-    });
-  }
-
-  return flags;
+  return undefined;
 }
 
-function extractSubcommands(content: string, commandName: string): CommandDetail[] {
+function extractSubcommands(
+  sections: Map<string, string>,
+  commandName: string,
+  fullContent: string,
+): CommandDetail[] {
   const subcommands: CommandDetail[] = [];
   const seen = new Set<string>();
 
-  // Format 1: section-based — "COMMANDS" / "SUBCOMMANDS" with "  name  description"
-  const cmdSectionMatch = content.match(
-    /^(?:COMMANDS?|SUBCOMMANDS?)\s*\n([\s\S]*?)(?=\n[A-Z][A-Z ]*\s*\n|$)/m,
-  );
-  if (cmdSectionMatch) {
-    const section = cmdSectionMatch[1];
+  // Format 1: section-based — "COMMANDS" / "SUBCOMMANDS" section
+  const cmdSection = findSection(sections, 'COMMANDS', 'COMMAND', 'SUBCOMMANDS', 'SUBCOMMAND');
+  if (cmdSection) {
     const subCmdRegex = /^\s{2,8}(\S+)\s{2,}(.+)/gm;
     let match: RegExpExecArray | null;
-    while ((match = subCmdRegex.exec(section)) !== null) {
+    while ((match = subCmdRegex.exec(cmdSection)) !== null) {
       const name = match[1];
       if (name.startsWith('-') || name.includes('(')) continue;
       if (seen.has(name)) continue;
@@ -94,7 +68,7 @@ function extractSubcommands(content: string, commandName: string): CommandDetail
     'gm',
   );
   let match: RegExpExecArray | null;
-  while ((match = refRegex.exec(content)) !== null) {
+  while ((match = refRegex.exec(fullContent)) !== null) {
     const name = match[1];
     if (seen.has(name)) continue;
     seen.add(name);
@@ -107,35 +81,92 @@ function extractSubcommands(content: string, commandName: string): CommandDetail
   return subcommands;
 }
 
-export async function parseSubcommandManPage(
-  qualifiedName: string,
-): Promise<Omit<SubcommandDetail, 'enrichment' | 'enrichedAt'> | null> {
-  // Try man page with hyphenated name convention: "git commit" → man git-commit
-  const manName = qualifiedName.replace(/ /g, '-');
-
+export async function parseManPage(commandName: string): Promise<{
+  description?: string;
+  synopsis?: string;
+  longDescription?: string;
+  subcommands: CommandDetail[];
+  flags: FlagDetail[];
+  arguments: ArgumentDetail[];
+} | null> {
   let content: string;
   try {
-    content = await new Promise<string>((resolve, reject) => {
-      exec(`man ${manName} 2>/dev/null | col -bx`, {
-        encoding: 'utf-8',
-        timeout: 5000,
-        maxBuffer: 5 * 1024 * 1024,
-      }, (error, stdout) => {
-        if (error) reject(error);
-        else resolve(stdout);
-      });
-    });
+    content = await fetchManPage(commandName);
   } catch {
     return null;
   }
 
   if (!content.trim()) return null;
 
-  const description = extractNameSection(content) ?? '';
-  const flags = extractFlags(content);
-  const subcommands = extractSubcommands(content, qualifiedName);
+  const sections = splitManSections(content);
 
-  if (subcommands.length === 0 && flags.length === 0) return null;
+  const description = extractNameDescription(sections);
 
-  return { name: qualifiedName, description, subcommands, flags };
+  // SYNOPSIS extraction
+  const synopsisSection = findSection(sections, 'SYNOPSIS', 'SYNTAX');
+  const synopsis = synopsisSection ? extractSynopsis(synopsisSection) : undefined;
+
+  // DESCRIPTION extraction (first paragraph)
+  const descSection = findSection(sections, 'DESCRIPTION');
+  const longDescription = descSection ? extractFirstParagraph(descSection) : undefined;
+
+  // FLAGS from OPTIONS section
+  const optionsSection = findSection(sections, 'OPTIONS', 'FLAGS', 'OPTIONS AND ARGUMENTS');
+  const flags = optionsSection ? parseFlagsFromText(optionsSection) : [];
+
+  // ARGUMENTS from SYNOPSIS, resolved against OPTIONS
+  let args: ArgumentDetail[] = [];
+  if (synopsis) {
+    args = parseArgumentsFromSynopsis(synopsis);
+    if (args.length > 0 && optionsSection) {
+      args = resolveArgumentDescriptions(args, optionsSection);
+    }
+  }
+
+  // SUBCOMMANDS
+  const subcommands = extractSubcommands(sections, commandName, content);
+
+  return { description, synopsis, longDescription, subcommands, flags, arguments: args };
+}
+
+export async function parseSubcommandManPage(
+  qualifiedName: string,
+): Promise<Omit<SubcommandDetail, 'enrichment' | 'enrichedAt'> | null> {
+  const manName = qualifiedName.replace(/ /g, '-');
+
+  let content: string;
+  try {
+    content = await fetchManPage(manName);
+  } catch {
+    return null;
+  }
+
+  if (!content.trim()) return null;
+
+  const sections = splitManSections(content);
+
+  const description = extractNameDescription(sections) ?? '';
+
+  const synopsisSection = findSection(sections, 'SYNOPSIS', 'SYNTAX');
+  const synopsis = synopsisSection ? extractSynopsis(synopsisSection) : undefined;
+
+  const descSection = findSection(sections, 'DESCRIPTION');
+  const longDescription = descSection ? extractFirstParagraph(descSection) : undefined;
+
+  const optionsSection = findSection(sections, 'OPTIONS', 'FLAGS', 'OPTIONS AND ARGUMENTS');
+  const flags = optionsSection ? parseFlagsFromText(optionsSection) : [];
+
+  let args: ArgumentDetail[] = [];
+  if (synopsis) {
+    args = parseArgumentsFromSynopsis(synopsis);
+    if (args.length > 0 && optionsSection) {
+      args = resolveArgumentDescriptions(args, optionsSection);
+    }
+  }
+
+  const subcommands = extractSubcommands(sections, qualifiedName, content);
+
+  if (subcommands.length === 0 && flags.length === 0 && args.length === 0) return null;
+
+  return { name: qualifiedName, description, synopsis, longDescription, subcommands, flags, arguments: args };
 }

@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, type RefObject } from 'react';
 import { Search } from 'lucide-react';
 
 type NavMode = 'flat' | 'drilled-source' | 'command-detail';
@@ -11,6 +11,7 @@ interface SearchInputProps {
   breadcrumbs?: string[];
   commandPrefixActive?: boolean;
   onHelpToggle: () => void;
+  inputRef?: RefObject<HTMLInputElement | null>;
 }
 
 function getPlaceholder(
@@ -34,8 +35,10 @@ export function SearchInput({
   sourceLabel,
   breadcrumbs,
   commandPrefixActive,
+  inputRef: externalRef,
 }: SearchInputProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const internalRef = useRef<HTMLInputElement>(null);
+  const inputRef = externalRef ?? internalRef;
 
   useEffect(() => {
     inputRef.current?.focus();

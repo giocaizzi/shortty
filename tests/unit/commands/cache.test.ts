@@ -56,6 +56,7 @@ describe('CommandCache', () => {
         hasCompletion: false,
         subcommands: [],
         flags: [],
+        arguments: [],
       },
     ];
 
@@ -82,6 +83,7 @@ describe('CommandCache', () => {
       hasCompletion: false,
       subcommands: [{ name: 'git commit', description: 'Record changes' }],
       flags: [{ short: '-m', long: '--message', arg: '<msg>', description: 'Commit message' }],
+      arguments: [],
     };
 
     cache.writeDetail('git', detail);
