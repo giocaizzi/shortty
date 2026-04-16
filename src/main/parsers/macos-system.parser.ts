@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
 import {
@@ -142,8 +142,9 @@ export class MacosSystemParser extends BaseParser {
     filePath: string,
   ): Record<string, unknown> | null {
     try {
-      const jsonStr = execSync(
-        `plutil -convert json -o - "${filePath}"`,
+      const jsonStr = execFileSync(
+        'plutil',
+        ['-convert', 'json', '-o', '-', filePath],
         { encoding: 'utf-8', timeout: 5000 },
       );
       return JSON.parse(jsonStr);

@@ -6,13 +6,17 @@ import type { SourceStatus } from '../shared/types';
 import { getSettings, setSetting } from './settings-store';
 import type { CommandsEngine } from './commands/engine';
 
+let registered = false;
+
 export function registerIpcHandlers(
   registry: ParserRegistry,
   callbacks: {
     openPreferences: () => void;
   },
-  commandsEngine?: CommandsEngine | null,
+  getCommandsEngine: () => CommandsEngine | null,
 ): void {
+  if (registered) return;
+  registered = true;
   ipcMain.handle(IPC_CHANNELS.GET_SOURCES, () => {
     return registry.getSources();
   });
@@ -72,25 +76,27 @@ export function registerIpcHandlers(
 
   // Commands handlers
   ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_ALL, () => {
-    return commandsEngine?.getAll() ?? [];
+    return getCommandsEngine()?.getAll() ?? [];
   });
 
   ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_DETAIL, (_event, name: string) => {
-    return commandsEngine?.getDetail(name) ?? null;
+    return getCommandsEngine()?.getDetail(name) ?? null;
   });
 
   ipcMain.handle(IPC_CHANNELS.COMMANDS_REFRESH, async () => {
-    if (!commandsEngine) return [];
-    await commandsEngine.fullScan();
-    return commandsEngine.getAll();
+    const engine = getCommandsEngine();
+    if (!engine) return [];
+    await engine.fullScan();
+    return engine.getAll();
   });
 
   ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_SUBCOMMAND_DETAIL, async (_event, qualifiedName: string) => {
-    if (!commandsEngine) return null;
-    return commandsEngine.getSubcommandDetail(qualifiedName);
+    const engine = getCommandsEngine();
+    if (!engine) return null;
+    return engine.getSubcommandDetail(qualifiedName);
   });
 
   ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_STATS, () => {
-    return commandsEngine?.getEnrichmentStats() ?? { total: 0, enriched: 0, running: false };
+    return getCommandsEngine()?.getEnrichmentStats() ?? { total: 0, enriched: 0, running: false };
   });
 }

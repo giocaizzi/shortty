@@ -4,7 +4,7 @@ import { assertDefined } from '../../helpers';
 
 // Mock child_process and fs
 vi.mock('node:child_process', () => ({
-  exec: vi.fn(),
+  execFile: vi.fn(),
 }));
 
 vi.mock('node:fs/promises', () => ({
@@ -13,10 +13,10 @@ vi.mock('node:fs/promises', () => ({
   rm: vi.fn(),
 }));
 
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { stat, mkdtemp, rm } from 'node:fs/promises';
 
-const mockExec = vi.mocked(exec);
+const mockExecFile = vi.mocked(execFile);
 const mockStat = vi.mocked(stat);
 const mockMkdtemp = vi.mocked(mkdtemp);
 const mockRm = vi.mocked(rm);
@@ -25,11 +25,11 @@ function setupMocks(helpOutput: string) {
   mockStat.mockResolvedValue({ uid: 0 } as Awaited<ReturnType<typeof stat>>);
   mockMkdtemp.mockResolvedValue('/tmp/shortty-help-test');
   mockRm.mockResolvedValue();
-  mockExec.mockImplementation((_cmd, _opts, callback) => {
+  mockExecFile.mockImplementation((_bin, _args, _opts, callback) => {
     (callback as (error: Error | null, stdout: string, stderr: string) => void)(
       null, helpOutput, '',
     );
-    return {} as ReturnType<typeof exec>;
+    return {} as ReturnType<typeof execFile>;
   });
 }
 
@@ -147,6 +147,18 @@ describe('parseHelp', () => {
     const result = await parseHelp('git', '/usr/bin/git');
     expect(result).toBeNull();
   });
+
+  it('uses execFile with argument array (no shell injection)', async () => {
+    setupMocks(SIMPLE_HELP);
+    await parseHelp('mytool', '/usr/bin/mytool');
+
+    expect(mockExecFile).toHaveBeenCalledWith(
+      '/usr/bin/mytool',
+      ['--help'],
+      expect.any(Object),
+      expect.any(Function),
+    );
+  });
 });
 
 describe('parseSubcommandHelp', () => {
@@ -160,12 +172,13 @@ describe('parseSubcommandHelp', () => {
     expect(result.flags.length).toBeGreaterThan(0);
   });
 
-  it('constructs correct command', async () => {
+  it('passes subcommand parts as argument array (no shell injection)', async () => {
     setupMocks(SIMPLE_HELP);
     await parseSubcommandHelp('/usr/bin/git', ['commit'], 'git commit');
 
-    expect(mockExec).toHaveBeenCalledWith(
-      expect.stringContaining('"commit" --help'),
+    expect(mockExecFile).toHaveBeenCalledWith(
+      '/usr/bin/git',
+      ['commit', '--help'],
       expect.any(Object),
       expect.any(Function),
     );

@@ -1,30 +1,92 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { parseManPage, parseSubcommandManPage } from '../../../src/main/commands/parsers/man-parser';
 import { assertDefined } from '../../helpers';
+import { EventEmitter, Readable, Writable } from 'node:stream';
 
-// Mock child_process exec
+// Mock child_process spawn
 vi.mock('node:child_process', () => ({
-  exec: vi.fn(),
+  spawn: vi.fn(),
 }));
 
-import { exec } from 'node:child_process';
+import { spawn } from 'node:child_process';
 
-const mockExec = vi.mocked(exec);
+const mockSpawn = vi.mocked(spawn);
+
+function createMockProcess(output: string | null, exitCode = 0) {
+  const proc = new EventEmitter() as ReturnType<typeof spawn>;
+  const stdout = new Readable({ read() { /* no-op: mock stream */ } });
+  const stdin = new Writable({ write(_chunk, _enc, cb) { cb(); } });
+
+  (proc as unknown as { stdout: Readable }).stdout = stdout;
+  (proc as unknown as { stdin: Writable }).stdin = stdin;
+
+  // Schedule output and close on next tick
+  process.nextTick(() => {
+    if (output !== null) {
+      stdout.push(Buffer.from(output));
+    }
+    stdout.push(null);
+    process.nextTick(() => {
+      proc.emit('close', exitCode);
+    });
+  });
+
+  return proc;
+}
 
 function mockManOutput(output: string) {
-  mockExec.mockImplementation((_cmd, _opts, callback) => {
-    (callback as (error: Error | null, stdout: string) => void)(null, output);
-    return {} as ReturnType<typeof exec>;
+  mockSpawn.mockImplementation((cmd: string) => {
+    if (cmd === 'man') {
+      return createMockProcess(output);
+    }
+    // col -bx: pass through (it strips formatting, but in tests the input is already clean)
+    if (cmd === 'col') {
+      const proc = new EventEmitter() as ReturnType<typeof spawn>;
+      const stdout = new Readable({ read() { /* no-op: mock stream */ } });
+      const stdin = new Writable({
+        write(chunk, _enc, cb) {
+          stdout.push(chunk);
+          cb();
+        },
+        final(cb) {
+          stdout.push(null);
+          process.nextTick(() => proc.emit('close', 0));
+          cb();
+        },
+      });
+      (proc as unknown as { stdout: Readable }).stdout = stdout;
+      (proc as unknown as { stdin: Writable }).stdin = stdin;
+      return proc;
+    }
+    return createMockProcess(null, 1);
   });
 }
 
 function mockManError() {
-  mockExec.mockImplementation((_cmd, _opts, callback) => {
-    (callback as (error: Error | null, stdout: string) => void)(
-      new Error('No manual entry'),
-      '',
-    );
-    return {} as ReturnType<typeof exec>;
+  mockSpawn.mockImplementation((cmd: string) => {
+    if (cmd === 'man') {
+      const proc = new EventEmitter() as ReturnType<typeof spawn>;
+      const stdout = new Readable({ read() { /* no-op: mock stream */ } });
+      (proc as unknown as { stdout: Readable }).stdout = stdout;
+      (proc as unknown as { stdin: Writable }).stdin = new Writable({ write(_c, _e, cb) { cb(); } });
+      process.nextTick(() => {
+        proc.emit('error', new Error('No manual entry'));
+      });
+      return proc;
+    }
+    if (cmd === 'col') {
+      const proc = new EventEmitter() as ReturnType<typeof spawn>;
+      const stdout = new Readable({ read() { /* no-op: mock stream */ } });
+      const stdin = new Writable({ write(_c, _e, cb) { cb(); } });
+      (proc as unknown as { stdout: Readable }).stdout = stdout;
+      (proc as unknown as { stdin: Writable }).stdin = stdin;
+      process.nextTick(() => {
+        stdout.push(null);
+        process.nextTick(() => proc.emit('close', 0));
+      });
+      return proc;
+    }
+    return createMockProcess(null, 1);
   });
 }
 
@@ -216,6 +278,17 @@ describe('parseManPage', () => {
     const result = await parseManPage('empty');
     expect(result).toBeNull();
   });
+
+  it('passes command name as argument array (no shell injection)', async () => {
+    mockManOutput(GIT_ADD_MAN);
+    await parseManPage('git-add');
+
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'man',
+      ['git-add'],
+      expect.any(Object),
+    );
+  });
 });
 
 describe('parseSubcommandManPage', () => {
@@ -223,10 +296,10 @@ describe('parseSubcommandManPage', () => {
     mockManOutput(GIT_ADD_MAN);
     await parseSubcommandManPage('git add');
 
-    expect(mockExec).toHaveBeenCalledWith(
-      'man git-add 2>/dev/null | col -bx',
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'man',
+      ['git-add'],
       expect.any(Object),
-      expect.any(Function),
     );
   });
 

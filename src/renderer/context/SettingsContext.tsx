@@ -10,7 +10,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const api = window.electronAPI;
     if (!api) return;
-    api.getSettings().then(setSettings);
+    api.getSettings().then(setSettings).catch((err) => {
+      console.error('Failed to load settings:', err);
+    });
     const unsubscribe = api.onSettingsChange(setSettings);
     return unsubscribe;
   }, []);

@@ -96,17 +96,17 @@ describe('CommandCache', () => {
     expect(cache.readDetail('nonexistent')).toBeNull();
   });
 
-  it('computes a path hash', () => {
-    const hash = cache.computePathHash();
+  it('computes a path hash', async () => {
+    const hash = await cache.computePathHash();
     expect(hash).toMatch(/^[a-f0-9]{16}$/);
   });
 
-  it('isValid returns false when no meta exists', () => {
-    expect(cache.isValid()).toBe(false);
+  it('isValid returns false when no meta exists', async () => {
+    expect(await cache.isValid()).toBe(false);
   });
 
-  it('isValid returns true when pathHash matches', () => {
-    const hash = cache.computePathHash();
+  it('isValid returns true when pathHash matches', async () => {
+    const hash = await cache.computePathHash();
     cache.writeMeta({
       pathHash: hash,
       timestamp: new Date().toISOString(),
@@ -114,10 +114,10 @@ describe('CommandCache', () => {
       enrichedCount: 0,
     });
 
-    expect(cache.isValid()).toBe(true);
+    expect(await cache.isValid()).toBe(true);
   });
 
-  it('isValid returns false when pathHash differs', () => {
+  it('isValid returns false when pathHash differs', async () => {
     cache.writeMeta({
       pathHash: 'stale-hash',
       timestamp: new Date().toISOString(),
@@ -125,6 +125,6 @@ describe('CommandCache', () => {
       enrichedCount: 0,
     });
 
-    expect(cache.isValid()).toBe(false);
+    expect(await cache.isValid()).toBe(false);
   });
 });

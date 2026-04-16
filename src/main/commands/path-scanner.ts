@@ -1,4 +1,4 @@
-import { readdirSync, statSync, accessSync, constants } from 'node:fs';
+import { readdir, stat, access, constants } from 'node:fs/promises';
 
 interface ScannedCommand {
   name: string;
@@ -6,7 +6,7 @@ interface ScannedCommand {
   mtime: number;
 }
 
-export function scanPath(): ScannedCommand[] {
+export async function scanPath(): Promise<ScannedCommand[]> {
   const pathDirs = (process.env.PATH ?? '').split(':').filter(Boolean);
   const seen = new Set<string>();
   const commands: ScannedCommand[] = [];
@@ -14,7 +14,7 @@ export function scanPath(): ScannedCommand[] {
   for (const dir of pathDirs) {
     let entries: string[];
     try {
-      entries = readdirSync(dir);
+      entries = await readdir(dir);
     } catch {
       continue;
     }
@@ -25,15 +25,15 @@ export function scanPath(): ScannedCommand[] {
 
       const fullPath = `${dir}/${entry}`;
       try {
-        accessSync(fullPath, constants.X_OK);
-        const stat = statSync(fullPath);
-        if (!stat.isFile()) continue;
+        await access(fullPath, constants.X_OK);
+        const s = await stat(fullPath);
+        if (!s.isFile()) continue;
 
         seen.add(entry);
         commands.push({
           name: entry,
           bin: fullPath,
-          mtime: stat.mtimeMs,
+          mtime: s.mtimeMs,
         });
       } catch {
         continue;

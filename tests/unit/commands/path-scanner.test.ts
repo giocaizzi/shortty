@@ -1,41 +1,41 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { scanPath } from '../../../src/main/commands/path-scanner';
 
-vi.mock('node:fs', () => ({
-  readdirSync: vi.fn(),
-  statSync: vi.fn(),
-  accessSync: vi.fn(),
+vi.mock('node:fs/promises', () => ({
+  readdir: vi.fn(),
+  stat: vi.fn(),
+  access: vi.fn(),
   constants: { X_OK: 1 },
 }));
 
-import { readdirSync, statSync, accessSync } from 'node:fs';
+import { readdir, stat, access } from 'node:fs/promises';
 
-const mockReaddirSync = vi.mocked(readdirSync);
-const mockStatSync = vi.mocked(statSync);
-const mockAccessSync = vi.mocked(accessSync);
+const mockReaddir = vi.mocked(readdir);
+const mockStat = vi.mocked(stat);
+const mockAccess = vi.mocked(access);
 
 describe('scanPath', () => {
   beforeEach(() => {
     vi.resetAllMocks();
   });
 
-  it('scans directories from PATH and returns executables', () => {
+  it('scans directories from PATH and returns executables', async () => {
     const origPath = process.env.PATH;
     process.env.PATH = '/usr/bin:/usr/local/bin';
 
-    mockReaddirSync.mockImplementation((dir) => {
-      if (dir === '/usr/bin') return ['git', 'ls'] as unknown as ReturnType<typeof readdirSync>;
-      if (dir === '/usr/local/bin') return ['node'] as unknown as ReturnType<typeof readdirSync>;
-      return [] as unknown as ReturnType<typeof readdirSync>;
+    mockReaddir.mockImplementation(async (dir) => {
+      if (dir === '/usr/bin') return ['git', 'ls'] as unknown as Awaited<ReturnType<typeof readdir>>;
+      if (dir === '/usr/local/bin') return ['node'] as unknown as Awaited<ReturnType<typeof readdir>>;
+      return [] as unknown as Awaited<ReturnType<typeof readdir>>;
     });
 
-    mockAccessSync.mockImplementation(() => undefined);
-    mockStatSync.mockImplementation(() => ({
+    mockAccess.mockResolvedValue(undefined);
+    mockStat.mockResolvedValue({
       isFile: () => true,
       mtimeMs: 1000,
-    }) as unknown as ReturnType<typeof statSync>);
+    } as unknown as Awaited<ReturnType<typeof stat>>);
 
-    const result = scanPath();
+    const result = await scanPath();
 
     expect(result).toHaveLength(3);
     expect(result[0]).toEqual({ name: 'git', bin: '/usr/bin/git', mtime: 1000 });
@@ -45,23 +45,23 @@ describe('scanPath', () => {
     process.env.PATH = origPath;
   });
 
-  it('deduplicates commands (first in PATH wins)', () => {
+  it('deduplicates commands (first in PATH wins)', async () => {
     const origPath = process.env.PATH;
     process.env.PATH = '/usr/bin:/usr/local/bin';
 
-    mockReaddirSync.mockImplementation((dir) => {
-      if (dir === '/usr/bin') return ['git'] as unknown as ReturnType<typeof readdirSync>;
-      if (dir === '/usr/local/bin') return ['git'] as unknown as ReturnType<typeof readdirSync>;
-      return [] as unknown as ReturnType<typeof readdirSync>;
+    mockReaddir.mockImplementation(async (dir) => {
+      if (dir === '/usr/bin') return ['git'] as unknown as Awaited<ReturnType<typeof readdir>>;
+      if (dir === '/usr/local/bin') return ['git'] as unknown as Awaited<ReturnType<typeof readdir>>;
+      return [] as unknown as Awaited<ReturnType<typeof readdir>>;
     });
 
-    mockAccessSync.mockImplementation(() => undefined);
-    mockStatSync.mockImplementation(() => ({
+    mockAccess.mockResolvedValue(undefined);
+    mockStat.mockResolvedValue({
       isFile: () => true,
       mtimeMs: 1000,
-    }) as unknown as ReturnType<typeof statSync>);
+    } as unknown as Awaited<ReturnType<typeof stat>>);
 
-    const result = scanPath();
+    const result = await scanPath();
 
     expect(result).toHaveLength(1);
     expect(result[0].bin).toBe('/usr/bin/git');
@@ -69,18 +69,18 @@ describe('scanPath', () => {
     process.env.PATH = origPath;
   });
 
-  it('skips hidden and internal files', () => {
+  it('skips hidden and internal files', async () => {
     const origPath = process.env.PATH;
     process.env.PATH = '/usr/bin';
 
-    mockReaddirSync.mockReturnValue(['.hidden', '_internal', 'git'] as unknown as ReturnType<typeof readdirSync>);
-    mockAccessSync.mockImplementation(() => undefined);
-    mockStatSync.mockImplementation(() => ({
+    mockReaddir.mockResolvedValue(['.hidden', '_internal', 'git'] as unknown as Awaited<ReturnType<typeof readdir>>);
+    mockAccess.mockResolvedValue(undefined);
+    mockStat.mockResolvedValue({
       isFile: () => true,
       mtimeMs: 1000,
-    }) as unknown as ReturnType<typeof statSync>);
+    } as unknown as Awaited<ReturnType<typeof stat>>);
 
-    const result = scanPath();
+    const result = await scanPath();
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('git');
@@ -88,18 +88,18 @@ describe('scanPath', () => {
     process.env.PATH = origPath;
   });
 
-  it('skips directories (non-file entries)', () => {
+  it('skips directories (non-file entries)', async () => {
     const origPath = process.env.PATH;
     process.env.PATH = '/usr/bin';
 
-    mockReaddirSync.mockReturnValue(['subdir', 'git'] as unknown as ReturnType<typeof readdirSync>);
-    mockAccessSync.mockImplementation(() => undefined);
-    mockStatSync.mockImplementation((fullPath) => ({
+    mockReaddir.mockResolvedValue(['subdir', 'git'] as unknown as Awaited<ReturnType<typeof readdir>>);
+    mockAccess.mockResolvedValue(undefined);
+    mockStat.mockImplementation(async (fullPath) => ({
       isFile: () => !String(fullPath).endsWith('subdir'),
       mtimeMs: 1000,
-    }) as unknown as ReturnType<typeof statSync>);
+    }) as unknown as Awaited<ReturnType<typeof stat>>);
 
-    const result = scanPath();
+    const result = await scanPath();
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('git');
@@ -107,22 +107,22 @@ describe('scanPath', () => {
     process.env.PATH = origPath;
   });
 
-  it('skips unreadable directories', () => {
+  it('skips unreadable directories', async () => {
     const origPath = process.env.PATH;
     process.env.PATH = '/nonexistent:/usr/bin';
 
-    mockReaddirSync.mockImplementation((dir) => {
+    mockReaddir.mockImplementation(async (dir) => {
       if (dir === '/nonexistent') throw new Error('ENOENT');
-      return ['git'] as unknown as ReturnType<typeof readdirSync>;
+      return ['git'] as unknown as Awaited<ReturnType<typeof readdir>>;
     });
 
-    mockAccessSync.mockImplementation(() => undefined);
-    mockStatSync.mockImplementation(() => ({
+    mockAccess.mockResolvedValue(undefined);
+    mockStat.mockResolvedValue({
       isFile: () => true,
       mtimeMs: 1000,
-    }) as unknown as ReturnType<typeof statSync>);
+    } as unknown as Awaited<ReturnType<typeof stat>>);
 
-    const result = scanPath();
+    const result = await scanPath();
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('git');
@@ -130,20 +130,20 @@ describe('scanPath', () => {
     process.env.PATH = origPath;
   });
 
-  it('skips non-executable files', () => {
+  it('skips non-executable files', async () => {
     const origPath = process.env.PATH;
     process.env.PATH = '/usr/bin';
 
-    mockReaddirSync.mockReturnValue(['noexec', 'git'] as unknown as ReturnType<typeof readdirSync>);
-    mockAccessSync.mockImplementation((fullPath) => {
+    mockReaddir.mockResolvedValue(['noexec', 'git'] as unknown as Awaited<ReturnType<typeof readdir>>);
+    mockAccess.mockImplementation(async (fullPath) => {
       if (String(fullPath).endsWith('noexec')) throw new Error('EACCES');
     });
-    mockStatSync.mockImplementation(() => ({
+    mockStat.mockResolvedValue({
       isFile: () => true,
       mtimeMs: 1000,
-    }) as unknown as ReturnType<typeof statSync>);
+    } as unknown as Awaited<ReturnType<typeof stat>>);
 
-    const result = scanPath();
+    const result = await scanPath();
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('git');
@@ -151,11 +151,11 @@ describe('scanPath', () => {
     process.env.PATH = origPath;
   });
 
-  it('returns empty array for empty PATH', () => {
+  it('returns empty array for empty PATH', async () => {
     const origPath = process.env.PATH;
     process.env.PATH = '';
 
-    const result = scanPath();
+    const result = await scanPath();
     expect(result).toEqual([]);
 
     process.env.PATH = origPath;

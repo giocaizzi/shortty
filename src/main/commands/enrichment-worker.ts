@@ -80,6 +80,7 @@ export class EnrichmentWorker {
         enrichment: 'full',
         enrichedFrom: 'man',
         enrichedAt: new Date().toISOString(),
+        hasManPage: true,
       };
     }
 

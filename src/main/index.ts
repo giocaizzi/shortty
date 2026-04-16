@@ -6,7 +6,7 @@ import {
   nativeTheme,
   screen,
 } from 'electron';
-import path, { join } from 'node:path';
+import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import log from './logger';
 import { registerIpcHandlers } from './ipc';
@@ -298,8 +298,7 @@ function openPreferences(): void {
 ipcMain.on(IPC_CHANNELS.SET_WINDOW_HEIGHT, (_event, height: number) => {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   const clamped = Math.min(Math.max(height, SEARCH_BAR_HEIGHT), MAX_WINDOW_HEIGHT);
-  const [x] = mainWindow.getPosition();
-  const [, y] = mainWindow.getPosition();
+  const [x, y] = mainWindow.getPosition();
   mainWindow.setBounds({ x, y, width: WINDOW_WIDTH, height: clamped }, true);
 });
 
@@ -337,14 +336,13 @@ app.on('ready', async () => {
   }
 
   // Register IPC handlers
-  registerIpcHandlers(parserRegistry, { openPreferences }, commandsEngine);
+  registerIpcHandlers(parserRegistry, { openPreferences }, () => commandsEngine);
 
   // Initialize parsers (respecting disabled list and path overrides) and start file watching
   const disabledParsers = getSetting('disabledParsers');
   const pathOverrides = getSetting('sourcePathOverrides');
-  const cheatsheetsDir = join(app.getAppPath(), 'src/cheatsheets/sources');
   try {
-    await parserRegistry.initialize(disabledParsers, pathOverrides, cheatsheetsDir);
+    await parserRegistry.initialize(disabledParsers, pathOverrides);
   } catch (err) {
     log.error('Parser registry initialization failed', err);
   }

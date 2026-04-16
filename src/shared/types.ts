@@ -62,7 +62,7 @@ export interface Command {
   longDescription?: string;
   bin: string;
   mtime: number;
-  enrichment: 'basic' | 'partial' | 'full' | 'failed';
+  enrichment: 'basic' | 'full' | 'failed';
   enrichedFrom?: 'zsh-completion' | 'bash-completion' | 'man' | 'help';
   enrichedAt?: string;
   hasManPage: boolean;

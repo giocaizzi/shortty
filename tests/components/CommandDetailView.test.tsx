@@ -76,8 +76,8 @@ describe('CommandDetailView', () => {
     expect(screen.queryByText('git push')).not.toBeInTheDocument();
   });
 
-  it('shows enriching message when partially enriched', () => {
-    const partialCommand: Command = { ...mockCommand, enrichment: 'partial' };
+  it('shows enriching message when basic enrichment', () => {
+    const partialCommand: Command = { ...mockCommand, enrichment: 'basic' };
     render(
       <CommandDetailView
         data={partialCommand}

@@ -22,7 +22,7 @@ export class CommandsEngine {
   }
 
   async initialize(): Promise<Command[]> {
-    if (this.cache.isValid()) {
+    if (await this.cache.isValid()) {
       const cached = this.cache.readIndex();
       if (cached) {
         log.info(`Commands loaded from cache: ${cached.length} commands`);
@@ -38,7 +38,7 @@ export class CommandsEngine {
   }
 
   async fullScan(): Promise<Command[]> {
-    const scanned = scanPath();
+    const scanned = await scanPath();
     const descriptions = readWhatis();
 
     this.commands = scanned.map((s) => ({
@@ -57,7 +57,7 @@ export class CommandsEngine {
     log.info(`Commands scan complete: ${this.commands.length} commands found`);
     this.cache.writeIndex(this.commands);
     this.cache.writeMeta({
-      pathHash: this.cache.computePathHash(),
+      pathHash: await this.cache.computePathHash(),
       timestamp: new Date().toISOString(),
       commandCount: this.commands.length,
       enrichedCount: 0,
@@ -69,7 +69,7 @@ export class CommandsEngine {
   }
 
   async checkAndRefresh(): Promise<boolean> {
-    if (this.cache.isValid()) return false;
+    if (await this.cache.isValid()) return false;
     await this.fullScan();
     return true;
   }

@@ -27,41 +27,26 @@ export function CommandDetailView({
   copyFlashIndex,
   loading,
 }: CommandDetailViewProps) {
-  const filteredArguments = useMemo(() => {
-    const args = data.arguments ?? [];
-    if (!filterQuery) return args;
-    const lower = filterQuery.toLowerCase();
-    return args.filter(
-      (a) =>
-        a.name.toLowerCase().includes(lower) ||
-        a.description.toLowerCase().includes(lower),
-    );
-  }, [data.arguments, filterQuery]);
+  const filteredArguments = useMemo(
+    () => filterArguments(data.arguments ?? [], filterQuery),
+    [data.arguments, filterQuery],
+  );
 
-  const filteredSubcommands = useMemo(() => {
-    if (!filterQuery) return data.subcommands;
-    const lower = filterQuery.toLowerCase();
-    return data.subcommands.filter(
-      (sc) =>
-        sc.name.toLowerCase().includes(lower) ||
-        sc.description.toLowerCase().includes(lower),
-    );
-  }, [data.subcommands, filterQuery]);
+  const filteredSubcommands = useMemo(
+    () => filterSubcommands(data.subcommands, filterQuery),
+    [data.subcommands, filterQuery],
+  );
 
-  const filteredFlags = useMemo(() => {
-    if (!filterQuery) return data.flags;
-    const lower = filterQuery.toLowerCase();
-    return data.flags.filter(
-      (f) =>
-        (f.long?.toLowerCase().includes(lower) ?? false) ||
-        (f.short?.toLowerCase().includes(lower) ?? false) ||
-        f.description.toLowerCase().includes(lower),
-    );
-  }, [data.flags, filterQuery]);
+  const filteredFlags = useMemo(
+    () => filterFlags(data.flags, filterQuery),
+    [data.flags, filterQuery],
+  );
 
-  const isEnriching = data.enrichment === 'basic' || data.enrichment === 'partial' || data.enrichment === 'none';
+  const isEnriching = data.enrichment === 'basic' || data.enrichment === 'none';
 
-  let globalIndex = 0;
+  const argsOffset = 0;
+  const subcommandsOffset = filteredArguments.length;
+  const flagsOffset = filteredArguments.length + filteredSubcommands.length;
 
   if (loading) {
     return (
@@ -110,8 +95,8 @@ export function CommandDetailView({
                 {filteredArguments.length} {filteredArguments.length === 1 ? 'argument' : 'arguments'}
               </span>
             </div>
-            {filteredArguments.map((arg) => {
-              const idx = globalIndex++;
+            {filteredArguments.map((arg, i) => {
+              const idx = argsOffset + i;
               return (
                 <div
                   key={arg.name}
@@ -163,8 +148,8 @@ export function CommandDetailView({
                 {filteredSubcommands.length} subcommands
               </span>
             </div>
-            {filteredSubcommands.map((sc) => {
-              const idx = globalIndex++;
+            {filteredSubcommands.map((sc, i) => {
+              const idx = subcommandsOffset + i;
               return (
                 <div
                   key={sc.name}
@@ -204,8 +189,8 @@ export function CommandDetailView({
                 {filteredFlags.length} flags
               </span>
             </div>
-            {filteredFlags.map((flag) => {
-              const idx = globalIndex++;
+            {filteredFlags.map((flag, i) => {
+              const idx = flagsOffset + i;
               const flagName = flag.long ?? flag.short ?? '';
               return (
                 <div

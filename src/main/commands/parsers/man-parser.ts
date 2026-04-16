@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import type { ArgumentDetail, CommandDetail, FlagDetail, SubcommandDetail } from '../../../shared/types';
 import {
   splitManSections,
@@ -11,14 +11,35 @@ import {
 
 function fetchManPage(name: string): Promise<string> {
   return new Promise<string>((resolve, reject) => {
-    exec(`man ${name} 2>/dev/null | col -bx`, {
-      encoding: 'utf-8',
+    const man = spawn('man', [name], {
+      stdio: ['ignore', 'pipe', 'ignore'],
       timeout: 5000,
-      maxBuffer: 5 * 1024 * 1024,
-    }, (error, stdout) => {
-      if (error) reject(error);
-      else resolve(stdout);
     });
+    const col = spawn('col', ['-bx'], {
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
+
+    man.stdout.pipe(col.stdin);
+
+    const chunks: Buffer[] = [];
+    let size = 0;
+    const maxBuffer = 5 * 1024 * 1024;
+
+    col.stdout.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size <= maxBuffer) chunks.push(chunk);
+    });
+
+    col.on('close', (code) => {
+      if (code !== 0 && chunks.length === 0) {
+        reject(new Error(`col exited with code ${code}`));
+      } else {
+        resolve(Buffer.concat(chunks).toString('utf-8'));
+      }
+    });
+
+    man.on('error', reject);
+    col.on('error', reject);
   });
 }
 

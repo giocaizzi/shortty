@@ -7,6 +7,7 @@ export interface SearchResults {
   sources: { meta: ParserMeta; count: number }[];
   shortcuts: Shortcut[];
   commands: Command[];
+  totalSources: number;
   totalShortcuts: number;
   totalCommands: number;
 }
@@ -15,6 +16,7 @@ const EMPTY_RESULTS: SearchResults = {
   sources: [],
   shortcuts: [],
   commands: [],
+  totalSources: 0,
   totalShortcuts: 0,
   totalCommands: 0,
 };
@@ -95,6 +97,7 @@ export function useSearch(
         sources: [],
         shortcuts: [],
         commands: allCommandResults.slice(0, resultLimits.commands),
+        totalSources: 0,
         totalShortcuts: 0,
         totalCommands: allCommandResults.length,
       };
@@ -118,6 +121,7 @@ export function useSearch(
       sources: matchedSources.slice(0, resultLimits.sources),
       shortcuts: allShortcutResults.slice(0, resultLimits.shortcuts),
       commands: allCommandResults.slice(0, resultLimits.commands),
+      totalSources: matchedSources.length,
       totalShortcuts: allShortcutResults.length,
       totalCommands: allCommandResults.length,
     };

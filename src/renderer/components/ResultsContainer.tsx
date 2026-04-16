@@ -30,7 +30,7 @@ export const ResultsContainer = forwardRef<
   },
   ref,
 ) {
-  const { sources, shortcuts, commands, totalShortcuts, totalCommands } =
+  const { sources, shortcuts, commands, totalSources, totalShortcuts, totalCommands } =
     results;
 
   const isEmpty =
@@ -38,7 +38,9 @@ export const ResultsContainer = forwardRef<
 
   if (isEmpty) return null;
 
-  let globalIndex = 0;
+  const sourcesOffset = 0;
+  const shortcutsOffset = sources.length;
+  const commandsOffset = sources.length + shortcuts.length;
 
   return (
     <div
@@ -54,11 +56,12 @@ export const ResultsContainer = forwardRef<
           <SectionHeader
             title="Sources"
             count={sources.length}
+            totalCount={totalSources}
             showAll={showAllSources}
             onToggleShowAll={() => onToggleShowAll('sources')}
           />
-          {sources.map(({ meta, count }) => {
-            const idx = globalIndex++;
+          {sources.map(({ meta, count }, i) => {
+            const idx = sourcesOffset + i;
             return (
               <SourceRow
                 key={meta.id}
@@ -83,8 +86,8 @@ export const ResultsContainer = forwardRef<
             showAll={showAllShortcuts}
             onToggleShowAll={() => onToggleShowAll('shortcuts')}
           />
-          {shortcuts.map((shortcut) => {
-            const idx = globalIndex++;
+          {shortcuts.map((shortcut, i) => {
+            const idx = shortcutsOffset + i;
             return (
               <ShortcutRow
                 key={shortcut.id}
@@ -108,8 +111,8 @@ export const ResultsContainer = forwardRef<
             showAll={showAllCommands}
             onToggleShowAll={() => onToggleShowAll('commands')}
           />
-          {commands.map((command) => {
-            const idx = globalIndex++;
+          {commands.map((command, i) => {
+            const idx = commandsOffset + i;
             return (
               <CommandRow
                 key={command.name}

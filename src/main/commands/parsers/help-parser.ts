@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { stat, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -33,20 +33,21 @@ export function isBlocklisted(name: string): boolean {
   return BLOCKLIST.has(name);
 }
 
-function execHelp(command: string, sandboxDir: string): Promise<string> {
+function execCommand(bin: string, args: string[], sandboxDir: string): Promise<string> {
   return new Promise<string>((resolve, reject) => {
-    exec(`${command} 2>&1 < /dev/null`, {
+    execFile(bin, args, {
       encoding: 'utf-8',
       timeout: 2000,
       maxBuffer: 1 * 1024 * 1024,
       cwd: sandboxDir,
-    }, (error, stdout, stderr) => {
+    }, (error: Error | null, stdout: string, stderr: string) => {
       if (error) {
         const fallback = stderr || stdout || '';
         if (fallback) resolve(fallback);
         else reject(error);
       } else {
-        resolve(stdout);
+        // Merge stderr into output (some commands print help to stderr)
+        resolve(stdout + (stderr || ''));
       }
     });
   });
@@ -147,7 +148,7 @@ export async function parseHelp(commandName: string, binPath: string): Promise<{
   const sandboxDir = await mkdtemp(join(tmpdir(), 'shortty-help-'));
   let output: string;
   try {
-    output = await execHelp(`"${binPath}" --help`, sandboxDir);
+    output = await execCommand(binPath, ['--help'], sandboxDir);
   } catch {
     return null;
   } finally {
@@ -169,11 +170,10 @@ export async function parseSubcommandHelp(
   subcommandParts: string[],
   qualifiedName: string,
 ): Promise<Omit<SubcommandDetail, 'enrichment' | 'enrichedAt'> | null> {
-  const cmdArgs = subcommandParts.map(p => `"${p}"`).join(' ');
   const sandboxDir = await mkdtemp(join(tmpdir(), 'shortty-sub-'));
   let output: string;
   try {
-    output = await execHelp(`"${baseBinPath}" ${cmdArgs} --help`, sandboxDir);
+    output = await execCommand(baseBinPath, [...subcommandParts, '--help'], sandboxDir);
   } catch {
     return null;
   } finally {

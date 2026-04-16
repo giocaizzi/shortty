@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync, mkdirSync, statSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { Command, SubcommandDetail } from '../../shared/types';
@@ -20,18 +21,21 @@ export class CommandCache {
     mkdirSync(join(this.cacheDir, 'details', 'sub'), { recursive: true });
   }
 
-  computePathHash(): string {
+  async computePathHash(): Promise<string> {
     const pathDirs = (process.env.PATH ?? '').split(':').filter(Boolean);
     const parts: string[] = [process.env.PATH ?? ''];
 
-    for (const dir of pathDirs) {
-      try {
-        const stat = statSync(dir);
-        parts.push(`${dir}:${stat.mtimeMs}`);
-      } catch {
-        parts.push(`${dir}:missing`);
-      }
-    }
+    const stats = await Promise.all(
+      pathDirs.map(async (dir) => {
+        try {
+          const s = await stat(dir);
+          return `${dir}:${s.mtimeMs}`;
+        } catch {
+          return `${dir}:missing`;
+        }
+      }),
+    );
+    parts.push(...stats);
 
     return createHash('sha256').update(parts.join('|')).digest('hex').slice(0, 16);
   }
@@ -109,9 +113,9 @@ export class CommandCache {
     }
   }
 
-  isValid(): boolean {
+  async isValid(): Promise<boolean> {
     const meta = this.readMeta();
     if (!meta) return false;
-    return meta.pathHash === this.computePathHash();
+    return meta.pathHash === await this.computePathHash();
   }
 }
