@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
-import type { Keybinding, ParserMeta, Command, SubcommandDetail, SourceStatus } from '../shared/types';
+import type { Shortcut, ParserMeta, Command, SubcommandDetail, SourceStatus } from '../shared/types';
 import type { AppSettings } from '../shared/settings';
 
 const electronAPI = {
@@ -16,24 +16,24 @@ const electronAPI = {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_ALL_SOURCES);
   },
 
-  getAllKeybindings(): Promise<Keybinding[]> {
+  getAllKeybindings(): Promise<Shortcut[]> {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_ALL);
   },
 
-  getKeybindingsBySource(sourceId: string): Promise<Keybinding[]> {
+  getKeybindingsBySource(sourceId: string): Promise<Shortcut[]> {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_BY_SOURCE, sourceId);
   },
 
-  refreshKeybindings(): Promise<Keybinding[]> {
+  refreshKeybindings(): Promise<Shortcut[]> {
     return ipcRenderer.invoke(IPC_CHANNELS.REFRESH);
   },
 
   onKeybindingsUpdate(
-    cb: (data: { sourceId: string; keybindings: Keybinding[] }) => void,
+    cb: (data: { sourceId: string; keybindings: Shortcut[] }) => void,
   ): () => void {
     const handler = (
       _event: Electron.IpcRendererEvent,
-      data: { sourceId: string; keybindings: Keybinding[] },
+      data: { sourceId: string; keybindings: Shortcut[] },
     ) => cb(data);
     ipcRenderer.on(IPC_CHANNELS.ON_UPDATE, handler);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.ON_UPDATE, handler);

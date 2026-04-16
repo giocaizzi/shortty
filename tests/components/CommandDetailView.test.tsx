@@ -6,16 +6,9 @@ import {
   getDetailCopyText,
   isSubcommandAtIndex,
 } from '../../src/renderer/components/CommandDetailView';
-import type { Command } from '../../src/shared/types';
+import { assertDefined, makeCommand } from '../helpers';
 
-const mockCommand: Command = {
-  name: 'git',
-  description: 'The fast version control system',
-  bin: '/usr/bin/git',
-  mtime: Date.now(),
-  enrichment: 'full',
-  hasManPage: true,
-  hasCompletion: true,
+const mockCommand = makeCommand({
   subcommands: [
     { name: 'git commit', description: 'Record changes to the repository' },
     { name: 'git push', description: 'Update remote refs' },
@@ -23,18 +16,23 @@ const mockCommand: Command = {
   flags: [
     { short: '-v', long: '--verbose', description: 'Be more verbose' },
   ],
-  arguments: [],
-};
+});
 
-const mockCommandWithArgs: Command = {
-  ...mockCommand,
+const mockCommandWithArgs = makeCommand({
+  subcommands: [
+    { name: 'git commit', description: 'Record changes to the repository' },
+    { name: 'git push', description: 'Update remote refs' },
+  ],
+  flags: [
+    { short: '-v', long: '--verbose', description: 'Be more verbose' },
+  ],
   synopsis: 'git [-v | --version] <command> [<args>]',
   longDescription: 'Git is a fast, scalable, distributed revision control system.',
   arguments: [
     { name: 'command', required: true, variadic: false, description: 'The Git command to run' },
     { name: 'args', required: false, variadic: true, description: 'Arguments for the command' },
   ],
-};
+});
 
 describe('CommandDetailView', () => {
   it('renders command name and description', () => {
@@ -113,7 +111,8 @@ describe('CommandDetailView', () => {
         copyFlashIndex={null}
       />,
     );
-    expect(screen.getByText(mockCommandWithArgs.synopsis!)).toBeInTheDocument();
+    assertDefined(mockCommandWithArgs.synopsis);
+    expect(screen.getByText(mockCommandWithArgs.synopsis)).toBeInTheDocument();
   });
 
   it('renders long description when available', () => {
@@ -125,7 +124,8 @@ describe('CommandDetailView', () => {
         copyFlashIndex={null}
       />,
     );
-    expect(screen.getByText(mockCommandWithArgs.longDescription!)).toBeInTheDocument();
+    assertDefined(mockCommandWithArgs.longDescription);
+    expect(screen.getByText(mockCommandWithArgs.longDescription)).toBeInTheDocument();
   });
 
   it('renders arguments section when arguments exist', () => {

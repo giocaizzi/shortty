@@ -8,6 +8,7 @@ export interface Shortcut {
   searchKey: string;
   command: string;
   rawCommand: string;
+  /** Parser-specific context: vim mode, vscode "when" clause, shell editing mode, tmux key table */
   context?: string;
   category?: string;
   isDefault: boolean;
@@ -15,9 +16,6 @@ export interface Shortcut {
   filePath: string;
   origin: 'cheatsheet' | 'user-config' | 'app-defaults';
 }
-
-/** @deprecated Use Shortcut instead. Kept for backward compatibility during refactor. */
-export type Keybinding = Shortcut;
 
 export interface ParserMeta {
   id: string;
@@ -86,7 +84,7 @@ export interface SourceStatus {
   shortcutCount: number;
 }
 
-export function generateKeybindingId(
+export function generateShortcutId(
   source: string,
   rawCommand: string,
 ): string {

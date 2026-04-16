@@ -27,9 +27,8 @@ export function CommandDetailView({
   copyFlashIndex,
   loading,
 }: CommandDetailViewProps) {
-  const args = data.arguments ?? [];
-
   const filteredArguments = useMemo(() => {
+    const args = data.arguments ?? [];
     if (!filterQuery) return args;
     const lower = filterQuery.toLowerCase();
     return args.filter(
@@ -37,7 +36,7 @@ export function CommandDetailView({
         a.name.toLowerCase().includes(lower) ||
         a.description.toLowerCase().includes(lower),
     );
-  }, [args, filterQuery]);
+  }, [data.arguments, filterQuery]);
 
   const filteredSubcommands = useMemo(() => {
     if (!filterQuery) return data.subcommands;

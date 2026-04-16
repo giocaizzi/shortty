@@ -321,7 +321,7 @@ export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
               Are you sure?
             </div>
             <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              You'll only be able to access Shortty via the keyboard shortcut. Are you sure?
+              You&apos;ll only be able to access Shortty via the keyboard shortcut. Are you sure?
             </div>
             <div className="flex justify-end gap-2">
               <button

@@ -8,6 +8,7 @@ import {
   extractSynopsis,
   extractUsageLine,
 } from '../../../src/main/commands/parsers/parse-utils';
+import { assertDefined } from '../../helpers';
 
 // --- Fixtures ---
 
@@ -127,65 +128,65 @@ describe('splitManSections', () => {
 });
 
 describe('parseFlagsFromText', () => {
-  it('parses short + long flag pairs', () => {
+  function getOptionsFlags() {
     const sections = splitManSections(GIT_ADD_MAN_PAGE);
-    const flags = parseFlagsFromText(sections.get('OPTIONS')!);
+    const optionsText = sections.get('OPTIONS');
+    assertDefined(optionsText);
+    return parseFlagsFromText(optionsText);
+  }
+
+  it('parses short + long flag pairs', () => {
+    const flags = getOptionsFlags();
 
     const dryRun = flags.find(f => f.long === '--dry-run');
-    expect(dryRun).toBeDefined();
-    expect(dryRun!.short).toBe('-n');
-    expect(dryRun!.description).toContain("Don't actually add");
+    assertDefined(dryRun);
+    expect(dryRun.short).toBe('-n');
+    expect(dryRun.description).toContain("Don't actually add");
   });
 
   it('parses long-only flags', () => {
-    const sections = splitManSections(GIT_ADD_MAN_PAGE);
-    const flags = parseFlagsFromText(sections.get('OPTIONS')!);
+    const flags = getOptionsFlags();
 
     const sparse = flags.find(f => f.long === '--sparse');
-    expect(sparse).toBeDefined();
-    expect(sparse!.short).toBeUndefined();
-    expect(sparse!.description).toContain('sparse-checkout cone');
+    assertDefined(sparse);
+    expect(sparse.short).toBeUndefined();
+    expect(sparse.description).toContain('sparse-checkout cone');
   });
 
   it('parses flags with attached short args like -U<n>', () => {
-    const sections = splitManSections(GIT_ADD_MAN_PAGE);
-    const flags = parseFlagsFromText(sections.get('OPTIONS')!);
+    const flags = getOptionsFlags();
 
     // The long flag is --unified=<n>, parsed with = and arg
     const unified = flags.find(f => f.long?.startsWith('--unified'));
-    expect(unified).toBeDefined();
-    expect(unified!.short).toBe('-U');
+    assertDefined(unified);
+    expect(unified.short).toBe('-U');
   });
 
   it('parses flags with complex arg patterns like --chmod=(+|-)x', () => {
-    const sections = splitManSections(GIT_ADD_MAN_PAGE);
-    const flags = parseFlagsFromText(sections.get('OPTIONS')!);
+    const flags = getOptionsFlags();
 
     const chmod = flags.find(f => f.long?.startsWith('--chmod'));
-    expect(chmod).toBeDefined();
+    assertDefined(chmod);
   });
 
   it('captures multi-line descriptions', () => {
-    const sections = splitManSections(GIT_ADD_MAN_PAGE);
-    const flags = parseFlagsFromText(sections.get('OPTIONS')!);
+    const flags = getOptionsFlags();
 
     const sparse = flags.find(f => f.long === '--sparse');
-    expect(sparse).toBeDefined();
+    assertDefined(sparse);
     // Should have continuation lines joined
-    expect(sparse!.description.split(' ').length).toBeGreaterThan(5);
+    expect(sparse.description.split(' ').length).toBeGreaterThan(5);
   });
 
   it('parses flags with aliases like -A, --all, --no-ignore-removal', () => {
-    const sections = splitManSections(GIT_ADD_MAN_PAGE);
-    const flags = parseFlagsFromText(sections.get('OPTIONS')!);
+    const flags = getOptionsFlags();
 
     const allFlag = flags.find(f => f.short === '-A');
-    expect(allFlag).toBeDefined();
+    assertDefined(allFlag);
   });
 
   it('does not include positional arguments as flags', () => {
-    const sections = splitManSections(GIT_ADD_MAN_PAGE);
-    const flags = parseFlagsFromText(sections.get('OPTIONS')!);
+    const flags = getOptionsFlags();
 
     // <pathspec>... should not appear as a flag
     const pathspec = flags.find(f => f.short === '<p' || f.long?.includes('pathspec'));
@@ -240,9 +241,9 @@ describe('parseArgumentsFromSynopsis', () => {
     const args = parseArgumentsFromSynopsis(synopsis);
 
     const fileArg = args.find(a => a.name === 'file');
-    expect(fileArg).toBeDefined();
-    expect(fileArg!.required).toBe(false);
-    expect(fileArg!.variadic).toBe(true);
+    assertDefined(fileArg);
+    expect(fileArg.required).toBe(false);
+    expect(fileArg.variadic).toBe(true);
   });
 
   it('skips flag-like tokens', () => {

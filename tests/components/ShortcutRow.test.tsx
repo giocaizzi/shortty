@@ -1,22 +1,9 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react';
 import { ShortcutRow } from '../../src/renderer/components/ShortcutRow';
-import type { Shortcut } from '../../src/shared/types';
+import { makeShortcut } from '../helpers';
 
-const mockShortcut: Shortcut = {
-  id: 'test-1',
-  source: 'vscode',
-  sourceLabel: 'VS Code',
-  key: '⌘+S',
-  searchKey: 'cmd+s',
-  command: 'Save File',
-  rawCommand: 'workbench.action.files.save',
-  context: 'editorTextFocus',
-  isDefault: true,
-  isUnbound: false,
-  filePath: '/path/to/config',
-  origin: 'user-config',
-};
+const mockShortcut = makeShortcut({ context: 'editorTextFocus' });
 
 describe('ShortcutRow', () => {
   it('renders command name and source', () => {

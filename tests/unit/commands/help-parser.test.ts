@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { parseHelp, parseSubcommandHelp, isBlocklisted } from '../../../src/main/commands/parsers/help-parser';
+import { assertDefined } from '../../helpers';
 
 // Mock child_process and fs
 vi.mock('node:child_process', () => ({
@@ -85,52 +86,55 @@ describe('parseHelp', () => {
     setupMocks(DOCKER_HELP);
     const result = await parseHelp('docker', '/usr/bin/docker');
 
-    expect(result).not.toBeNull();
-    expect(result!.synopsis).toBe('docker [OPTIONS] COMMAND');
+    assertDefined(result);
+    expect(result.synopsis).toBe('docker [OPTIONS] COMMAND');
   });
 
   it('extracts description from text after Usage', async () => {
     setupMocks(DOCKER_HELP);
     const result = await parseHelp('docker', '/usr/bin/docker');
 
-    expect(result).not.toBeNull();
-    expect(result!.longDescription).toBeDefined();
-    expect(result!.longDescription).toContain('self-sufficient runtime');
+    assertDefined(result);
+    expect(result.longDescription).toBeDefined();
+    expect(result.longDescription).toContain('self-sufficient runtime');
   });
 
   it('extracts subcommands from multiple sections', async () => {
     setupMocks(DOCKER_HELP);
     const result = await parseHelp('docker', '/usr/bin/docker');
 
-    const run = result!.subcommands.find(sc => sc.name === 'docker run');
-    expect(run).toBeDefined();
-    expect(run!.description).toContain('Create and run');
+    assertDefined(result);
+    const run = result.subcommands.find(sc => sc.name === 'docker run');
+    assertDefined(run);
+    expect(run.description).toContain('Create and run');
 
-    const builder = result!.subcommands.find(sc => sc.name === 'docker builder');
-    expect(builder).toBeDefined();
+    const builder = result.subcommands.find(sc => sc.name === 'docker builder');
+    assertDefined(builder);
   });
 
   it('extracts flags from Global Options section', async () => {
     setupMocks(DOCKER_HELP);
     const result = await parseHelp('docker', '/usr/bin/docker');
 
-    const debug = result!.flags.find(f => f.short === '-D');
-    expect(debug).toBeDefined();
-    expect(debug!.long).toBe('--debug');
+    assertDefined(result);
+    const debug = result.flags.find(f => f.short === '-D');
+    assertDefined(debug);
+    expect(debug.long).toBe('--debug');
   });
 
   it('extracts arguments from synopsis', async () => {
     setupMocks(SIMPLE_HELP);
     const result = await parseHelp('mytool', '/usr/bin/mytool');
 
-    expect(result!.arguments.length).toBeGreaterThan(0);
-    const input = result!.arguments.find(a => a.name === 'input');
-    expect(input).toBeDefined();
-    expect(input!.required).toBe(true);
+    assertDefined(result);
+    expect(result.arguments.length).toBeGreaterThan(0);
+    const input = result.arguments.find(a => a.name === 'input');
+    assertDefined(input);
+    expect(input.required).toBe(true);
 
-    const output = result!.arguments.find(a => a.name === 'output');
-    expect(output).toBeDefined();
-    expect(output!.required).toBe(false);
+    const output = result.arguments.find(a => a.name === 'output');
+    assertDefined(output);
+    expect(output.required).toBe(false);
   });
 
   it('returns null for blocklisted commands', async () => {
@@ -150,10 +154,10 @@ describe('parseSubcommandHelp', () => {
     setupMocks(SIMPLE_HELP);
     const result = await parseSubcommandHelp('/usr/bin/git', ['commit'], 'git commit');
 
-    expect(result).not.toBeNull();
-    expect(result!.name).toBe('git commit');
-    expect(result!.synopsis).toBeDefined();
-    expect(result!.flags.length).toBeGreaterThan(0);
+    assertDefined(result);
+    expect(result.name).toBe('git commit');
+    expect(result.synopsis).toBeDefined();
+    expect(result.flags.length).toBeGreaterThan(0);
   });
 
   it('constructs correct command', async () => {

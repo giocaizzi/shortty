@@ -26,7 +26,7 @@ export function useSubcommandDetail(
     api.getSubcommandDetail(qualifiedName).then((result) => {
       setDetail(result);
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   }, [qualifiedName]);
 
   return { detail, loading };

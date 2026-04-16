@@ -8,8 +8,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
-    window.electronAPI.getSettings().then(setSettings);
-    const unsubscribe = window.electronAPI.onSettingsChange(setSettings);
+    const api = window.electronAPI;
+    if (!api) return;
+    api.getSettings().then(setSettings);
+    const unsubscribe = api.onSettingsChange(setSettings);
     return unsubscribe;
   }, []);
 

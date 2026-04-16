@@ -3,6 +3,7 @@ import { vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ResultsContainer } from '../../src/renderer/components/ResultsContainer';
 import type { SearchResults } from '../../src/renderer/hooks/useSearch';
+import { makeShortcut, makeCommand, makeParserMeta } from '../helpers';
 
 const emptyResults: SearchResults = {
   sources: [],
@@ -15,38 +16,12 @@ const emptyResults: SearchResults = {
 const populatedResults: SearchResults = {
   sources: [
     {
-      meta: { id: 'vscode', label: 'VS Code', icon: '⌨️', platforms: ['darwin'] },
+      meta: makeParserMeta(),
       count: 10,
     },
   ],
-  shortcuts: [
-    {
-      id: 'sc-1',
-      source: 'vscode',
-      sourceLabel: 'VS Code',
-      key: '⌘S',
-      searchKey: 'cmd s',
-      command: 'Save File',
-      rawCommand: 'workbench.action.files.save',
-      isDefault: true,
-      isUnbound: false,
-      filePath: '/path/to/config',
-      origin: 'user-config',
-    },
-  ],
-  commands: [
-    {
-      name: 'git',
-      description: 'Version control',
-      bin: '/usr/bin/git',
-      mtime: Date.now(),
-      enrichment: 'full',
-      hasManPage: true,
-      hasCompletion: true,
-      subcommands: [],
-      flags: [],
-    },
-  ],
+  shortcuts: [makeShortcut({ id: 'sc-1', key: '⌘S', searchKey: 'cmd s' })],
+  commands: [makeCommand({ description: 'Version control' })],
   totalShortcuts: 1,
   totalCommands: 1,
 };

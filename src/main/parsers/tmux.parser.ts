@@ -1,12 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import type { Keybinding, ParserMeta } from '../../shared/types';
+import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
 import {
   type ParsedKey,
   Modifier,
   normalizeToCanonical,
 } from './key-normalizer';
+import { TMUX_COMMAND_LABELS } from './data/tmux-commands';
 
 /** Map tmux special key names to display glyphs/names. */
 const TMUX_SPECIAL_KEYS: Record<string, string> = {
@@ -30,16 +31,13 @@ const TMUX_SPECIAL_KEYS: Record<string, string> = {
 /** Default tmux prefix in tmux notation. */
 const DEFAULT_PREFIX = 'C-b';
 
+/** Pre-computed display form of the default prefix. */
+const DEFAULT_PREFIX_DISPLAY = normalizeToCanonical({
+  modifiers: [Modifier.Control],
+  key: 'B',
+}).displayKey;
+
 export class TmuxParser extends BaseParser {
-  /** Resolved display form of the tmux prefix key. Initialized to default, updated on parse(). */
-  private resolvedPrefix: string;
-
-  constructor() {
-    super();
-    const { displayKey } = this.normalizeTmuxKey(DEFAULT_PREFIX);
-    this.resolvedPrefix = displayKey;
-  }
-
   get meta(): ParserMeta {
     return {
       id: 'tmux',
@@ -62,11 +60,11 @@ export class TmuxParser extends BaseParser {
     return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
-  async parse(): Promise<Keybinding[]> {
-    this.resolvedPrefix = this.detectPrefix();
-    const configKeybindings = await this.parseConfigFiles();
+  async parse(): Promise<Shortcut[]> {
+    const resolvedPrefix = this.detectPrefix();
+    const configKeybindings = await this.parseConfigFiles(resolvedPrefix);
     if (configKeybindings.length > 0) return configKeybindings;
-    return this.parseLiveKeys();
+    return this.parseLiveKeys(resolvedPrefix);
   }
 
   /** Detect the user's tmux prefix key and return its normalized display form. */
@@ -100,8 +98,8 @@ export class TmuxParser extends BaseParser {
     return displayKey;
   }
 
-  private async parseConfigFiles(): Promise<Keybinding[]> {
-    const keybindings: Keybinding[] = [];
+  private async parseConfigFiles(resolvedPrefix: string): Promise<Shortcut[]> {
+    const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
       const content = await this.readFileIfExists(filePath);
@@ -135,11 +133,11 @@ export class TmuxParser extends BaseParser {
 
         if (TmuxParser.MOUSE_KEY_RE.test(key)) continue;
 
-        const prefixKey = isRoot ? undefined : this.resolvedPrefix;
+        const prefixKey = isRoot ? undefined : resolvedPrefix;
         const { displayKey, searchKey } = this.normalizeTmuxKey(key, prefixKey);
 
         keybindings.push(
-          this.makeKeybinding({
+          this.makeShortcut({
             key: displayKey,
             searchKey,
             command: this.humanizeCommand(command),
@@ -155,13 +153,13 @@ export class TmuxParser extends BaseParser {
     return keybindings;
   }
 
-  private parseLiveKeys(): Keybinding[] {
+  private parseLiveKeys(resolvedPrefix: string): Shortcut[] {
     try {
       const output = execSync('tmux list-keys 2>/dev/null', {
         encoding: 'utf-8',
         timeout: 5000,
       });
-      return this.parseTmuxListKeys(output);
+      return this.parseTmuxListKeys(output, resolvedPrefix);
     } catch {
       return [];
     }
@@ -177,8 +175,11 @@ export class TmuxParser extends BaseParser {
   private static readonly MOUSE_KEY_RE =
     /^(?:Mouse|WheelUp|WheelDown|DoubleClick|TripleClick|DragEnd|SecondClick)/;
 
-  parseTmuxListKeys(output: string): Keybinding[] {
-    const keybindings: Keybinding[] = [];
+  parseTmuxListKeys(
+    output: string,
+    resolvedPrefix: string = DEFAULT_PREFIX_DISPLAY,
+  ): Shortcut[] {
+    const keybindings: Shortcut[] = [];
 
     for (const line of output.split('\n')) {
       const match = line.match(
@@ -191,11 +192,11 @@ export class TmuxParser extends BaseParser {
       if (TmuxParser.IGNORED_TABLES.has(table)) continue;
       if (TmuxParser.MOUSE_KEY_RE.test(key)) continue;
 
-      const prefixKey = table === 'root' ? undefined : this.resolvedPrefix;
+      const prefixKey = table === 'root' ? undefined : resolvedPrefix;
       const { displayKey, searchKey } = this.normalizeTmuxKey(key, prefixKey);
 
       keybindings.push(
-        this.makeKeybinding({
+        this.makeShortcut({
           key: displayKey,
           searchKey,
           command: this.humanizeCommand(command),
@@ -246,58 +247,7 @@ export class TmuxParser extends BaseParser {
 
   private humanizeCommand(command: string): string {
     const cmd = command.trim().split(/\s+/)[0];
-    const humanized: Record<string, string> = {
-      'new-window': 'New Window',
-      'split-window': 'Split Window',
-      'select-pane': 'Select Pane',
-      'resize-pane': 'Resize Pane',
-      'next-window': 'Next Window',
-      'previous-window': 'Previous Window',
-      'kill-pane': 'Kill Pane',
-      'kill-window': 'Kill Window',
-      'kill-session': 'Kill Session',
-      'copy-mode': 'Copy Mode',
-      'paste-buffer': 'Paste Buffer',
-      'choose-tree': 'Choose Tree',
-      'choose-buffer': 'Choose Buffer',
-      'choose-client': 'Choose Client',
-      'detach-client': 'Detach Client',
-      'suspend-client': 'Suspend Client',
-      'switch-client': 'Switch Client',
-      'list-keys': 'List Keys',
-      'list-sessions': 'List Sessions',
-      'command-prompt': 'Command Prompt',
-      'display-message': 'Display Message',
-      'display-menu': 'Display Menu',
-      'display-panes': 'Display Panes',
-      'send-keys': 'Send Keys',
-      'send-prefix': 'Send Prefix',
-      'rename-window': 'Rename Window',
-      'rename-session': 'Rename Session',
-      'last-window': 'Last Window',
-      'last-pane': 'Last Pane',
-      'next-layout': 'Next Layout',
-      'select-layout': 'Select Layout',
-      'rotate-window': 'Rotate Window',
-      'swap-pane': 'Swap Pane',
-      'swap-window': 'Swap Window',
-      'move-window': 'Move Window',
-      'break-pane': 'Break Pane',
-      'join-pane': 'Join Pane',
-      'refresh-client': 'Refresh Client',
-      'set-option': 'Set Option',
-      'show-options': 'Show Options',
-      'clock-mode': 'Clock Mode',
-      'customize-mode': 'Customize Mode',
-      'source-file': 'Source File',
-      'respawn-pane': 'Respawn Pane',
-      'respawn-window': 'Respawn Window',
-      'find-window': 'Find Window',
-      'select-window': 'Select Window',
-      'if-shell': 'Conditional',
-      'run-shell': 'Run Shell',
-    };
-    if (humanized[cmd]) return humanized[cmd];
+    if (TMUX_COMMAND_LABELS[cmd]) return TMUX_COMMAND_LABELS[cmd];
     return cmd.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase());
   }
 }

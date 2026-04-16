@@ -1,19 +1,9 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react';
 import { CommandRow } from '../../src/renderer/components/CommandRow';
-import type { Command } from '../../src/shared/types';
+import { makeCommand } from '../helpers';
 
-const mockCommand: Command = {
-  name: 'git',
-  description: 'The fast version control system',
-  bin: '/usr/bin/git',
-  mtime: Date.now(),
-  enrichment: 'full',
-  hasManPage: true,
-  hasCompletion: true,
-  subcommands: [],
-  flags: [],
-};
+const mockCommand = makeCommand();
 
 describe('CommandRow', () => {
   it('renders command name and description', () => {

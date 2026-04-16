@@ -133,6 +133,21 @@ export function charCodeToKeyName(charCode: number): string | null {
   return null;
 }
 
+export function formatKeyCombo(
+  raw: string,
+  separator = '+',
+): { displayKey: string; searchKey: string } {
+  const parsed = parseKeyCombo(raw, separator);
+  return normalizeToCanonical(parsed);
+}
+
+export function formatParsedKey(parsed: ParsedKey): {
+  displayKey: string;
+  searchKey: string;
+} {
+  return normalizeToCanonical(parsed);
+}
+
 /** Map a key name to a search-friendly string. */
 function keyToSearchName(key: string): string {
   const specialKeys: Record<string, string> = {

@@ -42,7 +42,7 @@ export function SearchInput({
 
   useEffect(() => {
     inputRef.current?.focus();
-  }, []);
+  }, [inputRef]);
 
   useEffect(() => {
     const api = window.electronAPI;
@@ -52,7 +52,7 @@ export function SearchInput({
       inputRef.current?.select();
     });
     return unsub;
-  }, []);
+  }, [inputRef]);
 
   return (
     <div style={{ padding: '20px 28px' }} className="shrink-0 border-b border-white/[0.06]">
@@ -71,7 +71,7 @@ export function SearchInput({
         {navMode === 'command-detail' && breadcrumbs && breadcrumbs.length > 0 && (
           <div className="flex shrink-0 items-center gap-1">
             {breadcrumbs.map((crumb, i) => (
-              <span key={i} className="flex items-center gap-1">
+              <span key={crumb} className="flex items-center gap-1">
                 {i > 0 && <span className="text-[10px] text-white/20">{'>'}</span>}
                 <span className="rounded-md bg-white/[0.08] px-2 py-0.5 font-mono text-xs font-medium text-white/70">
                   {crumb}

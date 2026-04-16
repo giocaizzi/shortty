@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
-import type { Keybinding, ParserMeta } from '../../shared/types';
+import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
-import { type ParsedKey, Modifier } from './key-normalizer';
+import { type ParsedKey, Modifier, formatParsedKey } from './key-normalizer';
 
 /** Vim mode prefix → context label. */
 const MODE_MAP: Record<string, string> = {
@@ -98,8 +98,8 @@ export class VimParser extends BaseParser {
     return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
-  async parse(): Promise<Keybinding[]> {
-    const keybindings: Keybinding[] = [];
+  async parse(): Promise<Shortcut[]> {
+    const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
       const content = await this.readFileIfExists(filePath);
@@ -135,7 +135,7 @@ export class VimParser extends BaseParser {
           );
 
           keybindings.push(
-            this.makeKeybinding({
+            this.makeShortcut({
               key: displayKey,
               searchKey,
               command: 'Unmap',
@@ -172,7 +172,7 @@ export class VimParser extends BaseParser {
         const command = this.humanizeCommand(rawRhs);
 
         keybindings.push(
-          this.makeKeybinding({
+          this.makeShortcut({
             key: displayKey,
             searchKey,
             command,
@@ -252,7 +252,7 @@ export class VimParser extends BaseParser {
 
     if (modifiers.length > 0) {
       const parsed: ParsedKey = { modifiers, key: resolvedKey };
-      return this.formatParsedKey(parsed);
+      return formatParsedKey(parsed);
     }
 
     // No modifiers - just a special key name

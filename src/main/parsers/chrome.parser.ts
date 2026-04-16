@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
-import type { Keybinding, ParserMeta } from '../../shared/types';
+import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
+import { formatKeyCombo } from './key-normalizer';
 
 export class ChromeParser extends BaseParser {
   get meta(): ParserMeta {
@@ -20,8 +21,8 @@ export class ChromeParser extends BaseParser {
     return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
-  async parse(): Promise<Keybinding[]> {
-    const keybindings: Keybinding[] = [];
+  async parse(): Promise<Shortcut[]> {
+    const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
       const content = await this.readFileIfExists(filePath);
@@ -47,10 +48,10 @@ export class ChromeParser extends BaseParser {
         if (!commandName) continue;
 
         // Chrome may use either "+" or "-" as separator; normalize to "+"
-        const { displayKey, searchKey } = this.formatKeyCombo(keyCombo.replace(/-/g, '+'));
+        const { displayKey, searchKey } = formatKeyCombo(keyCombo.replace(/-/g, '+'));
 
         keybindings.push(
-          this.makeKeybinding({
+          this.makeShortcut({
             key: displayKey,
             searchKey,
             command: commandName,

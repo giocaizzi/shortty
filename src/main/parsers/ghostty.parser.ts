@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
-import type { Keybinding, ParserMeta } from '../../shared/types';
+import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
+import { formatKeyCombo } from './key-normalizer';
 
 export class GhosttyParser extends BaseParser {
   get meta(): ParserMeta {
@@ -20,8 +21,8 @@ export class GhosttyParser extends BaseParser {
     return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
-  async parse(): Promise<Keybinding[]> {
-    const keybindings: Keybinding[] = [];
+  async parse(): Promise<Shortcut[]> {
+    const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
       const content = await this.readFileIfExists(filePath);
@@ -43,7 +44,7 @@ export class GhosttyParser extends BaseParser {
         const { displayKey, searchKey } = this.normalizeGhosttyKey(keyPart);
 
         keybindings.push(
-          this.makeKeybinding({
+          this.makeShortcut({
             key: displayKey,
             searchKey,
             command: this.humanizeAction(action),
@@ -69,7 +70,7 @@ export class GhosttyParser extends BaseParser {
     const searches: string[] = [];
 
     for (const segment of segments) {
-      const { displayKey, searchKey } = this.formatKeyCombo(segment);
+      const { displayKey, searchKey } = formatKeyCombo(segment);
       displays.push(displayKey);
       searches.push(searchKey);
     }

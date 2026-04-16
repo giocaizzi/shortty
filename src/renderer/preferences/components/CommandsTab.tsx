@@ -19,11 +19,11 @@ export function CommandsTab({ settings, onUpdate }: CommandsTabProps) {
   const [stats, setStats] = useState<CommandsStats>({ total: 0, enriched: 0, running: false });
 
   useEffect(() => {
-    window.electronAPI.getCommandsStats().then(setStats);
+    window.electronAPI.getCommandsStats().then(setStats).catch(() => undefined);
 
     // Poll for stats while running
     const interval = setInterval(() => {
-      window.electronAPI.getCommandsStats().then(setStats);
+      window.electronAPI.getCommandsStats().then(setStats).catch(() => undefined);
     }, 3000);
 
     return () => clearInterval(interval);

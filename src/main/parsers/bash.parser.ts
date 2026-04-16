@@ -1,31 +1,8 @@
 import { existsSync } from 'node:fs';
-import type { Keybinding, ParserMeta } from '../../shared/types';
+import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
-import { type ParsedKey, Modifier, normalizeToCanonical } from './key-normalizer';
-
-/** Known escape sequences shared with terminal key parsing. */
-const ESCAPE_SEQUENCES: Array<{ pattern: RegExp; toKey: ParsedKey }> = [
-  { pattern: /^\\e\[1;5A$/, toKey: { modifiers: [Modifier.Control], key: '↑' } },
-  { pattern: /^\\e\[1;5B$/, toKey: { modifiers: [Modifier.Control], key: '↓' } },
-  { pattern: /^\\e\[1;5C$/, toKey: { modifiers: [Modifier.Control], key: '→' } },
-  { pattern: /^\\e\[1;5D$/, toKey: { modifiers: [Modifier.Control], key: '←' } },
-  { pattern: /^\\e\[1;3A$/, toKey: { modifiers: [Modifier.Option], key: '↑' } },
-  { pattern: /^\\e\[1;3B$/, toKey: { modifiers: [Modifier.Option], key: '↓' } },
-  { pattern: /^\\e\[1;3C$/, toKey: { modifiers: [Modifier.Option], key: '→' } },
-  { pattern: /^\\e\[1;3D$/, toKey: { modifiers: [Modifier.Option], key: '←' } },
-  { pattern: /^\\e\[A$/, toKey: { modifiers: [], key: '↑' } },
-  { pattern: /^\\e\[B$/, toKey: { modifiers: [], key: '↓' } },
-  { pattern: /^\\e\[C$/, toKey: { modifiers: [], key: '→' } },
-  { pattern: /^\\e\[D$/, toKey: { modifiers: [], key: '←' } },
-  { pattern: /^\\e\[3~$/, toKey: { modifiers: [], key: 'Delete' } },
-  { pattern: /^\\e\[2~$/, toKey: { modifiers: [], key: 'Insert' } },
-  { pattern: /^\\e\[5~$/, toKey: { modifiers: [], key: 'PageUp' } },
-  { pattern: /^\\e\[6~$/, toKey: { modifiers: [], key: 'PageDown' } },
-  { pattern: /^\\eOH$/, toKey: { modifiers: [], key: 'Home' } },
-  { pattern: /^\\eOF$/, toKey: { modifiers: [], key: 'End' } },
-  { pattern: /^\\e\[H$/, toKey: { modifiers: [], key: 'Home' } },
-  { pattern: /^\\e\[F$/, toKey: { modifiers: [], key: 'End' } },
-];
+import { Modifier, normalizeToCanonical } from './key-normalizer';
+import { normalizeTerminalKey } from './terminal-keys';
 
 /** Regex for .inputrc key bindings: "sequence": function-name */
 const INPUTRC_BINDING_RE = /^"([^"]+)":\s*(.+)$/;
@@ -54,8 +31,8 @@ export class BashParser extends BaseParser {
     return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
-  async parse(): Promise<Keybinding[]> {
-    const keybindings: Keybinding[] = [];
+  async parse(): Promise<Shortcut[]> {
+    const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
       const content = await this.readFileIfExists(filePath);
@@ -102,7 +79,7 @@ export class BashParser extends BaseParser {
         const { displayKey, searchKey } = this.normalizeBashKey(sequence);
 
         keybindings.push(
-          this.makeKeybinding({
+          this.makeShortcut({
             key: displayKey,
             searchKey,
             command: this.humanizeFunction(command),
@@ -119,19 +96,11 @@ export class BashParser extends BaseParser {
     return keybindings;
   }
 
-  /** Normalize readline/bash key sequences into display and search forms. */
   private normalizeBashKey(sequence: string): {
     displayKey: string;
     searchKey: string;
   } {
-    // Check known escape sequences first
-    for (const { pattern, toKey } of ESCAPE_SEQUENCES) {
-      if (pattern.test(sequence)) {
-        return normalizeToCanonical(toKey);
-      }
-    }
-
-    // Multi-key sequences like \C-x\C-e
+    // Multi-key sequences like \C-x\C-e (bash-specific)
     const ctrlSeqParts = sequence.match(/\\C-./g);
     if (ctrlSeqParts && ctrlSeqParts.length > 1) {
       const parsed = ctrlSeqParts.map((part) => {
@@ -143,26 +112,25 @@ export class BashParser extends BaseParser {
       return { displayKey: display, searchKey: search };
     }
 
-    const modifiers: Modifier[] = [];
-    let remaining = sequence;
+    return normalizeTerminalKey(sequence, (seq) => {
+      const modifiers: Modifier[] = [];
+      let remaining = seq;
 
-    // \M- or \e (Alt/Meta)
-    if (remaining.startsWith('\\M-')) {
-      modifiers.push(Modifier.Option);
-      remaining = remaining.slice(3);
-    } else if (remaining.startsWith('\\e')) {
-      modifiers.push(Modifier.Option);
-      remaining = remaining.slice(2);
-    }
+      if (remaining.startsWith('\\M-')) {
+        modifiers.push(Modifier.Option);
+        remaining = remaining.slice(3);
+      } else if (remaining.startsWith('\\e')) {
+        modifiers.push(Modifier.Option);
+        remaining = remaining.slice(2);
+      }
 
-    // \C- (Ctrl)
-    if (remaining.startsWith('\\C-')) {
-      modifiers.push(Modifier.Control);
-      remaining = remaining.slice(3);
-    }
+      if (remaining.startsWith('\\C-')) {
+        modifiers.push(Modifier.Control);
+        remaining = remaining.slice(3);
+      }
 
-    const key = remaining.length === 1 ? remaining.toUpperCase() : remaining;
-    return normalizeToCanonical({ modifiers, key });
+      return { modifiers, remaining };
+    });
   }
 
   /** Humanize a readline function name. */

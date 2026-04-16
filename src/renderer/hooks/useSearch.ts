@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState } from 'react';
 import Fuse, { type IFuseOptions } from 'fuse.js';
 import type { Shortcut, ParserMeta, Command } from '../../shared/types';
 import { useAppSettings } from '../context/SettingsContext';
@@ -131,9 +131,5 @@ export function useSearch(
     shortcuts,
   ]);
 
-  const handleSetQuery = useCallback((q: string) => {
-    setQuery(q);
-  }, []);
-
-  return { query, setQuery: handleSetQuery, results };
+  return { query, setQuery, results };
 }

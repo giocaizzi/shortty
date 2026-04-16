@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { parseManPage, parseSubcommandManPage } from '../../../src/main/commands/parsers/man-parser';
+import { assertDefined } from '../../helpers';
 
 // Mock child_process exec
 vi.mock('node:child_process', () => ({
@@ -111,88 +112,97 @@ describe('parseManPage', () => {
     mockManOutput(GIT_ADD_MAN);
     const result = await parseManPage('git-add');
 
-    expect(result).not.toBeNull();
-    expect(result!.description).toBe('Add file contents to the index');
+    assertDefined(result);
+    expect(result.description).toBe('Add file contents to the index');
   });
 
   it('extracts synopsis', async () => {
     mockManOutput(GIT_ADD_MAN);
     const result = await parseManPage('git-add');
 
-    expect(result!.synopsis).toBeDefined();
-    expect(result!.synopsis).toContain('git add');
-    expect(result!.synopsis).toContain('[<pathspec>...]');
+    assertDefined(result);
+    expect(result.synopsis).toBeDefined();
+    expect(result.synopsis).toContain('git add');
+    expect(result.synopsis).toContain('[<pathspec>...]');
   });
 
   it('extracts long description (first paragraph)', async () => {
     mockManOutput(GIT_ADD_MAN);
     const result = await parseManPage('git-add');
 
-    expect(result!.longDescription).toBeDefined();
-    expect(result!.longDescription).toContain('staging area');
+    assertDefined(result);
+    expect(result.longDescription).toBeDefined();
+    expect(result.longDescription).toContain('staging area');
     // Should only have first paragraph
-    expect(result!.longDescription).not.toContain('When you run');
+    expect(result.longDescription).not.toContain('When you run');
   });
 
   it('extracts flags with multi-line descriptions', async () => {
     mockManOutput(GIT_ADD_MAN);
     const result = await parseManPage('git-add');
 
-    const dryRun = result!.flags.find(f => f.long === '--dry-run');
-    expect(dryRun).toBeDefined();
-    expect(dryRun!.short).toBe('-n');
-    expect(dryRun!.description).toContain("Don't actually add");
+    assertDefined(result);
+    const dryRun = result.flags.find(f => f.long === '--dry-run');
+    assertDefined(dryRun);
+    expect(dryRun.short).toBe('-n');
+    expect(dryRun.description).toContain("Don't actually add");
   });
 
   it('extracts long-only flags', async () => {
     mockManOutput(GIT_ADD_MAN);
     const result = await parseManPage('git-add');
 
-    const sparse = result!.flags.find(f => f.long === '--sparse');
-    expect(sparse).toBeDefined();
-    expect(sparse!.short).toBeUndefined();
+    assertDefined(result);
+    const sparse = result.flags.find(f => f.long === '--sparse');
+    assertDefined(sparse);
+    expect(sparse.short).toBeUndefined();
   });
 
   it('extracts positional arguments from synopsis', async () => {
     mockManOutput(GIT_ADD_MAN);
     const result = await parseManPage('git-add');
 
-    expect(result!.arguments.length).toBeGreaterThan(0);
-    const pathspec = result!.arguments.find(a => a.name === 'pathspec');
-    expect(pathspec).toBeDefined();
-    expect(pathspec!.required).toBe(false);
-    expect(pathspec!.variadic).toBe(true);
+    assertDefined(result);
+    expect(result.arguments.length).toBeGreaterThan(0);
+    const pathspec = result.arguments.find(a => a.name === 'pathspec');
+    assertDefined(pathspec);
+    expect(pathspec.required).toBe(false);
+    expect(pathspec.variadic).toBe(true);
   });
 
   it('resolves argument descriptions from OPTIONS', async () => {
     mockManOutput(GIT_ADD_MAN);
     const result = await parseManPage('git-add');
 
-    const pathspec = result!.arguments.find(a => a.name === 'pathspec');
-    expect(pathspec!.description).toContain('Files to add content from');
+    assertDefined(result);
+    const pathspec = result.arguments.find(a => a.name === 'pathspec');
+    assertDefined(pathspec);
+    expect(pathspec.description).toContain('Files to add content from');
   });
 
   it('extracts subcommands from COMMANDS section', async () => {
     mockManOutput(GIT_MAN);
     const result = await parseManPage('git');
 
-    expect(result!.subcommands.length).toBeGreaterThan(0);
-    const add = result!.subcommands.find(sc => sc.name === 'git add');
-    expect(add).toBeDefined();
-    expect(add!.description).toContain('Add file contents');
+    assertDefined(result);
+    expect(result.subcommands.length).toBeGreaterThan(0);
+    const add = result.subcommands.find(sc => sc.name === 'git add');
+    assertDefined(add);
+    expect(add.description).toContain('Add file contents');
   });
 
   it('extracts arguments from git synopsis', async () => {
     mockManOutput(GIT_MAN);
     const result = await parseManPage('git');
 
-    const cmdArg = result!.arguments.find(a => a.name === 'command');
-    expect(cmdArg).toBeDefined();
-    expect(cmdArg!.required).toBe(true);
+    assertDefined(result);
+    const cmdArg = result.arguments.find(a => a.name === 'command');
+    assertDefined(cmdArg);
+    expect(cmdArg.required).toBe(true);
 
-    const argsArg = result!.arguments.find(a => a.name === 'args');
-    expect(argsArg).toBeDefined();
-    expect(argsArg!.required).toBe(false);
+    const argsArg = result.arguments.find(a => a.name === 'args');
+    assertDefined(argsArg);
+    expect(argsArg.required).toBe(false);
   });
 
   it('returns null when man page not found', async () => {
@@ -224,13 +234,13 @@ describe('parseSubcommandManPage', () => {
     mockManOutput(GIT_ADD_MAN);
     const result = await parseSubcommandManPage('git add');
 
-    expect(result).not.toBeNull();
-    expect(result!.name).toBe('git add');
-    expect(result!.description).toBe('Add file contents to the index');
-    expect(result!.synopsis).toContain('git add');
-    expect(result!.longDescription).toContain('staging area');
-    expect(result!.flags.length).toBeGreaterThan(0);
-    expect(result!.arguments.length).toBeGreaterThan(0);
+    assertDefined(result);
+    expect(result.name).toBe('git add');
+    expect(result.description).toBe('Add file contents to the index');
+    expect(result.synopsis).toContain('git add');
+    expect(result.longDescription).toContain('staging area');
+    expect(result.flags.length).toBeGreaterThan(0);
+    expect(result.arguments.length).toBeGreaterThan(0);
   });
 
   it('returns null when no useful data found', async () => {

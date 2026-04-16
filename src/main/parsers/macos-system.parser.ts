@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import type { Keybinding, ParserMeta } from '../../shared/types';
+import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
 import {
   type ParsedKey,
@@ -89,8 +89,8 @@ export class MacosSystemParser extends BaseParser {
     return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
-  async parse(): Promise<Keybinding[]> {
-    const keybindings: Keybinding[] = [];
+  async parse(): Promise<Shortcut[]> {
+    const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
       const plist = this.readPlist(filePath);
@@ -122,7 +122,7 @@ export class MacosSystemParser extends BaseParser {
         const { displayKey, searchKey } = normalizeToCanonical(parsed);
 
         keybindings.push(
-          this.makeKeybinding({
+          this.makeShortcut({
             key: displayKey,
             searchKey,
             command: actionName,

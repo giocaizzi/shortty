@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { Keybinding, ParserMeta } from '../../shared/types';
+import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
 import { parseModifierWord, normalizeToCanonical } from './key-normalizer';
 
@@ -64,8 +64,8 @@ export class ObsidianParser extends BaseParser {
     return vaults;
   }
 
-  async parse(): Promise<Keybinding[]> {
-    const keybindings: Keybinding[] = [];
+  async parse(): Promise<Shortcut[]> {
+    const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
       const content = await this.readFileIfExists(filePath);
@@ -82,7 +82,7 @@ export class ObsidianParser extends BaseParser {
         // Empty array means explicitly unbound
         if (bindings.length === 0) {
           keybindings.push(
-            this.makeKeybinding({
+            this.makeShortcut({
               key: '',
               searchKey: '',
               command: this.humanizeCommand(commandId),
@@ -98,7 +98,7 @@ export class ObsidianParser extends BaseParser {
         for (const binding of bindings) {
           const { displayKey, searchKey } = this.normalizeObsidianKey(binding);
           keybindings.push(
-            this.makeKeybinding({
+            this.makeShortcut({
               key: displayKey,
               searchKey,
               command: this.humanizeCommand(commandId),

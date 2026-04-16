@@ -29,6 +29,10 @@ const parserRegistry = new ParserRegistry();
 
 const isDev = !!MAIN_WINDOW_VITE_DEV_SERVER_URL;
 
+const WINDOW_WIDTH = 750;
+const SEARCH_BAR_HEIGHT = 72;
+const MAX_WINDOW_HEIGHT = 580;
+
 function getWindowPosition(
   windowWidth: number,
   windowHeight: number,
@@ -70,12 +74,10 @@ function getWindowPosition(
 }
 
 function createWindow(): BrowserWindow {
-  const windowWidth = 750;
-  const windowHeight = 580;
-  const { x, y } = getWindowPosition(windowWidth, windowHeight);
+  const { x, y } = getWindowPosition(WINDOW_WIDTH, MAX_WINDOW_HEIGHT);
 
   const win = new BrowserWindow({
-    width: windowWidth,
+    width: WINDOW_WIDTH,
     height: SEARCH_BAR_HEIGHT,
     x,
     y,
@@ -141,9 +143,7 @@ function showWindow(): void {
   if (!mainWindow) return;
 
   // Reposition and reset to compact search bar height
-  const windowWidth = 750;
-  const windowHeight = 580;
-  const { x, y } = getWindowPosition(windowWidth, windowHeight);
+  const { x, y } = getWindowPosition(WINDOW_WIDTH, MAX_WINDOW_HEIGHT);
   mainWindow.setBounds({ x, y, width: WINDOW_WIDTH, height: SEARCH_BAR_HEIGHT });
 
   mainWindow.show();
@@ -294,10 +294,6 @@ function setupSettingsChangeListener(): void {
 function openPreferences(): void {
   openPreferencesWindow();
 }
-
-const WINDOW_WIDTH = 750;
-const SEARCH_BAR_HEIGHT = 72;
-const MAX_WINDOW_HEIGHT = 580;
 
 ipcMain.on(IPC_CHANNELS.SET_WINDOW_HEIGHT, (_event, height: number) => {
   if (!mainWindow || mainWindow.isDestroyed()) return;

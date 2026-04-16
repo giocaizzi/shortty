@@ -12,7 +12,7 @@ export function KeyCombo({ keys }: KeyComboProps) {
   return (
     <span className="inline-flex shrink-0 items-center gap-1">
       {chords.map((chord, i) => (
-        <span key={i} className="inline-flex items-center gap-1">
+        <span key={chord} className="inline-flex items-center gap-1">
           {i > 0 && <span className="text-white/15">&middot;</span>}
           <kbd>{chord}</kbd>
         </span>

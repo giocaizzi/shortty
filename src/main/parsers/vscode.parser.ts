@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
-import type { Keybinding, ParserMeta } from '../../shared/types';
+import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
+import { formatKeyCombo } from './key-normalizer';
 
 export class VscodeParser extends BaseParser {
   get meta(): ParserMeta {
@@ -20,8 +21,8 @@ export class VscodeParser extends BaseParser {
     return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
-  async parse(): Promise<Keybinding[]> {
-    const keybindings: Keybinding[] = [];
+  async parse(): Promise<Shortcut[]> {
+    const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
       const content = await this.readFileIfExists(filePath);
@@ -36,7 +37,7 @@ export class VscodeParser extends BaseParser {
         const { displayKey, searchKey } = this.normalizeVscodeKey(entry.key);
 
         keybindings.push(
-          this.makeKeybinding({
+          this.makeShortcut({
             key: displayKey,
             searchKey,
             command: this.humanizeCommand(
@@ -124,7 +125,7 @@ export class VscodeParser extends BaseParser {
     const searches: string[] = [];
 
     for (const chord of chords) {
-      const { displayKey, searchKey } = this.formatKeyCombo(chord);
+      const { displayKey, searchKey } = formatKeyCombo(chord);
       displays.push(displayKey);
       searches.push(searchKey);
     }

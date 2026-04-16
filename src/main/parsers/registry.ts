@@ -1,5 +1,5 @@
-import type { Keybinding, ParserMeta } from '../../shared/types';
-import { generateKeybindingId } from '../../shared/types';
+import type { Shortcut, ParserMeta } from '../../shared/types';
+import { generateShortcutId } from '../../shared/types';
 import type { ParserPlugin } from './types';
 import log from '../logger';
 import { loadCheatsheets, type CheatsheetDefinition } from '../cheatsheets/loader';
@@ -45,7 +45,7 @@ interface SourceInfo {
 
 export class ParserRegistry {
   private sources: Map<string, SourceInfo> = new Map();
-  private cache: Map<string, Keybinding[]> = new Map();
+  private cache: Map<string, Shortcut[]> = new Map();
 
   async initialize(
     disabledIds: string[] = [],
@@ -160,7 +160,7 @@ export class ParserRegistry {
     return Array.from(this.sources.values());
   }
 
-  async parseAll(): Promise<Keybinding[]> {
+  async parseAll(): Promise<Shortcut[]> {
     const results = await Promise.allSettled(
       Array.from(this.sources.values())
         .filter((s) => s.enabled)
@@ -177,17 +177,17 @@ export class ParserRegistry {
     }
 
     const keybindings = results
-      .filter((r): r is PromiseFulfilledResult<Keybinding[]> => r.status === 'fulfilled')
+      .filter((r): r is PromiseFulfilledResult<Shortcut[]> => r.status === 'fulfilled')
       .flatMap((r) => r.value);
 
     log.info(`Parsed ${keybindings.length} shortcuts total`);
     return keybindings;
   }
 
-  private async parseSource(source: SourceInfo): Promise<Keybinding[]> {
+  private async parseSource(source: SourceInfo): Promise<Shortcut[]> {
     const cheatsheetDefaults = this.convertCheatsheetToShortcuts(source);
 
-    let parserResults: Keybinding[] = [];
+    let parserResults: Shortcut[] = [];
     if (source.parser && source.detected) {
       try {
         parserResults = await source.parser.parse();
@@ -205,19 +205,19 @@ export class ParserRegistry {
     return parserResults;
   }
 
-  /** Convert cheatsheet shortcuts to Keybinding objects for current platform. */
-  private convertCheatsheetToShortcuts(source: SourceInfo): Keybinding[] {
+  /** Convert cheatsheet shortcuts to Shortcut objects for current platform. */
+  private convertCheatsheetToShortcuts(source: SourceInfo): Shortcut[] {
     if (!source.cheatsheet || source.cheatsheet.shortcuts.length === 0) return [];
 
     const platform = process.platform as Platform;
-    const shortcuts: Keybinding[] = [];
+    const shortcuts: Shortcut[] = [];
 
     for (const cs of source.cheatsheet.shortcuts) {
       const keyForPlatform = cs.key[platform];
       if (!keyForPlatform) continue;
 
       shortcuts.push({
-        id: generateKeybindingId(source.id, cs.rawCommand),
+        id: generateShortcutId(source.id, cs.rawCommand),
         source: source.id,
         sourceLabel: source.label,
         key: keyForPlatform,
@@ -236,7 +236,7 @@ export class ParserRegistry {
     return shortcuts;
   }
 
-  async parseSingleSource(sourceId: string): Promise<Keybinding[]> {
+  async parseSingleSource(sourceId: string): Promise<Shortcut[]> {
     const source = this.sources.get(sourceId);
     if (!source || !source.enabled) return [];
 
@@ -245,11 +245,11 @@ export class ParserRegistry {
     return keybindings;
   }
 
-  getAllCached(): Keybinding[] {
+  getAllCached(): Shortcut[] {
     return Array.from(this.cache.values()).flat();
   }
 
-  getCachedBySource(sourceId: string): Keybinding[] {
+  getCachedBySource(sourceId: string): Shortcut[] {
     return this.cache.get(sourceId) ?? [];
   }
 

@@ -98,47 +98,39 @@ function SourceRow({
       {/* Path display */}
       {source.hasParser && (
         <div className="space-y-1.5 pl-8">
-          {!source.hasParser ? (
-            <div className="text-xs italic" style={{ color: 'var(--text-secondary)' }}>
-              (no config file)
+          {hasOverride && detectedPath && (
+            <div className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+              Auto-detected: {detectedPath}
             </div>
-          ) : (
-            <>
-              {hasOverride && detectedPath && (
-                <div className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                  Auto-detected: {detectedPath}
-                </div>
-              )}
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="text"
-                  value={hasOverride ? overrideValue : (detectedPath ?? '')}
-                  placeholder="Config path..."
-                  onChange={(e) => onPathOverride(e.target.value)}
-                  className="flex-1 px-2 py-1 text-xs rounded border focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
-                  style={{
-                    background: 'var(--bg-primary)',
-                    borderColor: 'var(--border)',
-                    color: hasOverride ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  }}
-                />
-                {hasOverride && (
-                  <button
-                    type="button"
-                    onClick={onResetPath}
-                    className="px-2 py-1 text-[10px] rounded border"
-                    style={{
-                      background: 'var(--bg-primary)',
-                      borderColor: 'var(--border)',
-                      color: 'var(--text-secondary)',
-                    }}
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-            </>
           )}
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={hasOverride ? overrideValue : (detectedPath ?? '')}
+              placeholder="Config path..."
+              onChange={(e) => onPathOverride(e.target.value)}
+              className="flex-1 px-2 py-1 text-xs rounded border focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+              style={{
+                background: 'var(--bg-primary)',
+                borderColor: 'var(--border)',
+                color: hasOverride ? 'var(--text-primary)' : 'var(--text-secondary)',
+              }}
+            />
+            {hasOverride && (
+              <button
+                type="button"
+                onClick={onResetPath}
+                className="px-2 py-1 text-[10px] rounded border"
+                style={{
+                  background: 'var(--bg-primary)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                Reset
+              </button>
+            )}
+          </div>
         </div>
       )}
 

@@ -16,6 +16,9 @@ import {
 } from './components/CommandDetailView';
 import { KeyboardHelp } from './components/KeyboardHelp';
 
+const WINDOW_HEIGHT_EXPANDED = 580;
+const WINDOW_HEIGHT_COLLAPSED = 72;
+
 type NavLevel =
   | { kind: 'flat' }
   | { kind: 'drilled-source'; sourceId: string; sourceLabel: string }
@@ -51,6 +54,7 @@ export function App() {
 
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevNavStackLengthRef = useRef(navStack.length);
 
   const currentLevel = navStack[navStack.length - 1].level;
 
@@ -100,6 +104,15 @@ export function App() {
     setCopyFlashIndex(null);
   }, [query, currentLevel]);
 
+  // Restore selectedIndex when navigating back (pop)
+  useEffect(() => {
+    if (navStack.length < prevNavStackLengthRef.current) {
+      const top = navStack[navStack.length - 1];
+      setSelectedIndex(top.selectedIndex);
+    }
+    prevNavStackLengthRef.current = navStack.length;
+  }, [navStack]);
+
   // Resize window: compact when empty in flat mode, expand when results exist
   const hasResults = !['flat'].includes(currentLevel.kind) ||
     results.sources.length > 0 ||
@@ -110,9 +123,9 @@ export function App() {
     const api = window.electronAPI;
     if (!api) return;
     if (hasResults) {
-      api.setWindowHeight(580);
+      api.setWindowHeight(WINDOW_HEIGHT_EXPANDED);
     } else {
-      api.setWindowHeight(72);
+      api.setWindowHeight(WINDOW_HEIGHT_COLLAPSED);
     }
   }, [hasResults]);
 
@@ -201,11 +214,7 @@ export function App() {
   const popLevel = useCallback(() => {
     setNavStack((prev) => {
       if (prev.length <= 1) return prev;
-      const newStack = prev.slice(0, -1);
-      const restored = newStack[newStack.length - 1];
-      // Restore selectedIndex after state update
-      setTimeout(() => setSelectedIndex(restored.selectedIndex), 0);
-      return newStack;
+      return prev.slice(0, -1);
     });
     setQuery('');
   }, [setQuery]);

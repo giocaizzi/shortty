@@ -1,42 +1,8 @@
 import { existsSync } from 'node:fs';
-import type { Keybinding, ParserMeta } from '../../shared/types';
+import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
-import {
-  type ParsedKey,
-  Modifier,
-  normalizeToCanonical,
-} from './key-normalizer';
-
-/** Map terminal escape sequences to structured key representations. */
-const ESCAPE_SEQUENCES: Array<{ pattern: RegExp; toKey: ParsedKey }> = [
-  // Ctrl+Arrow keys (xterm style: \e[1;5A-D)
-  { pattern: /^\\e\[1;5A$/, toKey: { modifiers: [Modifier.Control], key: '↑' } },
-  { pattern: /^\\e\[1;5B$/, toKey: { modifiers: [Modifier.Control], key: '↓' } },
-  { pattern: /^\\e\[1;5C$/, toKey: { modifiers: [Modifier.Control], key: '→' } },
-  { pattern: /^\\e\[1;5D$/, toKey: { modifiers: [Modifier.Control], key: '←' } },
-  // Alt+Arrow keys (xterm style: \e[1;3A-D)
-  { pattern: /^\\e\[1;3A$/, toKey: { modifiers: [Modifier.Option], key: '↑' } },
-  { pattern: /^\\e\[1;3B$/, toKey: { modifiers: [Modifier.Option], key: '↓' } },
-  { pattern: /^\\e\[1;3C$/, toKey: { modifiers: [Modifier.Option], key: '→' } },
-  { pattern: /^\\e\[1;3D$/, toKey: { modifiers: [Modifier.Option], key: '←' } },
-  // Arrow keys (basic: \e[A-D)
-  { pattern: /^\\e\[A$/, toKey: { modifiers: [], key: '↑' } },
-  { pattern: /^\\e\[B$/, toKey: { modifiers: [], key: '↓' } },
-  { pattern: /^\\e\[C$/, toKey: { modifiers: [], key: '→' } },
-  { pattern: /^\\e\[D$/, toKey: { modifiers: [], key: '←' } },
-  // Editing keys
-  { pattern: /^\\e\[3~$/, toKey: { modifiers: [], key: 'Delete' } },
-  { pattern: /^\\e\[2~$/, toKey: { modifiers: [], key: 'Insert' } },
-  { pattern: /^\\e\[5~$/, toKey: { modifiers: [], key: 'PageUp' } },
-  { pattern: /^\\e\[6~$/, toKey: { modifiers: [], key: 'PageDown' } },
-  // Home/End (multiple terminal variants)
-  { pattern: /^\\eOH$/, toKey: { modifiers: [], key: 'Home' } },
-  { pattern: /^\\eOF$/, toKey: { modifiers: [], key: 'End' } },
-  { pattern: /^\\e\[H$/, toKey: { modifiers: [], key: 'Home' } },
-  { pattern: /^\\e\[F$/, toKey: { modifiers: [], key: 'End' } },
-  { pattern: /^\\e\[1~$/, toKey: { modifiers: [], key: 'Home' } },
-  { pattern: /^\\e\[4~$/, toKey: { modifiers: [], key: 'End' } },
-];
+import { Modifier } from './key-normalizer';
+import { normalizeTerminalKey } from './terminal-keys';
 
 export class ZshParser extends BaseParser {
   get meta(): ParserMeta {
@@ -56,8 +22,8 @@ export class ZshParser extends BaseParser {
     return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
-  async parse(): Promise<Keybinding[]> {
-    const keybindings: Keybinding[] = [];
+  async parse(): Promise<Shortcut[]> {
+    const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
       const content = await this.readFileIfExists(filePath);
@@ -77,7 +43,7 @@ export class ZshParser extends BaseParser {
         const { displayKey, searchKey } = this.normalizeZshKey(sequence);
 
         keybindings.push(
-          this.makeKeybinding({
+          this.makeShortcut({
             key: displayKey,
             searchKey,
             command: this.humanizeWidget(widget),
@@ -94,40 +60,29 @@ export class ZshParser extends BaseParser {
     return keybindings;
   }
 
-  /** Parse zsh key sequences into structured form. */
   private normalizeZshKey(sequence: string): {
     displayKey: string;
     searchKey: string;
   } {
-    // First try known escape sequences
-    for (const { pattern, toKey } of ESCAPE_SEQUENCES) {
-      if (pattern.test(sequence)) {
-        return normalizeToCanonical(toKey);
+    return normalizeTerminalKey(sequence, (seq) => {
+      const modifiers: Modifier[] = [];
+      let remaining = seq;
+
+      if (remaining.startsWith('^[')) {
+        modifiers.push(Modifier.Option);
+        remaining = remaining.slice(2);
+      } else if (remaining.startsWith('\\e')) {
+        modifiers.push(Modifier.Option);
+        remaining = remaining.slice(2);
       }
-    }
 
-    // Parse ^[ (Alt) and ^ (Ctrl) prefixes
-    const modifiers: Modifier[] = [];
-    let remaining = sequence;
+      if (remaining.startsWith('^')) {
+        modifiers.push(Modifier.Control);
+        remaining = remaining.slice(1);
+      }
 
-    // ^[ = Alt/Option
-    if (remaining.startsWith('^[')) {
-      modifiers.push(Modifier.Option);
-      remaining = remaining.slice(2);
-    } else if (remaining.startsWith('\\e')) {
-      // \e not followed by [ is also Alt
-      modifiers.push(Modifier.Option);
-      remaining = remaining.slice(2);
-    }
-
-    // ^ = Control (after Alt prefix is consumed)
-    if (remaining.startsWith('^')) {
-      modifiers.push(Modifier.Control);
-      remaining = remaining.slice(1);
-    }
-
-    const key = remaining.length === 1 ? remaining.toUpperCase() : remaining;
-    return normalizeToCanonical({ modifiers, key });
+      return { modifiers, remaining };
+    });
   }
 
   private humanizeWidget(widget: string): string {
