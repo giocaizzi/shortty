@@ -1,32 +1,37 @@
-.PHONY: install lint typecheck test knip precommit dev package make setup-hooks
+.PHONY: help check install lint typecheck test knip precommit dev package make setup-hooks
 
-install:
+help: ## Show this help.
+	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z_-]+:.*##/ { printf "  %-12s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+check: lint test ## Run lint and tests.
+
+install: ## Install dependencies (npm ci).
 	npm ci
 
-lint:
+lint: ## Run eslint.
 	npm run lint
 
-typecheck:
+typecheck: ## Run tsc --noEmit.
 	npx tsc --noEmit
 
-test:
+test: ## Run vitest.
 	npm test
 
-knip:
+knip: ## Find unused code with knip.
 	npx knip
 
-precommit: lint typecheck test knip
+precommit: lint typecheck test knip ## Run lint, typecheck, test, knip.
 
-dev:
+dev: ## Start the app in dev mode.
 	npm start
 
-package:
+package: ## Package the app.
 	npm run package
 
-make:
+make: ## Build distributables.
 	npm run make
 
-setup-hooks:
+setup-hooks: ## Install the pre-commit hook.
 	@echo "#!/bin/sh\nmake precommit" > .git/hooks/pre-commit
 	@chmod +x .git/hooks/pre-commit
 	@echo "pre-commit hook installed"
