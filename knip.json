@@ -11,5 +11,8 @@
   "ignoreDependencies": [
     "@electron-forge/plugin-auto-unpack-natives",
     "@electron-forge/shared-types"
+  ],
+  "ignoreBinaries": [
+    "plutil"
   ]
 }
