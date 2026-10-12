@@ -17,6 +17,8 @@ make make                # Generate platform-specific installers
 make knip                # Find unused files, deps, and exports (knip)
 make precommit           # Run lint + typecheck + test + knip (used by git pre-commit hook)
 make setup-hooks         # Install git pre-commit hook
+make check               # Run lint + test (what CI's required `check` job gates on)
+make help                # List targets
 ```
 
 To run a single test file:
@@ -73,3 +75,7 @@ Startup → ParserRegistry discovers & parses → cache → chokidar watches con
 ## Window Configuration
 
 680x500, frameless, transparent background, `vibrancy: 'under-window'` (macOS glass), always-on-top, hidden from dock (`LSUIElement: true`). Defined in `src/main/index.ts`.
+
+## Workflow
+
+Changes land on `main` only through a squash-merged PR with a Conventional Commit title; the required status check is the aggregate CI job `check` (`.github/workflows/ci.yml`, which also runs gitleaks). Repo conventions: [GitHub standard](https://github.com/giocaizzi/.github/blob/main/docs/standard.md).
