@@ -14,5 +14,8 @@
     "plugin:import/typescript"
   ],
   "parser": "@typescript-eslint/parser",
-  "ignorePatterns": ["vite.*.config.*", "vitest.config.*"]
+  "ignorePatterns": ["vite.*.config.*", "vitest.config.*"],
+  "rules": {
+    "import/no-unresolved": ["error", { "ignore": ["^@electron-forge/", "^@electron/fuses$"] }]
+  }
 }
