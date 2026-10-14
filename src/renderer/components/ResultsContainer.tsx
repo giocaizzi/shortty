@@ -1,131 +1,103 @@
-import { forwardRef } from 'react';
-import type { SearchResults } from '../hooks/useSearch';
+import type { ResultGroup, ResultItem } from './result-rows';
 import { SectionHeader } from './SectionHeader';
 import { SourceRow } from './SourceRow';
 import { ShortcutRow } from './ShortcutRow';
 import { CommandRow } from './CommandRow';
+import { ShowAllRow } from './ShowAllRow';
 
 interface ResultsContainerProps {
-  results: SearchResults;
+  groups: ResultGroup[];
   selectedIndex: number;
   copyFlashIndex: number | null;
-  showAllSources?: boolean;
-  showAllShortcuts?: boolean;
-  showAllCommands?: boolean;
-  onToggleShowAll: (section: 'sources' | 'shortcuts' | 'commands') => void;
+  /** Drilled into a source: rows omit the (redundant) source icon and label. */
+  drilled?: boolean;
 }
 
-export const ResultsContainer = forwardRef<
-  HTMLDivElement,
-  ResultsContainerProps
->(function ResultsContainer(
-  {
-    results,
-    selectedIndex,
-    copyFlashIndex,
-    showAllSources,
-    showAllShortcuts,
-    showAllCommands,
-    onToggleShowAll,
-  },
-  ref,
-) {
-  const { sources, shortcuts, commands, totalSources, totalShortcuts, totalCommands } =
-    results;
+function itemKey(item: ResultItem, index: number): string {
+  switch (item.type) {
+    case 'source':
+      return `source:${item.meta.id}`;
+    case 'shortcut':
+      // Shortcut ids are not unique across every cheatsheet; the index is.
+      return `shortcut:${item.shortcut.id}:${index}`;
+    case 'command':
+      return `command:${item.command.name}`;
+    case 'show-all':
+      return `show-all:${item.section}`;
+  }
+}
 
-  const isEmpty =
-    sources.length === 0 && shortcuts.length === 0 && commands.length === 0;
+export function ResultsContainer({
+  groups,
+  selectedIndex,
+  copyFlashIndex,
+  drilled = false,
+}: ResultsContainerProps) {
+  if (groups.length === 0) return null;
 
-  if (isEmpty) return null;
-
-  const sourcesOffset = 0;
-  const shortcutsOffset = sources.length;
-  const commandsOffset = sources.length + shortcuts.length;
-
+  let index = 0;
   return (
     <div
-      ref={ref}
-      className="flex-1 overflow-y-auto"
+      data-scroll
+      className="min-h-0 flex-1 overflow-y-auto px-2 pb-2"
       role="listbox"
       aria-label="Search results"
     >
-      <div style={{ padding: '8px 12px' }}>
-      {/* Sources section */}
-      {sources.length > 0 && (
-        <div className="mb-1">
-          <SectionHeader
-            title="Sources"
-            count={sources.length}
-            totalCount={totalSources}
-            showAll={showAllSources}
-            onToggleShowAll={() => onToggleShowAll('sources')}
-          />
-          {sources.map(({ meta, count }, i) => {
-            const idx = sourcesOffset + i;
-            return (
-              <SourceRow
-                key={meta.id}
-                icon={meta.icon}
-                label={meta.label}
-                count={count}
-                selected={idx === selectedIndex}
-                dataIndex={idx}
-              />
-            );
+      {groups.map((group) => (
+        <div key={group.key} role="group" aria-label={group.title}>
+          <SectionHeader title={group.title} count={group.total} />
+          {group.items.map((item) => {
+            const idx = index++;
+            const selected = idx === selectedIndex;
+            const copyFlash = copyFlashIndex === idx;
+            const key = itemKey(item, idx);
+            switch (item.type) {
+              case 'source':
+                return (
+                  <SourceRow
+                    key={key}
+                    sourceId={item.meta.id}
+                    label={item.meta.label}
+                    count={item.count}
+                    selected={selected}
+                    dataIndex={idx}
+                  />
+                );
+              case 'shortcut':
+                return (
+                  <ShortcutRow
+                    key={key}
+                    shortcut={item.shortcut}
+                    selected={selected}
+                    dataIndex={idx}
+                    copyFlash={copyFlash}
+                    showSource={!drilled}
+                  />
+                );
+              case 'command':
+                return (
+                  <CommandRow
+                    key={key}
+                    command={item.command}
+                    selected={selected}
+                    dataIndex={idx}
+                    copyFlash={copyFlash}
+                  />
+                );
+              case 'show-all':
+                return (
+                  <ShowAllRow
+                    key={key}
+                    section={item.section}
+                    total={item.total}
+                    selected={selected}
+                    dataIndex={idx}
+                  />
+                );
+            }
           })}
         </div>
-      )}
-
-      {/* Shortcuts section */}
-      {shortcuts.length > 0 && (
-        <div className="mb-1">
-          <SectionHeader
-            title="Shortcuts"
-            count={shortcuts.length}
-            totalCount={totalShortcuts}
-            showAll={showAllShortcuts}
-            onToggleShowAll={() => onToggleShowAll('shortcuts')}
-          />
-          {shortcuts.map((shortcut, i) => {
-            const idx = shortcutsOffset + i;
-            return (
-              <ShortcutRow
-                key={shortcut.id}
-                shortcut={shortcut}
-                selected={idx === selectedIndex}
-                dataIndex={idx}
-                copyFlash={copyFlashIndex === idx}
-              />
-            );
-          })}
-        </div>
-      )}
-
-      {/* Commands section */}
-      {commands.length > 0 && (
-        <div className="mb-1">
-          <SectionHeader
-            title="Commands"
-            count={commands.length}
-            totalCount={totalCommands}
-            showAll={showAllCommands}
-            onToggleShowAll={() => onToggleShowAll('commands')}
-          />
-          {commands.map((command, i) => {
-            const idx = commandsOffset + i;
-            return (
-              <CommandRow
-                key={command.name}
-                command={command}
-                selected={idx === selectedIndex}
-                dataIndex={idx}
-                copyFlash={copyFlashIndex === idx}
-              />
-            );
-          })}
-        </div>
-      )}
-      </div>
+      ))}
     </div>
   );
-});
+}
