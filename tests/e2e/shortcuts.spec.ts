@@ -1,4 +1,4 @@
-import { test, expect, knownBug } from './fixtures';
+import { test, expect } from './fixtures';
 
 test.describe('shortcut search', () => {
   test('loads shortcuts from the fixture configs', async ({ shortty }) => {
@@ -81,7 +81,6 @@ test.describe('drill into a source', () => {
   });
 
   test('drilled source lists all its entries before typing (SCREENS §2.1)', async ({ shortty }) => {
-    // Obsidian loads without cheatsheets (vault auto-discovery), see CHEATSHEETS_BUG.
     await shortty.show();
     await shortty.search.fill('obsidian');
     await shortty.win.keyboard.press('Enter');

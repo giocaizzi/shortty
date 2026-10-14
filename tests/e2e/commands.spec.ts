@@ -1,4 +1,4 @@
-import { test, expect, knownBug, waitForEnrichment, FAKE_COMMANDS } from './fixtures';
+import { test, expect, waitForEnrichment, FAKE_COMMANDS } from './fixtures';
 
 test.describe('commands from the fixture PATH', () => {
   test.beforeEach(async ({ shortty }) => {

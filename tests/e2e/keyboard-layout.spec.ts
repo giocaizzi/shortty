@@ -3,11 +3,12 @@ import { test, expect, pressLayoutKey, waitForEnrichment } from './fixtures';
 // Shortcuts must follow the produced character (KeyboardEvent.key), not the
 // physical key position (KeyboardEvent.code). On an Italian layout:
 //   "?" is Shift + the key right of 0 (code "Minus")
-//   ">" is Shift + the key left of Z (code "IntlBackslash")
+//   ">" is Shift + the "<" key, which macOS reports as code "Backquote" on an
+//       Italian ISO keyboard (code "IntlBackslash" types "\" there)
 //   Shift + code "Slash" (US "?") produces "_"
 const IT = {
   question: { key: '?', code: 'Minus', shift: true, keyCode: 219 },
-  greater: { key: '>', code: 'IntlBackslash', shift: true, keyCode: 226 },
+  greater: { key: '>', code: 'Backquote', shift: true, keyCode: 192 },
   underscore: { key: '_', code: 'Slash', shift: true, keyCode: 189 },
 };
 const US = {
