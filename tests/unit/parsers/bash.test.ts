@@ -1,16 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { join } from 'node:path';
-import { BashParser } from '../../../src/main/parsers/bash.parser';
+import { BashParser, parseReadlineBinding } from '../../../src/main/parsers/bash.parser';
+import { FIXTURES, rows } from './parser-helpers';
 
-const INPUTRC_PATH = join(__dirname, '../../../fixtures/inputrc');
-const BASHRC_PATH = join(__dirname, '../../../fixtures/bashrc');
+const INPUTRC = join(FIXTURES, 'inputrc');
+const BASHRC = join(FIXTURES, 'bashrc');
 
 describe('BashParser', () => {
   let parser: BashParser;
 
   beforeEach(() => {
     parser = new BashParser();
-    parser.setConfigPaths([INPUTRC_PATH, BASHRC_PATH]);
   });
 
   it('has correct metadata', () => {
@@ -18,131 +18,63 @@ describe('BashParser', () => {
     expect(parser.meta.label).toBe('Bash');
   });
 
-  it('parses .inputrc key bindings', async () => {
-    const p = new BashParser();
-    p.setConfigPaths([INPUTRC_PATH]);
-    const result = await p.parse();
-
-    expect(result.length).toBeGreaterThan(0);
-    expect(result.every((kb) => kb.source === 'bash')).toBe(true);
+  it('parses every .inputrc binding with exact key, function and keymap', async () => {
+    parser.setConfigPaths([INPUTRC]);
+    expect(rows(await parser.parse())).toEqual([
+      ['⌃A', 'Beginning of line', 'emacs', false],
+      ['⌃E', 'End of line', 'emacs', false],
+      ['⌃K', 'Kill line', 'emacs', false],
+      ['⌃U', 'Unix line discard', 'emacs', false],
+      ['↑', 'History search backward', 'emacs', false],
+      ['↓', 'History search forward', 'emacs', false],
+      ['⌃R', 'Reverse search history', 'emacs', false],
+      ['⌥F', 'Forward word', 'emacs', false],
+      ['⌥B', 'Backward word', 'emacs', false],
+      ['⌃X ⌃E', 'Edit and execute command', 'emacs', false],
+      ['⌃W', 'Backward kill word', 'emacs', false],
+      ['⌥Backspace', 'Backward kill word', 'emacs', false],
+      ['Tab', 'Menu complete', 'emacs', false],
+      ['⌃X Q', 'Type “exit\\n”', 'emacs', false],
+      ['J K', 'Vi movement mode', 'vi-insert', false],
+    ]);
   });
 
-  it('normalizes \\C-a to Ctrl+A', async () => {
-    const p = new BashParser();
-    p.setConfigPaths([INPUTRC_PATH]);
-    const result = await p.parse();
-
-    const ctrlA = result.find((kb) => kb.rawCommand.includes('beginning-of-line'));
-    expect(ctrlA).toBeDefined();
-    expect(ctrlA?.key).toBe('⌃A');
+  it('parses every .bashrc bind with exact key and command', async () => {
+    parser.setConfigPaths([BASHRC]);
+    expect(rows(await parser.parse())).toEqual([
+      ['⌃L', 'Clear screen', null, false],
+      ['⌃P', 'History search backward', null, false],
+      ['⌃G', 'Run: git status', null, false],
+      ['⌃T', 'Run: tmux new-session', null, false],
+      ['⌃A', 'Beginning of line', 'vi-insert', false],
+      ['⌃S', 'Unbind', null, true],
+    ]);
   });
 
-  it('normalizes escape sequences to arrow glyphs', async () => {
-    const p = new BashParser();
-    p.setConfigPaths([INPUTRC_PATH]);
-    const result = await p.parse();
-
-    const upArrow = result.find((kb) =>
-      kb.rawCommand.includes('history-search-backward') && kb.rawCommand.includes('[A'),
-    );
-    expect(upArrow?.key).toBe('↑');
-  });
-
-  it('normalizes \\M- to Alt/Option', async () => {
-    const p = new BashParser();
-    p.setConfigPaths([INPUTRC_PATH]);
-    const result = await p.parse();
-
-    const metaF = result.find((kb) => kb.rawCommand.includes('forward-word'));
-    expect(metaF).toBeDefined();
-    expect(metaF?.key).toBe('⌥F');
-  });
-
-  it('handles multi-key sequences (\\C-x\\C-e)', async () => {
-    const p = new BashParser();
-    p.setConfigPaths([INPUTRC_PATH]);
-    const result = await p.parse();
-
-    const ctrlXCtrlE = result.find((kb) =>
-      kb.rawCommand.includes('edit-and-execute-command'),
-    );
-    expect(ctrlXCtrlE).toBeDefined();
-    expect(ctrlXCtrlE?.key).toContain('⌃X');
-    expect(ctrlXCtrlE?.key).toContain('⌃E');
-  });
-
-  it('detects editing-mode as context', async () => {
-    const p = new BashParser();
-    p.setConfigPaths([INPUTRC_PATH]);
-    const result = await p.parse();
-
-    // All bindings after "set editing-mode emacs" should have emacs context
-    expect(result.every((kb) => kb.context === 'emacs')).toBe(true);
-  });
-
-  it('parses .bashrc bind commands', async () => {
-    const p = new BashParser();
-    p.setConfigPaths([BASHRC_PATH]);
-    const result = await p.parse();
-
-    const clearScreen = result.find((kb) =>
-      kb.rawCommand.includes('clear-screen'),
-    );
-    expect(clearScreen).toBeDefined();
-    expect(clearScreen?.key).toBe('⌃L');
-  });
-
-  it('parses .bashrc bind -x commands', async () => {
-    const p = new BashParser();
-    p.setConfigPaths([BASHRC_PATH]);
-    const result = await p.parse();
-
-    const gitStatus = result.find((kb) =>
-      kb.rawCommand.includes('git status'),
-    );
-    expect(gitStatus).toBeDefined();
-    expect(gitStatus?.key).toBe('⌃G');
-    expect(gitStatus?.command).toBe('Git status');
-  });
-
-  it('humanizes function names', async () => {
-    const p = new BashParser();
-    p.setConfigPaths([INPUTRC_PATH]);
-    const result = await p.parse();
-
-    const beginLine = result.find((kb) =>
-      kb.rawCommand.includes('beginning-of-line'),
-    );
-    expect(beginLine?.command).toBe('Beginning of line');
-  });
-
-  it('returns empty for missing file', async () => {
-    const p = new BashParser();
-    p.setConfigPaths(['/nonexistent/inputrc']);
-    const result = await p.parse();
-    expect(result).toEqual([]);
-  });
-
-  it('returns empty for no config paths', async () => {
-    const p = new BashParser();
-    p.setConfigPaths([]);
-    const result = await p.parse();
-    expect(result).toEqual([]);
-  });
-
-  it('reports unavailable for missing paths', async () => {
-    const p = new BashParser();
-    p.setConfigPaths(['/nonexistent/inputrc']);
-    expect(await p.isAvailable()).toBe(false);
-  });
-
-  it('combines results from both files', async () => {
+  it('combines results from both files with unique IDs', async () => {
+    parser.setConfigPaths([INPUTRC, BASHRC]);
     const result = await parser.parse();
+    expect(result).toHaveLength(21);
+    expect(new Set(result.map((kb) => kb.id)).size).toBe(result.length);
+  });
 
-    // Should have bindings from both inputrc and bashrc
-    const fromInputrc = result.filter((kb) => kb.filePath === INPUTRC_PATH);
-    const fromBashrc = result.filter((kb) => kb.filePath === BASHRC_PATH);
-    expect(fromInputrc.length).toBeGreaterThan(0);
-    expect(fromBashrc.length).toBeGreaterThan(0);
+  it('returns empty for missing file or no paths', async () => {
+    parser.setConfigPaths(['/tmp/nonexistent-inputrc']);
+    expect(await parser.parse()).toEqual([]);
+    parser.setConfigPaths([]);
+    expect(await parser.parse()).toEqual([]);
+    expect(await parser.isAvailable()).toBe(false);
+  });
+});
+
+describe('parseReadlineBinding', () => {
+  it('parses quoted sequences, symbolic names and macros', () => {
+    expect(parseReadlineBinding('"\\C-x\\C-r": re-read-init-file')?.key.displayKey).toBe('⌃X ⌃R');
+    expect(parseReadlineBinding('C-u: kill-whole-line')?.key.displayKey).toBe('⌃U');
+    expect(parseReadlineBinding('Meta-DEL: backward-kill-word')?.key.displayKey).toBe('⌥Backspace');
+    expect(parseReadlineBinding('Control-Space: set-mark')?.key.displayKey).toBe('⌃Space');
+    expect(parseReadlineBinding('"\\e[1;5C": forward-word')?.key.displayKey).toBe('⌃→');
+    expect(parseReadlineBinding('"\\C-xq": "exit"')).toMatchObject({ value: 'exit', isMacro: true });
+    expect(parseReadlineBinding('set bell-style none')).toBeNull();
   });
 });

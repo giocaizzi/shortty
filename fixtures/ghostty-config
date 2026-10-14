@@ -19,3 +19,22 @@ keybind = cmd+shift+enter=toggle_fullscreen
 keybind = cmd+equal=increase_font_size:1
 keybind = cmd+minus=decrease_font_size:1
 keybind = cmd+0=reset_font_size
+
+# '=' as the trigger key (as printed by `ghostty +list-keybinds`)
+keybind = super+ctrl+==equalize_splits
+keybind = super++=increase_font_size:2
+
+# Flags, physical keys, sequences, tables
+keybind = global:ctrl+grave_accent=toggle_quick_terminal
+keybind = unconsumed:performable:ctrl+shift+key_c=copy_to_clipboard
+keybind = super+bracket_left=goto_split:previous
+keybind = super+]=goto_split:next
+keybind = physical:ctrl+one=goto_tab:1
+keybind = ctrl+a>ctrl+a>c=new_window
+keybind = vim/j=scroll_page_lines:1
+keybind = chain=toggle_fullscreen
+keybind = "super+shift+arrow_up=jump_to_prompt:-1"
+keybind = super+backspace=text:\x15
+
+# Remove a default
+keybind = super+k=unbind

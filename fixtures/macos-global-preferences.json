@@ -1,0 +1,11 @@
+{
+  "AppleLanguages": ["en-IT", "it-IT"],
+  "NSUserKeyEquivalents": {
+    "Zoom": "@~z",
+    "Merge All Windows": "@$m",
+    "\u001bWindow\u001bMove Window to Left Side of Screen": "^~",
+    "Show Sidebar": "@^S",
+    "Paste and Match Style": "@~$v",
+    "Lock Screen": "@^q"
+  }
+}

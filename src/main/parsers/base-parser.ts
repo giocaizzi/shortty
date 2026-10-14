@@ -33,7 +33,11 @@ export abstract class BaseParser implements ParserPlugin {
   ): Shortcut {
     return {
       ...partial,
-      id: generateShortcutId(this.meta.id, partial.rawCommand),
+      id: generateShortcutId(
+        this.meta.id,
+        partial.rawCommand,
+        `${partial.key}|${partial.context ?? ''}`,
+      ),
       source: this.meta.id,
       sourceLabel: this.meta.label,
       origin: partial.origin ?? 'user-config',

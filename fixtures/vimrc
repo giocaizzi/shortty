@@ -36,3 +36,16 @@ nnoremap <D-s> :w<CR>
 " Noremap (no prefix = normal mode)
 noremap <Space> :
 map j gj
+
+" A later leader change only affects later mappings
+let mapleader = "\<Space>"
+let maplocalleader = ","
+nnoremap <leader>ff :Telescope find_files<CR>
+nnoremap <localleader>t :TestNearest<CR>
+nnoremap <Up> <Nop>
+nmap <Plug>(my-plug) :echo<CR>
+map! <C-v> <C-r>+
+nnoremap <C-]> g<C-]>
+nnoremap gcc :Commentary<CR>
+nnoremap W :w<CR>
+tnoremap <Esc> <C-\><C-n>

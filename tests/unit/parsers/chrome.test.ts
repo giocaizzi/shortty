@@ -1,15 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { join } from 'node:path';
 import { ChromeParser } from '../../../src/main/parsers/chrome.parser';
+import { FIXTURES, rows, withPlatform } from './parser-helpers';
 
-const FIXTURE_PATH = join(__dirname, '../../../fixtures/chrome-preferences.json');
+const PROFILE_PREFS = join(FIXTURES, 'chrome-profile/Preferences');
+const LEGACY_PREFS = join(FIXTURES, 'chrome-preferences.json');
 
 describe('ChromeParser', () => {
+  withPlatform('darwin');
   let parser: ChromeParser;
 
   beforeEach(() => {
     parser = new ChromeParser();
-    parser.setConfigPaths([FIXTURE_PATH]);
   });
 
   it('has correct metadata', () => {
@@ -17,51 +19,47 @@ describe('ChromeParser', () => {
     expect(parser.meta.label).toBe('Chrome');
   });
 
-  it('parses extension shortcuts from fixture', async () => {
-    const result = await parser.parse();
-
-    // On macOS: 3 mac: entries; on Windows: 1 windows: entry
-    if (process.platform === 'darwin') {
-      expect(result.length).toBe(3);
-    } else if (process.platform === 'win32') {
-      expect(result.length).toBe(1);
-    }
+  it('parses extension commands with names from Secure Preferences manifests', async () => {
+    parser.setConfigPaths([PROFILE_PREFS]);
+    expect(rows(await parser.parse())).toEqual([
+      ['⌥⇧P', 'Phantom: Activate the extension', null, false],
+      // localized (__MSG_) extension name: description only
+      ['⌘.', 'Pause or resume blocking', null, false],
+      ['⇧⌘9', 'Bitwarden Password Manager: Generate and copy a new random password to the clipboard.', null, false],
+      ['⇧⌘L', 'Bitwarden Password Manager: Autofill the last used login for the current website', null, false],
+      // MacCtrl is the Control key on macOS; unknown extension: humanized command name
+      ['⌃⇧↑', 'Next track', 'global', false],
+    ]);
   });
 
-  it('normalizes key combos', async () => {
+  it('keeps _execute_action shortcuts (previously dropped)', async () => {
+    parser.setConfigPaths([PROFILE_PREFS]);
     const result = await parser.parse();
-    if (process.platform === 'darwin') {
-      const bitwarden = result.find((kb) =>
-        kb.command.includes('Bitwarden'),
-      );
-      expect(bitwarden?.key).toBe('⇧⌘L');
-    }
+    expect(result.some((kb) => kb.rawCommand === 'mac:Alt+Shift+P')).toBe(true);
   });
 
-  it('captures global flag as context', async () => {
-    const result = await parser.parse();
-    if (process.platform === 'darwin') {
-      const adblock = result.find((kb) =>
-        kb.command.includes('AdBlock'),
-      );
-      expect(adblock?.context).toBe('global');
-    }
+  it('reads descriptions stored inline (older profiles)', async () => {
+    parser.setConfigPaths([LEGACY_PREFS]);
+    expect(rows(await parser.parse())).toEqual([
+      ['⇧⌘L', 'Activate Bitwarden', null, false],
+      ['⇧⌘O', 'Clip to Notion', null, false],
+      ['⌥A', 'Toggle AdBlock', 'global', false],
+    ]);
   });
 
-  it('uses description as command name', async () => {
-    const result = await parser.parse();
-    if (process.platform === 'darwin') {
-      const notion = result.find((kb) =>
-        kb.command.includes('Notion'),
-      );
-      expect(notion?.command).toBe('Clip to Notion');
-    }
+  it('returns empty for missing file', async () => {
+    parser.setConfigPaths(['/tmp/nonexistent']);
+    expect(await parser.parse()).toEqual([]);
   });
 
-  it('returns empty for no watch paths', async () => {
-    const p = new ChromeParser();
-    p.setConfigPaths([]);
-    const result = await p.parse();
-    expect(result).toEqual([]);
+  describe('on Windows', () => {
+    withPlatform('win32');
+
+    it('only reads the windows: entries', async () => {
+      parser.setConfigPaths([PROFILE_PREFS]);
+      expect(rows(await parser.parse())).toEqual([
+        ['⌃⇧K', 'Activate the extension', null, false],
+      ]);
+    });
   });
 });

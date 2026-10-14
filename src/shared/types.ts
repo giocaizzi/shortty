@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import type { KeyStroke } from './keys';
 
 export interface Shortcut {
   id: string;
@@ -6,6 +7,12 @@ export interface Shortcut {
   sourceLabel: string;
   key: string;
   searchKey: string;
+  /**
+   * Structured keystrokes behind `key`, used by the renderer to show the
+   * key the user must press on their own keyboard layout. Absent for
+   * shortcuts whose key could not be parsed (shown verbatim).
+   */
+  strokes?: KeyStroke[];
   command: string;
   rawCommand: string;
   /** Parser-specific context: vim mode, vscode "when" clause, shell editing mode, tmux key table */
@@ -84,12 +91,17 @@ export interface SourceStatus {
   shortcutCount: number;
 }
 
+/**
+ * Stable shortcut id. `discriminator` (key + context) keeps ids unique when
+ * one config binds the same command to several keys or contexts.
+ */
 export function generateShortcutId(
   source: string,
   rawCommand: string,
+  discriminator?: string,
 ): string {
   return createHash('sha256')
-    .update(`${source}:${rawCommand}`)
+    .update(discriminator ? `${source}:${rawCommand}:${discriminator}` : `${source}:${rawCommand}`)
     .digest('hex')
     .slice(0, 12);
 }

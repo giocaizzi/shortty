@@ -4,7 +4,9 @@ import {
   parseKeyCombo,
   normalizeToCanonical,
   parseModifierWord,
-  charCodeToKeyName,
+  canonicalKeyName,
+  formatCheatsheetKey,
+  formatKeyCombo,
 } from '../../../src/main/parsers/key-normalizer';
 
 describe('KeyNormalizer', () => {
@@ -76,14 +78,18 @@ describe('KeyNormalizer', () => {
       expect(result.searchKey).toBe('shift cmd t');
     });
 
-    it('handles prefix for tmux-style keys', () => {
+    it('handles a prefix stroke for tmux-style keys', () => {
       const result = normalizeToCanonical({
         modifiers: [],
         key: 'C',
-        prefix: 'prefix',
+        prefix: { modifiers: [Modifier.Control], key: 'B' },
       });
-      expect(result.displayKey).toBe('prefix C');
-      expect(result.searchKey).toBe('prefix c');
+      expect(result.displayKey).toBe('⌃B C');
+      expect(result.searchKey).toBe('ctrl b c');
+      expect(result.strokes).toEqual([
+        { mods: ['ctrl'], key: 'B' },
+        { mods: [], key: 'C' },
+      ]);
     });
 
     it('handles special key search names', () => {
@@ -141,18 +147,59 @@ describe('KeyNormalizer', () => {
     });
   });
 
-  describe('charCodeToKeyName', () => {
-    it('converts printable ASCII to uppercase character', () => {
-      expect(charCodeToKeyName(65)).toBe('A');
-      expect(charCodeToKeyName(97)).toBe('A');
-      expect(charCodeToKeyName(49)).toBe('1');
-      expect(charCodeToKeyName(32)).toBe(' ');
+  describe('canonicalKeyName', () => {
+    it('upper-cases single characters, including accented letters', () => {
+      expect(canonicalKeyName('a')).toBe('A');
+      expect(canonicalKeyName('ò')).toBe('Ò');
+      expect(canonicalKeyName('[')).toBe('[');
+      // ß upper-cases to two letters: keep it
+      expect(canonicalKeyName('ß')).toBe('ß');
     });
 
-    it('returns null for non-printable codes', () => {
-      expect(charCodeToKeyName(0)).toBeNull();
-      expect(charCodeToKeyName(127)).toBeNull();
-      expect(charCodeToKeyName(0xFFFF)).toBeNull();
+    it('gives named keys one spelling', () => {
+      expect(canonicalKeyName('enter')).toBe('Return');
+      expect(canonicalKeyName('Escape')).toBe('Escape');
+      expect(canonicalKeyName('esc')).toBe('Escape');
+      expect(canonicalKeyName('ArrowUp')).toBe('↑');
+      expect(canonicalKeyName('pagedown')).toBe('PageDown');
+      expect(canonicalKeyName('backspace')).toBe('Backspace');
+      expect(canonicalKeyName('delete')).toBe('Delete');
+      expect(canonicalKeyName('f12')).toBe('F12');
+      expect(canonicalKeyName('numpad_add')).toBe('NumpadAdd');
+      expect(canonicalKeyName('Period')).toBe('.');
+      expect(canonicalKeyName('MediaPlayPause')).toBe('MediaPlayPause');
+    });
+  });
+
+  describe('formatKeyCombo', () => {
+    it('normalizes lowercase config keys to keycap letters', () => {
+      expect(formatKeyCombo('cmd+shift+t').displayKey).toBe('⇧⌘T');
+      expect(formatKeyCombo('ctrl+alt+delete').displayKey).toBe('⌃⌥Delete');
+    });
+
+    it('adds symbol names to the search key', () => {
+      expect(formatKeyCombo('Cmd+,').searchKey).toBe('cmd , comma');
+      expect(formatKeyCombo('Ctrl++').searchKey).toBe('ctrl + plus');
+    });
+  });
+
+  describe('formatCheatsheetKey', () => {
+    it('normalizes "Mod+Key" chords to glyphs like the parsers do', () => {
+      expect(formatCheatsheetKey('Cmd+Shift+P').displayKey).toBe('⇧⌘P');
+      expect(formatCheatsheetKey('Cmd+K Cmd+S').displayKey).toBe('⌘K ⌘S');
+      expect(formatCheatsheetKey('Cmd+K Z').displayKey).toBe('⌘K Z');
+      expect(formatCheatsheetKey('Shift+Alt+Up').displayKey).toBe('⌥⇧↑');
+      expect(formatCheatsheetKey('F5').displayKey).toBe('F5');
+      expect(formatCheatsheetKey('Cmd+=').searchKey).toBe('cmd = equals');
+    });
+
+    it('keeps vim text verbatim when literalText is set', () => {
+      const literal = { literalText: true };
+      expect(formatCheatsheetKey('dd', literal).displayKey).toBe('dd');
+      expect(formatCheatsheetKey('Ctrl+W s', literal).displayKey).toBe('⌃W s');
+      expect(formatCheatsheetKey(':wq', literal).strokes).toEqual([{ mods: [], key: ':wq', literal: true }]);
+      expect(formatCheatsheetKey('Escape', literal).strokes).toEqual([{ mods: [], key: 'Escape' }]);
+      expect(formatCheatsheetKey('W', literal).displayKey).toBe('W');
     });
   });
 });

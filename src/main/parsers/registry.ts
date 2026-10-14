@@ -15,6 +15,10 @@ import { MacosSystemParser } from './macos-system.parser';
 import { VimParser } from './vim.parser';
 import { BashParser } from './bash.parser';
 import { BaseParser } from './base-parser';
+import { formatCheatsheetKey } from './key-normalizer';
+
+/** Cheatsheets whose keys are free-form vim text (case-sensitive, verbatim). */
+const LITERAL_KEY_SOURCES = new Set(['vim']);
 
 type Platform = 'darwin' | 'win32' | 'linux';
 
@@ -126,14 +130,18 @@ export class ParserRegistry {
       const wasEnabled = source.enabled;
       source.enabled = !disabledIds.includes(id);
 
-      // Update path overrides if provided
+      // Path override set, changed or removed: re-resolve and re-detect so a
+      // source pointed at a (new) config file is picked up without restart.
       const override = pathOverrides[id];
-      if (override) {
-        const newPaths = (Array.isArray(override) ? override : [override]).map(resolvePath);
+      const newPaths = override
+        ? (Array.isArray(override) ? override : [override]).map(resolvePath)
+        : resolveDefaultPaths(source.cheatsheet?.defaultPaths);
+      if (source.parser && newPaths.join('\0') !== source.configPaths.join('\0')) {
         source.configPaths = newPaths;
-        if (source.parser && source.parser instanceof BaseParser) {
+        if (source.parser instanceof BaseParser) {
           source.parser.setConfigPaths(newPaths);
         }
+        source.detected = await source.parser.isAvailable().catch(() => false);
       }
 
       // If just disabled, remove from cache
@@ -212,16 +220,19 @@ export class ParserRegistry {
     const platform = process.platform as Platform;
     const shortcuts: Shortcut[] = [];
 
+    const literalText = LITERAL_KEY_SOURCES.has(source.id);
     for (const cs of source.cheatsheet.shortcuts) {
       const keyForPlatform = cs.key[platform];
       if (!keyForPlatform) continue;
+      const { displayKey, searchKey, strokes } = formatCheatsheetKey(keyForPlatform, { literalText });
 
       shortcuts.push({
         id: generateShortcutId(source.id, cs.rawCommand),
         source: source.id,
         sourceLabel: source.label,
-        key: keyForPlatform,
-        searchKey: keyForPlatform.toLowerCase(),
+        key: displayKey,
+        searchKey,
+        strokes,
         command: cs.command,
         rawCommand: cs.rawCommand,
         context: cs.context,
@@ -240,6 +251,10 @@ export class ParserRegistry {
     const source = this.sources.get(sourceId);
     if (!source || !source.enabled) return [];
 
+    // A config file may have been created or deleted since startup.
+    if (source.parser) {
+      source.detected = await source.parser.isAvailable().catch(() => false);
+    }
     const keybindings = await this.parseSource(source);
     this.cache.set(sourceId, keybindings);
     return keybindings;
@@ -264,11 +279,18 @@ export class ParserRegistry {
       }));
   }
 
+  /**
+   * Config paths to watch per source, including files that do not exist
+   * yet, so creating a config later is picked up by the watcher.
+   */
   getWatchPaths(): Map<string, string[]> {
     const paths = new Map<string, string[]>();
     for (const [id, source] of this.sources) {
       if (!source.enabled || !source.parser) continue;
-      paths.set(id, source.parser.getWatchPaths());
+      const all = source.parser instanceof BaseParser
+        ? source.parser.getConfigPaths()
+        : source.parser.getWatchPaths();
+      paths.set(id, all);
     }
     return paths;
   }
