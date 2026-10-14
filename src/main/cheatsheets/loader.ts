@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import log from '../logger';
@@ -105,49 +106,44 @@ function validate(
   return data as CheatsheetDefinition;
 }
 
-/** Default sources directory resolved relative to this file at build time. */
-function defaultSourcesDir(): string {
-  return join(__dirname, '../../cheatsheets/sources');
-}
+/**
+ * Cheatsheets shipped with the app, bundled at build time so they are
+ * available in dev, in e2e runs and in the packaged app alike (no runtime
+ * path to resolve).
+ */
+const BUNDLED_CHEATSHEETS = import.meta.glob<unknown>(
+  '../../cheatsheets/sources/*.json',
+  { eager: true, import: 'default' },
+);
 
 /**
- * Load all cheatsheet definitions from JSON files in the given directory.
+ * Load all cheatsheet definitions. Without `sourcesDir`, the cheatsheets
+ * bundled into the build are used; with it, every JSON file in that
+ * directory is read (tests, local overrides).
  *
  * Invalid files are skipped with a warning. Non-JSON files are ignored.
  */
 export async function loadCheatsheets(
   sourcesDir?: string,
 ): Promise<CheatsheetDefinition[]> {
-  const dir = sourcesDir ?? defaultSourcesDir();
+  const raw = sourcesDir
+    ? await readCheatsheetDir(sourcesDir)
+    : Object.entries(BUNDLED_CHEATSHEETS).map(([file, data]) => ({ file, data, error: undefined }));
 
-  let entries: string[];
-  try {
-    entries = await readdir(dir);
-  } catch {
-    log.warn(`[cheatsheet] could not read sources directory: ${dir}`);
-    return [];
-  }
-
-  const jsonFiles = entries.filter((f) => f.endsWith('.json'));
   const results: CheatsheetDefinition[] = [];
   let failedCount = 0;
 
-  for (const file of jsonFiles) {
-    const filePath = join(dir, file);
-    try {
-      const raw = await readFile(filePath, 'utf-8');
-      const parsed: unknown = JSON.parse(raw);
-      const definition = validate(parsed, filePath);
-      if (definition) {
-        results.push(definition);
-      } else {
-        failedCount++;
-      }
-    } catch (err) {
+  for (const { file, data, error } of raw) {
+    if (error) {
       failedCount++;
-      log.warn(
-        `[cheatsheet] failed to load ${filePath}: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      log.warn(`[cheatsheet] failed to load ${file}: ${error}`);
+      continue;
+    }
+    const definition = validate(data, file);
+    if (definition) {
+      results.push(definition);
+    } else {
+      failedCount++;
     }
   }
 
@@ -156,4 +152,27 @@ export async function loadCheatsheets(
   );
 
   return results;
+}
+
+async function readCheatsheetDir(
+  dir: string,
+): Promise<{ file: string; data?: unknown; error?: string }[]> {
+  let entries: string[];
+  try {
+    entries = await readdir(dir);
+  } catch {
+    log.warn(`[cheatsheet] could not read sources directory: ${dir}`);
+    return [];
+  }
+
+  const out: { file: string; data?: unknown; error?: string }[] = [];
+  for (const file of entries.filter((f) => f.endsWith('.json'))) {
+    const filePath = join(dir, file);
+    try {
+      out.push({ file: filePath, data: JSON.parse(await readFile(filePath, 'utf-8')) });
+    } catch (err) {
+      out.push({ file: filePath, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  return out;
 }
