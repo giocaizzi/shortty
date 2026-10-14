@@ -50,7 +50,7 @@ test.describe('shortcut search', () => {
   });
 
   test('with command prefix mode on, flat search excludes commands', async ({ shortty }) => {
-    knownBug('useSearch always searches commands in flat mode; prefix mode only adds the ">" filter');
+    await shortty.setSetting('commandPrefixMode', true);
     await shortty.show();
     await shortty.search.fill('gizmo');
     await expect(shortty.win.getByTestId('command-row')).toHaveCount(0);
@@ -81,11 +81,26 @@ test.describe('drill into a source', () => {
   });
 
   test('drilled source lists all its entries before typing (SCREENS §2.1)', async ({ shortty }) => {
-    knownBug('useSearch returns no results for an empty query, even when drilled into a source');
+    // Obsidian loads without cheatsheets (vault auto-discovery), see CHEATSHEETS_BUG.
     await shortty.show();
-    await shortty.search.fill('VS');
+    await shortty.search.fill('obsidian');
     await shortty.win.keyboard.press('Enter');
-    await expect(shortty.win.getByTestId('shortcut-row').first()).toBeVisible();
+    await expect(shortty.search).toHaveAttribute('placeholder', 'Search in Obsidian...');
+    const rows = shortty.results.getByTestId('shortcut-row');
+    await expect(rows.first()).toBeVisible();
+    expect(await rows.count()).toBeGreaterThanOrEqual(4);
+    // No 8-row cap, no "Show all", no Sources section, no source label on rows.
+    await expect(shortty.win.getByTestId('show-all-row')).toHaveCount(0);
+    await expect(shortty.win.getByTestId('source-row')).toHaveCount(0);
+    await expect(shortty.results.getByText('Obsidian', { exact: true })).toHaveCount(0);
+  });
+
+  test('source names match fuzzily ("vsc" finds VS Code)', async ({ shortty }) => {
+    await shortty.show();
+    for (const query of ['vsc', 'vscode', 'vs code']) {
+      await shortty.search.fill(query);
+      await expect(shortty.win.getByTestId('source-row')).toHaveText(/VS Code/);
+    }
   });
 
   test('search inside a drilled source only returns that source', async ({ shortty }) => {
@@ -101,7 +116,6 @@ test.describe('drill into a source', () => {
   });
 
   test('Esc from a drilled source restores the previous query (SCREENS §2.1)', async ({ shortty }) => {
-    knownBug('popLevel() clears the query instead of restoring it');
     await shortty.show();
     await shortty.search.fill('VS');
     await shortty.win.keyboard.press('Enter');

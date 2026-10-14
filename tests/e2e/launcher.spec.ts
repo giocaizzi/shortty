@@ -92,7 +92,6 @@ test.describe('keyboard help', () => {
   });
 
   test('? on an empty query opens the overlay and any key closes it', async ({ shortty }) => {
-    knownBug('overlay closes instantly: its window keydown listener sees the same "?" event');
     await shortty.show();
     await shortty.win.keyboard.press('?');
     await expect(shortty.help).toBeVisible();
@@ -111,11 +110,26 @@ test.describe('keyboard help', () => {
   });
 
   test('a ? icon in the search bar opens the overlay (SCREENS §3)', async ({ shortty }) => {
-    knownBug('SearchInput never renders the ? icon (onHelpToggle prop is unused)');
     await shortty.show();
     await shortty.win.getByRole('button', { name: /keyboard shortcuts|help/i }).click({ timeout: 5_000 });
     await expect(shortty.help).toBeVisible();
   });
+});
+
+test.describe('appearance', () => {
+  for (const scheme of ['light', 'dark'] as const) {
+    test(`text follows the ${scheme} appearance`, async ({ shortty }) => {
+      await shortty.win.emulateMedia({ colorScheme: scheme });
+      await shortty.show();
+      await shortty.search.fill('>gizmo');
+      const name = shortty.win.getByTestId('command-row').first().locator('span.font-mono');
+      const color = await name.evaluate((el) => getComputedStyle(el).color);
+      const [r, g, b] = (color.match(/\d+(\.\d+)?/g) ?? []).map(Number);
+      // Dark text on the light material, light text on the dark one.
+      if (scheme === 'light') expect(r + g + b).toBeLessThan(150);
+      else expect(r + g + b).toBeGreaterThan(600);
+    });
+  }
 });
 
 test.describe('preferences', () => {

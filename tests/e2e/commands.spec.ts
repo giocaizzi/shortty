@@ -5,6 +5,8 @@ test.describe('commands from the fixture PATH', () => {
     await waitForEnrichment(shortty);
     // Keep the panel open across copies so a test can chain actions.
     await shortty.setSetting('dismissAfterCopy', false);
+    // These tests use the ">" prefix; pin the mode whatever the default is.
+    await shortty.setSetting('commandPrefixMode', true);
     await shortty.show();
   });
 
@@ -54,6 +56,25 @@ test.describe('commands from the fixture PATH', () => {
     await expect(rows.nth(0)).toHaveAttribute('aria-selected', 'true');
     await shortty.win.keyboard.press('ArrowUp');
     await expect(rows.nth(1)).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('"Show all" is a selectable row that expands the section', async ({ shortty }) => {
+    await shortty.setSetting('resultLimits', { sources: 3, shortcuts: 8, commands: 1 });
+    await shortty.win.keyboard.type('>gizmo');
+    const rows = shortty.win.getByTestId('command-row');
+    await expect(rows).toHaveCount(1);
+    await shortty.win.keyboard.press('ArrowDown');
+    await expect(shortty.selected).toHaveText(/Show all 2 commands/);
+    await shortty.win.keyboard.press('Enter');
+    await expect(rows).toHaveCount(2);
+    await expect(shortty.win.getByTestId('show-all-row')).toHaveCount(0);
+    await expect(rows.nth(1)).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('detail view names where its data came from', async ({ shortty }) => {
+    await shortty.win.keyboard.type('>gizmo');
+    await shortty.win.keyboard.press('Tab');
+    await expect(shortty.win.getByTestId('detail-source')).toHaveText('Source: --help');
   });
 
   test('Enter on a command row copies the command name', async ({ shortty }) => {
@@ -141,7 +162,6 @@ test.describe('commands from the fixture PATH', () => {
   });
 
   test('Esc from the detail view restores the previous results (SPECS §10.7)', async ({ shortty }) => {
-    knownBug('popLevel() clears the query, so the results list comes back empty');
     await shortty.win.keyboard.type('>gizmo');
     await shortty.win.keyboard.press('Tab');
     await shortty.win.keyboard.press('Escape');
