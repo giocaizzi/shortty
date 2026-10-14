@@ -9,6 +9,8 @@ import { enrichSubcommand } from './subcommand-enricher';
 type CommandsUpdateCallback = (commands: Command[]) => void;
 
 const RESUME_AFTER_MS = 5000;
+/** Enrichment results are saved at most this often (index + meta.json). */
+const PERSIST_DEBOUNCE_MS = 2000;
 
 export class CommandsEngine {
   private commands: Command[] = [];
@@ -16,6 +18,9 @@ export class CommandsEngine {
   private worker: EnrichmentWorker;
   private updateCallback: CommandsUpdateCallback | null = null;
   private resumeTimer: NodeJS.Timeout | undefined;
+  private persistTimer: NodeJS.Timeout | undefined;
+  private persisting: Promise<void> | null = null;
+  private persistDirty = false;
   /** Settles when the background whatis read of the last scan is done (tests). */
   descriptionsLoaded: Promise<void> = Promise.resolve();
 
@@ -83,6 +88,8 @@ export class CommandsEngine {
       commandCount: this.commands.length,
       enrichedCount: this.commands.filter(c => c.enrichment !== 'basic').length,
     });
+    // An async save in flight holds the previous list: have it write again
+    if (this.persisting) this.persistDirty = true;
 
     this.descriptionsLoaded = this.loadDescriptions();
     this.startEnrichment();
@@ -109,7 +116,7 @@ export class CommandsEngine {
     });
     if (changed.length === 0) return;
     log.info(`Descriptions loaded for ${changed.length} commands`);
-    this.cache.writeIndex(this.commands);
+    this.schedulePersist();
     this.updateCallback?.(changed);
   }
 
@@ -162,6 +169,19 @@ export class CommandsEngine {
   stop(): void {
     clearTimeout(this.resumeTimer);
     this.worker.stop();
+    // Quitting: a debounced save would never run, so write it now
+    clearTimeout(this.persistTimer);
+    this.persistTimer = undefined;
+    if (this.persistDirty && !this.persisting) {
+      this.persistDirty = false;
+      this.cache.writeIndex(this.commands);
+      const meta = this.cache.readMeta();
+      if (meta) {
+        meta.enrichedCount = this.enrichedCount();
+        meta.timestamp = new Date().toISOString();
+        this.cache.writeMeta(meta);
+      }
+    }
   }
 
   getEnrichmentStats(): { total: number; enriched: number; running: boolean } {
@@ -221,15 +241,44 @@ export class CommandsEngine {
       }
     }
 
-    this.cache.writeIndex(this.commands);
-
-    const meta = this.cache.readMeta();
-    if (meta) {
-      meta.enrichedCount = this.commands.filter(c => c.enrichment !== 'basic').length;
-      meta.timestamp = new Date().toISOString();
-      this.cache.writeMeta(meta);
-    }
-
+    this.schedulePersist();
     this.updateCallback?.(applied);
+  }
+
+  /**
+   * Save the index and stats soon, off the main thread's critical path:
+   * batches arrive every 50 commands and the index of a full PATH is a few
+   * MB of JSON, so writes are debounced and asynchronous.
+   */
+  private schedulePersist(): void {
+    this.persistDirty = true;
+    if (this.persistTimer || this.persisting) return;
+    this.persistTimer = setTimeout(() => {
+      this.persistTimer = undefined;
+      void this.flush();
+    }, PERSIST_DEBOUNCE_MS);
+  }
+
+  /** Write pending index/stats changes now; settles when they are saved. */
+  flush(): Promise<void> {
+    clearTimeout(this.persistTimer);
+    this.persistTimer = undefined;
+    this.persisting ??= (async () => {
+      while (this.persistDirty) {
+        this.persistDirty = false;
+        try {
+          await this.cache.saveEnrichmentAsync(this.commands, this.enrichedCount());
+        } catch (err) {
+          log.warn('Saving the commands index failed', err);
+        }
+      }
+    })().finally(() => {
+      this.persisting = null;
+    });
+    return this.persisting;
+  }
+
+  private enrichedCount(): number {
+    return this.commands.filter(c => c.enrichment !== 'basic').length;
   }
 }

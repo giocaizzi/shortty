@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MacosSystemParser, parseKeyEquivalent } from '../../../src/main/parsers/macos-system.parser';
 import { normalizeToCanonical } from '../../../src/main/parsers/key-normalizer';
@@ -67,6 +69,23 @@ describe('MacosSystemParser', () => {
     const result = await parser.parse();
     expect(result).toHaveLength(17);
     expect(new Set(result.map((kb) => kb.id)).size).toBe(17);
+  });
+
+  it.runIf(process.platform === 'darwin')('decodes binary plists with plutil, asynchronously', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'shortty-plist-'));
+    try {
+      const plists = [HOTKEYS, GLOBAL_PREFS].map((json, i) => {
+        const out = join(dir, `${i}.plist`);
+        execFileSync('plutil', ['-convert', 'binary1', '-o', out, json]);
+        return out;
+      });
+      parser.setConfigPaths(plists);
+      const pending = parser.parse();
+      expect(pending).toBeInstanceOf(Promise);
+      expect(await pending).toHaveLength(17);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

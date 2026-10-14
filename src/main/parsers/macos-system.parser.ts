@@ -1,5 +1,7 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import type { Shortcut, ParserMeta } from '../../shared/types';
 import { MAC_KEYCODE_TO_CODE, US_LAYOUT, usKeyForCode } from '../../shared/keys';
 import { BaseParser } from './base-parser';
@@ -9,6 +11,8 @@ import {
   canonicalKeyName,
   normalizeToCanonical,
 } from './key-normalizer';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Symbolic hotkey ids (com.apple.symbolichotkeys AppleSymbolicHotKeys) →
@@ -160,7 +164,7 @@ export class MacosSystemParser extends BaseParser {
     const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
-      const plist = this.readPlist(filePath);
+      const plist = await this.readPlist(filePath);
       if (!plist) continue;
       keybindings.push(...this.parsePlist(plist, filePath));
     }
@@ -237,19 +241,20 @@ export class MacosSystemParser extends BaseParser {
     return result;
   }
 
-  private readPlist(
+  /** Decode a plist (or its JSON fixture) without blocking the main process. */
+  private async readPlist(
     filePath: string,
-  ): Record<string, unknown> | null {
+  ): Promise<Record<string, unknown> | null> {
     try {
       if (filePath.endsWith('.json')) {
-        return JSON.parse(readFileSync(filePath, 'utf-8'));
+        return JSON.parse(await readFile(filePath, 'utf-8'));
       }
-      const jsonStr = execFileSync(
+      const { stdout } = await execFileAsync(
         'plutil',
         ['-convert', 'json', '-o', '-', filePath],
-        { encoding: 'utf-8', timeout: 5000 },
+        { encoding: 'utf-8', timeout: 5000, killSignal: 'SIGKILL' },
       );
-      return JSON.parse(jsonStr);
+      return JSON.parse(stdout);
     } catch {
       return null;
     }

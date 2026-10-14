@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
 import {
@@ -157,7 +157,7 @@ export class TmuxParser extends BaseParser {
   }
 
   async isAvailable(): Promise<boolean> {
-    return this.runTmux(['-V']) !== null;
+    return (await this.runTmux(['-V'])) !== null;
   }
 
   getWatchPaths(): string[] {
@@ -171,7 +171,7 @@ export class TmuxParser extends BaseParser {
    */
   async parse(): Promise<Shortcut[]> {
     const prefix = this.detectPrefix();
-    const defaults = this.runTmux([
+    const defaults = await this.runTmux([
       '-L', `shortty-defaults-${process.pid}`, '-f', '/dev/null',
       'start-server', ';', 'list-keys', ';', 'kill-server',
     ]);
@@ -180,17 +180,20 @@ export class TmuxParser extends BaseParser {
     return this.mergeWithDefaults(defaultShortcuts, configShortcuts);
   }
 
-  /** Run tmux, returning stdout or null when tmux is missing or fails. */
-  protected runTmux(args: string[]): string | null {
-    try {
-      return execFileSync('tmux', args, {
-        encoding: 'utf-8',
-        timeout: 5000,
-        stdio: ['ignore', 'pipe', 'ignore'],
-      });
-    } catch {
-      return null;
-    }
+  /**
+   * Run tmux, resolving to stdout or null when tmux is missing or fails.
+   * Asynchronous: parsing runs on the main process, which must not block.
+   */
+  protected runTmux(args: string[]): Promise<string | null> {
+    return new Promise((resolve) => {
+      const child = execFile(
+        'tmux',
+        args,
+        { encoding: 'utf-8', timeout: 5000, killSignal: 'SIGKILL' },
+        (err, stdout) => resolve(err ? null : stdout),
+      );
+      child.stdin?.end();
+    });
   }
 
   /** The prefix key: tmux.conf `set -g prefix`, else default C-b. */

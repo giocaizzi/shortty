@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
-import { rm, stat } from 'node:fs/promises';
+import { readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathDirectories } from './path-scanner';
@@ -98,6 +98,31 @@ export class CommandCache {
 
   writeIndex(commands: Command[]): void {
     writeFileSync(join(this.cacheDir, 'commands-index.json'), JSON.stringify(commands));
+  }
+
+  /**
+   * Save the index and the enrichment stats in meta.json without blocking
+   * the main process. Each file is written to a temp name, then renamed, so
+   * a quit mid-write never leaves a truncated index.
+   */
+  async saveEnrichmentAsync(commands: Command[], enrichedCount: number): Promise<void> {
+    await this.writeAtomic('commands-index.json', JSON.stringify(commands));
+    let meta: CacheMeta;
+    try {
+      meta = JSON.parse(await readFile(join(this.cacheDir, 'meta.json'), 'utf-8'));
+    } catch {
+      return; // no meta yet: the next scan writes it
+    }
+    meta.enrichedCount = enrichedCount;
+    meta.timestamp = new Date().toISOString();
+    await this.writeAtomic('meta.json', JSON.stringify(meta, null, 2));
+  }
+
+  private async writeAtomic(name: string, content: string): Promise<void> {
+    const target = join(this.cacheDir, name);
+    const temp = `${target}.${process.pid}.tmp`;
+    await writeFile(temp, content);
+    await rename(temp, target);
   }
 
   readDetail(name: string): Command | null {

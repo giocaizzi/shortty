@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   TmuxParser,
@@ -19,7 +20,7 @@ class StubTmux extends TmuxParser {
   constructor(private defaults: string | null) {
     super();
   }
-  protected runTmux(args: string[]): string | null {
+  protected async runTmux(args: string[]): Promise<string | null> {
     this.calls.push(args);
     if (args[0] === '-V') return this.defaults === null ? null : 'tmux 3.6a';
     return this.defaults;
@@ -175,5 +176,29 @@ describe('parseTmuxKey', () => {
     expect(display('n')).toBe('N');
     expect(display('C-N')).toBe('⌃N');
     expect(display('%')).toBe('%');
+  });
+});
+
+describe.runIf(process.platform !== 'win32')('TmuxParser runs tmux asynchronously', () => {
+  it('does not block the event loop while tmux runs', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'shortty-tmux-'));
+    const savedPath = process.env.PATH;
+    try {
+      writeFileSync(join(dir, 'tmux'), '#!/bin/sh\nsleep 0.3\necho "tmux 9.9"\n');
+      chmodSync(join(dir, 'tmux'), 0o755);
+      process.env.PATH = `${dir}:/usr/bin:/bin`;
+
+      const events: string[] = [];
+      setTimeout(() => events.push('timer'), 50);
+      const available = await new TmuxParser().isAvailable().then((v) => {
+        events.push('tmux');
+        return v;
+      });
+      expect(available).toBe(true);
+      expect(events).toEqual(['timer', 'tmux']);
+    } finally {
+      process.env.PATH = savedPath;
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

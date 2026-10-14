@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Command } from '../../../src/shared/types';
@@ -35,6 +35,7 @@ import { scanPath } from '../../../src/main/commands/path-scanner';
 import { readWhatis } from '../../../src/main/commands/whatis-reader';
 import { enrichSubcommand } from '../../../src/main/commands/subcommand-enricher';
 import { EnrichmentWorker } from '../../../src/main/commands/enrichment-worker';
+import { CommandCache } from '../../../src/main/commands/cache';
 
 const mockScan = vi.mocked(scanPath);
 const mockWhatis = vi.mocked(readWhatis);
@@ -151,5 +152,53 @@ describe('CommandsEngine', () => {
     engine.onWindowHidden();
     expect(workerResume).toHaveBeenCalled();
     engine.stop();
+  });
+
+  describe('saving enrichment batches', () => {
+    const indexFile = () => join(userData, 'commands-cache', 'commands-index.json');
+    const savedEnrichment = () =>
+      (JSON.parse(readFileSync(indexFile(), 'utf-8')) as Command[]).map(c => c.enrichment);
+
+    async function enrichedEngine() {
+      mockScan.mockResolvedValue([
+        { name: 'git', bin: '/opt/homebrew/bin/git', mtime: 1 },
+        { name: 'jq', bin: '/opt/homebrew/bin/jq', mtime: 1 },
+      ]);
+      const engine = new CommandsEngine(userData);
+      await engine.initialize();
+      await engine.descriptionsLoaded;
+      return engine;
+    }
+
+    it('does not write the index synchronously per batch; one debounced async save covers them', async () => {
+      const engine = await enrichedEngine();
+      vi.useFakeTimers();
+      const write = vi.spyOn(CommandCache.prototype, 'saveEnrichmentAsync');
+      try {
+        const [git, jq] = engine.getAll();
+        batchCallback()([{ ...git, enrichment: 'full' }]);
+        batchCallback()([{ ...jq, enrichment: 'failed' }]);
+        expect(savedEnrichment()).toEqual(['basic', 'basic']);
+        expect(write).not.toHaveBeenCalled();
+
+        await vi.advanceTimersByTimeAsync(2000);
+        vi.useRealTimers();
+        await engine.flush();
+        expect(write).toHaveBeenCalledTimes(1);
+        expect(savedEnrichment()).toEqual(['full', 'failed']);
+        expect(JSON.parse(readFileSync(join(userData, 'commands-cache', 'meta.json'), 'utf-8')).enrichedCount).toBe(2);
+      } finally {
+        write.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    it('stop() writes a pending save before quitting', async () => {
+      const engine = await enrichedEngine();
+      const [git] = engine.getAll();
+      batchCallback()([{ ...git, enrichment: 'full' }]);
+      engine.stop();
+      expect(savedEnrichment()).toEqual(['full', 'basic']);
+    });
   });
 });
