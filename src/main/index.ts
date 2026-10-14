@@ -5,6 +5,7 @@ import {
   BrowserWindow,
   globalShortcut,
   ipcMain,
+  Menu,
   nativeTheme,
   screen,
 } from 'electron';
@@ -33,6 +34,7 @@ import {
 } from './window-geometry';
 import { WindowHider } from './window-hider';
 import { importLoginShellPath } from './shell-env';
+import { buildAppMenuTemplate } from './app-menu';
 
 // `shortty --reset-settings` (docs/spec.md §9.1 escape hatch): restore defaults and quit.
 const resetRequested = process.argv.includes('--reset-settings');
@@ -58,6 +60,8 @@ if (started) {
 
 let mainWindow: BrowserWindow | null = null;
 let commandsEngine: CommandsEngine | null = null;
+/** Set on before-quit: only then may the launcher window really close. */
+let quitting = false;
 const parserRegistry = new ParserRegistry();
 
 const isDev = !!MAIN_WINDOW_VITE_DEV_SERVER_URL;
@@ -149,6 +153,14 @@ function createWindow(): BrowserWindow {
   if (isDev && process.env.DEVTOOLS === '1') {
     win.webContents.openDevTools({ mode: 'detach' });
   }
+
+  // The launcher lives for the whole session: a close request (⌘W, a
+  // window-manager close) hides it instead, except while the app quits.
+  win.on('close', (event) => {
+    if (quitting) return;
+    event.preventDefault();
+    hideWindow();
+  });
 
   // Dismiss on blur (skip in dev so DevTools doesn't cause hiding)
   if (!isDev) {
@@ -327,8 +339,7 @@ function setupSettingsChangeListener(): void {
       parserRegistry
         .updateActiveParsers(newSettings.disabledParsers, newSettings.sourcePathOverrides)
         .then(() => {
-          const win = launcherAlive();
-          if (win) restartWatching(parserRegistry, win);
+          restartWatching(parserRegistry, launcherAlive);
         })
         .catch((err) => log.error('Failed to update active parsers', err));
     }
@@ -385,8 +396,7 @@ async function initShortcuts(): Promise<void> {
   } catch (err) {
     log.error('Parser registry initialization failed', err);
   }
-  const win = launcherAlive();
-  if (win) startWatching(parserRegistry, win);
+  startWatching(parserRegistry, launcherAlive);
 }
 
 async function initCommands(): Promise<void> {
@@ -403,6 +413,8 @@ async function initCommands(): Promise<void> {
 
 async function startup(): Promise<void> {
   log.info('App starting');
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(buildAppMenuTemplate(app.name, app.isPackaged)));
 
   // Environment setup that must finish before the engines read PATH/HOME
   // (e.g. importing the login-shell PATH) chains in here.
@@ -448,6 +460,10 @@ app.on('ready', () => {
 
 app.on('second-instance', () => {
   if (mainWindow) showWindow();
+});
+
+app.on('before-quit', () => {
+  quitting = true;
 });
 
 app.on('will-quit', () => {

@@ -6,9 +6,14 @@ import type { ParserRegistry } from './parsers/registry';
 
 let watcher: FSWatcher | null = null;
 
+/**
+ * Watch every parser's config files and push re-parsed shortcuts to the
+ * launcher. The window is looked up at send time, so a launcher recreated
+ * after startup still receives updates.
+ */
 export function startWatching(
   registry: ParserRegistry,
-  window: BrowserWindow,
+  getWindow: () => BrowserWindow | null,
 ): void {
   const watchPathsMap = registry.getWatchPaths();
   const pathToSource = new Map<string, string>();
@@ -42,7 +47,8 @@ export function startWatching(
     try {
       const keybindings = await registry.parseSingleSource(sourceId);
 
-      if (!window.isDestroyed()) {
+      const window = getWindow();
+      if (window && !window.isDestroyed()) {
         window.webContents.send(IPC_CHANNELS.ON_UPDATE, {
           sourceId,
           keybindings,
@@ -64,8 +70,8 @@ export function stopWatching(): void {
 
 export function restartWatching(
   registry: ParserRegistry,
-  window: BrowserWindow,
+  getWindow: () => BrowserWindow | null,
 ): void {
   stopWatching();
-  startWatching(registry, window);
+  startWatching(registry, getWindow);
 }

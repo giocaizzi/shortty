@@ -114,4 +114,30 @@ test.describe('main-process lifecycle', () => {
   test('`--reset-settings` refuses to run while Shortty is running', async ({ shortty }) => {
     expect(await runToExit(['--reset-settings'], shortty.hermetic.env)).toBe(1);
   });
+
+  test('the app menu has no Close item, so ⌘W cannot destroy the launcher', async ({ shortty }) => {
+    const roles = await shortty.app.evaluate(({ Menu }) =>
+      (Menu.getApplicationMenu()?.items ?? []).flatMap((m) =>
+        (m.submenu?.items ?? []).map((i) => i.role ?? ''),
+      ),
+    );
+    expect(roles).toContain('copy');
+    expect(roles.map((r) => r.toLowerCase())).not.toContain('close');
+  });
+
+  test('closing the launcher hides it; it can be shown again', async ({ shortty }) => {
+    await shortty.show();
+    await shortty.app.evaluate(({ BrowserWindow }) => {
+      const [main] = BrowserWindow.getAllWindows().sort((a, b) => a.id - b.id);
+      main.close();
+    });
+    await expect.poll(() => shortty.isVisible()).toBe(false);
+    const destroyed = await shortty.app.evaluate(({ BrowserWindow }) => {
+      const [main] = BrowserWindow.getAllWindows().sort((a, b) => a.id - b.id);
+      return !main || main.isDestroyed();
+    });
+    expect(destroyed).toBe(false);
+    await shortty.show();
+    expect(await shortty.isVisible()).toBe(true);
+  });
 });
