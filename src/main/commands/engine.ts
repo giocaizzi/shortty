@@ -79,7 +79,7 @@ export class CommandsEngine {
   }
 
   getDetail(name: string): Command | null {
-    return this.commands.find(c => c.name === name) ?? this.cache.readDetail(name);
+    return this.commands.find(c => c.name === name) ?? null;
   }
 
   onUpdate(callback: CommandsUpdateCallback): void {
@@ -89,8 +89,11 @@ export class CommandsEngine {
   async getSubcommandDetail(qualifiedName: string): Promise<SubcommandDetail> {
     const baseName = qualifiedName.split(' ')[0];
     const cmd = this.commands.find(c => c.name === baseName);
-    const binPath = cmd?.bin ?? baseName;
-    return enrichSubcommand(binPath, qualifiedName, this.cache);
+    // Only drill into commands the PATH scan found, via their resolved binary
+    if (!cmd) {
+      return { name: qualifiedName, description: '', enrichment: 'failed', subcommands: [], flags: [], arguments: [] };
+    }
+    return enrichSubcommand(cmd.bin, qualifiedName, this.cache);
   }
 
   stop(): void {

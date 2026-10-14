@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { sandboxEnv } from '../sandbox-exec';
 import type { ArgumentDetail, CommandDetail, FlagDetail, SubcommandDetail } from '../../../shared/types';
 import {
   splitManSections,
@@ -13,12 +14,18 @@ import {
 
 function fetchManPage(name: string): Promise<string> {
   return new Promise<string>((resolve, reject) => {
+    const env = sandboxEnv();
     const man = spawn('man', [name], {
       stdio: ['ignore', 'pipe', 'ignore'],
       timeout: 5000,
+      killSignal: 'SIGKILL',
+      env,
     });
     const col = spawn('col', ['-bx'], {
       stdio: ['pipe', 'pipe', 'ignore'],
+      timeout: 6000,
+      killSignal: 'SIGKILL',
+      env,
     });
 
     man.stdout.pipe(col.stdin);

@@ -1,7 +1,4 @@
-import { execFile } from 'node:child_process';
-import { stat, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { stat } from 'node:fs/promises';
 import type { ArgumentDetail, CommandDetail, FlagDetail, SubcommandDetail } from '../../../shared/types';
 import {
   parseFlagsFromText,
@@ -11,6 +8,7 @@ import {
   normalizeText,
   deduplicateFlags,
 } from './parse-utils';
+import { runSandboxed } from '../sandbox-exec';
 
 const BLOCKLIST = new Set([
   // Destructive system commands
@@ -35,24 +33,28 @@ export function isBlocklisted(name: string): boolean {
   return BLOCKLIST.has(name);
 }
 
-function execCommand(bin: string, args: string[], sandboxDir: string): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    execFile(bin, args, {
-      encoding: 'utf-8',
-      timeout: 2000,
-      maxBuffer: 1 * 1024 * 1024,
-      cwd: sandboxDir,
-    }, (error: Error | null, stdout: string, stderr: string) => {
-      if (error) {
-        const fallback = stderr || stdout || '';
-        if (fallback) resolve(fallback);
-        else reject(error);
-      } else {
-        // Merge stderr into output (some commands print help to stderr)
-        resolve(stdout + (stderr || ''));
-      }
-    });
-  });
+/** Help output is only trusted from binaries owned by root or the current user. */
+async function isTrustedBinary(binPath: string): Promise<boolean> {
+  // Never run help as root (SPECS §7.5)
+  if (process.getuid?.() === 0) return false;
+  try {
+    const s = await stat(binPath);
+    return s.uid === 0 || s.uid === process.getuid?.();
+  } catch {
+    return false;
+  }
+}
+
+/** Run `bin args` sandboxed and return its output, or null if it hung or could not run. */
+async function captureHelp(bin: string, args: string[]): Promise<string | null> {
+  try {
+    const result = await runSandboxed(bin, args);
+    // A process that had to be killed for running too long was not printing help
+    if (result.timedOut) return null;
+    return result.output || null;
+  } catch {
+    return null;
+  }
 }
 
 type SectionKind = 'commands' | 'flags' | 'usage' | 'other';
@@ -296,41 +298,28 @@ export function parseHelpOutput(output: string, commandName: string): ParsedHelp
 
 export async function parseHelp(commandName: string, binPath: string): Promise<ParsedHelp | null> {
   if (isBlocklisted(commandName)) return null;
+  if (!(await isTrustedBinary(binPath))) return null;
 
-  try {
-    const s = await stat(binPath);
-    if (s.uid !== 0 && s.uid !== process.getuid?.()) return null;
-  } catch {
-    return null;
-  }
-
-  const sandboxDir = await mkdtemp(join(tmpdir(), 'shortty-help-'));
-  let output: string;
-  try {
-    output = await execCommand(binPath, ['--help'], sandboxDir);
-  } catch {
-    return null;
-  } finally {
-    try { await rm(sandboxDir, { recursive: true, force: true }); } catch { /* ignore */ }
-  }
-
+  const output = await captureHelp(binPath, ['--help']);
+  if (output === null) return null;
   return parseHelpOutput(output, commandName);
 }
+
+/** Subcommand path segments must be plain words: no options, paths or shell syntax. */
+const SUBCOMMAND_TOKEN_RE = /^[A-Za-z0-9][\w.+-]*$/;
 
 export async function parseSubcommandHelp(
   baseBinPath: string,
   subcommandParts: string[],
   qualifiedName: string,
 ): Promise<Omit<SubcommandDetail, 'enrichment' | 'enrichedAt'> | null> {
-  const sandboxDir = await mkdtemp(join(tmpdir(), 'shortty-sub-'));
-  let output: string;
-  try {
-    output = await execCommand(baseBinPath, [...subcommandParts, '--help'], sandboxDir);
-  } catch {
-    return null;
-  } finally {
-    try { await rm(sandboxDir, { recursive: true, force: true }); } catch { /* ignore */ }
-  }
+  const baseName = qualifiedName.split(' ')[0];
+  if (isBlocklisted(baseName)) return null;
+  if (subcommandParts.length === 0 || !subcommandParts.every(p => SUBCOMMAND_TOKEN_RE.test(p))) return null;
+  if (!(await isTrustedBinary(baseBinPath))) return null;
+
+  const output = await captureHelp(baseBinPath, [...subcommandParts, '--help']);
+  if (output === null) return null;
 
   const parsed = parseHelpOutput(output, qualifiedName);
   if (!parsed) return null;

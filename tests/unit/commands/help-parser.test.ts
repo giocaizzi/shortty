@@ -2,35 +2,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { parseHelp, parseSubcommandHelp, isBlocklisted } from '../../../src/main/commands/parsers/help-parser';
 import { assertDefined } from '../../helpers';
 
-// Mock child_process and fs
-vi.mock('node:child_process', () => ({
-  execFile: vi.fn(),
+// Mock the sandboxed runner and fs
+vi.mock('../../../src/main/commands/sandbox-exec', () => ({
+  runSandboxed: vi.fn(),
 }));
 
 vi.mock('node:fs/promises', () => ({
   stat: vi.fn(),
-  mkdtemp: vi.fn(),
-  rm: vi.fn(),
 }));
 
-import { execFile } from 'node:child_process';
-import { stat, mkdtemp, rm } from 'node:fs/promises';
+import { runSandboxed } from '../../../src/main/commands/sandbox-exec';
+import { stat } from 'node:fs/promises';
 
-const mockExecFile = vi.mocked(execFile);
+const mockRun = vi.mocked(runSandboxed);
 const mockStat = vi.mocked(stat);
-const mockMkdtemp = vi.mocked(mkdtemp);
-const mockRm = vi.mocked(rm);
 
-function setupMocks(helpOutput: string) {
+function setupMocks(helpOutput: string, overrides: Partial<Awaited<ReturnType<typeof runSandboxed>>> = {}) {
   mockStat.mockResolvedValue({ uid: 0 } as Awaited<ReturnType<typeof stat>>);
-  mockMkdtemp.mockResolvedValue('/tmp/shortty-help-test');
-  mockRm.mockResolvedValue();
-  mockExecFile.mockImplementation((_bin, _args, _opts, callback) => {
-    (callback as (error: Error | null, stdout: string, stderr: string) => void)(
-      null, helpOutput, '',
-    );
-    return {} as ReturnType<typeof execFile>;
-  });
+  mockRun.mockResolvedValue({ output: helpOutput, exitCode: 0, timedOut: false, truncated: false, ...overrides });
 }
 
 beforeEach(() => {
@@ -148,16 +137,30 @@ describe('parseHelp', () => {
     expect(result).toBeNull();
   });
 
-  it('uses execFile with argument array (no shell injection)', async () => {
+  it('runs the binary with an argument array (no shell injection)', async () => {
     setupMocks(SIMPLE_HELP);
     await parseHelp('mytool', '/usr/bin/mytool');
 
-    expect(mockExecFile).toHaveBeenCalledWith(
-      '/usr/bin/mytool',
-      ['--help'],
-      expect.any(Object),
-      expect.any(Function),
-    );
+    expect(mockRun).toHaveBeenCalledWith('/usr/bin/mytool', ['--help']);
+  });
+
+  it('returns null when the command had to be killed for hanging', async () => {
+    setupMocks(SIMPLE_HELP, { timedOut: true, exitCode: null });
+    expect(await parseHelp('mytool', '/usr/bin/mytool')).toBeNull();
+  });
+
+  it('parses help printed by a command that exits non-zero', async () => {
+    setupMocks(SIMPLE_HELP, { exitCode: 1 });
+    const result = await parseHelp('mytool', '/usr/bin/mytool');
+    assertDefined(result);
+    expect(result.flags).toHaveLength(2);
+  });
+
+  it('skips binaries owned by another user', async () => {
+    setupMocks(SIMPLE_HELP);
+    mockStat.mockResolvedValue({ uid: 4242 } as Awaited<ReturnType<typeof stat>>);
+    expect(await parseHelp('mytool', '/usr/local/bin/mytool')).toBeNull();
+    expect(mockRun).not.toHaveBeenCalled();
   });
 });
 
@@ -176,11 +179,27 @@ describe('parseSubcommandHelp', () => {
     setupMocks(SIMPLE_HELP);
     await parseSubcommandHelp('/usr/bin/git', ['commit'], 'git commit');
 
-    expect(mockExecFile).toHaveBeenCalledWith(
-      '/usr/bin/git',
-      ['commit', '--help'],
-      expect.any(Object),
-      expect.any(Function),
-    );
+    expect(mockRun).toHaveBeenCalledWith('/usr/bin/git', ['commit', '--help']);
+  });
+
+  it('refuses blocklisted base commands (e.g. security)', async () => {
+    setupMocks(SIMPLE_HELP);
+    expect(await parseSubcommandHelp('/usr/bin/security', ['dump-keychain'], 'security dump-keychain')).toBeNull();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  it('refuses subcommand parts that are options, paths or shell syntax', async () => {
+    setupMocks(SIMPLE_HELP);
+    for (const parts of [['-rf', '/'], ['../x'], ['$(reboot)'], ['a;b'], []]) {
+      expect(await parseSubcommandHelp('/usr/bin/tool', parts, ['tool', ...parts].join(' '))).toBeNull();
+    }
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  it('uses the first sentence of the help description as the summary', async () => {
+    setupMocks(SIMPLE_HELP);
+    const result = await parseSubcommandHelp('/usr/bin/mytool', ['sub'], 'mytool sub');
+    assertDefined(result);
+    expect(result.description).toBe('A simple tool for processing files.');
   });
 });
