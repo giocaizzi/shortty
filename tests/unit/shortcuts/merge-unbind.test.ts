@@ -78,8 +78,13 @@ describe('mergeShortcuts unbinding and duplicates', () => {
       makeShortcut({ rawCommand: 'next', key: '⌃Tab', searchKey: 'ctrl tab' }),
       makeShortcut({ rawCommand: 'next', key: '⌃⌥→', searchKey: 'ctrl opt right', context: 'terminalFocus' }),
     ];
-    const result = mergeShortcuts(defaults, overrides);
-    expect(result.map((s) => [s.key, s.origin])).toEqual([
+    expect(mergeShortcuts(defaults, overrides, 'replace').map((s) => [s.key, s.origin])).toEqual([
+      ['⌃Tab', 'user-config'],
+      ['⌃⌥→', 'user-config'],
+    ]);
+    // Additive apps keep the default next to both user bindings.
+    expect(mergeShortcuts(defaults, overrides, 'additive').map((s) => [s.key, s.origin])).toEqual([
+      ['⌥⌘→', 'cheatsheet'],
       ['⌃Tab', 'user-config'],
       ['⌃⌥→', 'user-config'],
     ]);
@@ -88,8 +93,24 @@ describe('mergeShortcuts unbinding and duplicates', () => {
   it('carries the override strokes onto the merged entry', () => {
     const defaults = [makeShortcut({ strokes: [{ mods: ['shift', 'cmd'], key: 'T' }] })];
     const strokes: Shortcut['strokes'] = [{ mods: ['cmd'], key: '[', code: 'BracketLeft' }];
-    const result = mergeShortcuts(defaults, [makeShortcut({ key: '⌘[', searchKey: 'cmd [', strokes })]);
-    expect(result[0].strokes).toEqual(strokes);
+    const override = makeShortcut({ key: '⌘[', searchKey: 'cmd [', strokes });
+    expect(mergeShortcuts(defaults, [override], 'replace')[0].strokes).toEqual(strokes);
+    expect(mergeShortcuts(defaults, [override], 'additive')[1].strokes).toEqual(strokes);
+  });
+
+  it('a vim unmap / <Nop> (unknown command) removes the default on that key only', () => {
+    const defaults = [
+      makeShortcut({ source: 'vim', rawCommand: 'vim.edit.deleteChar', key: 'x', searchKey: 'x' }),
+      makeShortcut({ source: 'vim', rawCommand: 'vim.edit.undo', key: 'u', searchKey: 'u' }),
+    ];
+    const overrides = [makeShortcut({
+      source: 'vim', rawCommand: 'nunmap x', command: 'Unmap', key: 'x', searchKey: 'x', isUnbound: true,
+    })];
+    const result = mergeShortcuts(defaults, overrides, 'additive');
+    expect(result.map((s) => [s.rawCommand, s.isUnbound])).toEqual([
+      ['vim.edit.deleteChar', true],
+      ['vim.edit.undo', false],
+    ]);
   });
 
   it('keeps cheatsheet entries that share a rawCommand', () => {

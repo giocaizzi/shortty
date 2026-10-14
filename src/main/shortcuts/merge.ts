@@ -1,5 +1,16 @@
 import type { Shortcut } from '../../shared/types';
 
+/**
+ * How an app combines a user binding with the built-in default of the same
+ * command (docs/spec.md §6.2):
+ *
+ * - `additive`: user bindings add to the defaults (VS Code, Ghostty, tmux,
+ *   vim, zsh); a default goes away only through an explicit removal.
+ * - `replace`: a user binding for a command replaces its default key
+ *   (Obsidian hotkeys.json, macOS symbolic hotkeys).
+ */
+export type MergeMode = 'additive' | 'replace';
+
 /** Command identity of a shortcut: VS Code removal rules are "-command". */
 function commandIdentity(s: Shortcut): string {
   return s.rawCommand.replace(/^-/, '');
@@ -8,22 +19,27 @@ function commandIdentity(s: Shortcut): string {
 /**
  * Merge cheatsheet defaults with parser overrides (docs/spec.md §6.2).
  *
- * - Overrides match defaults by source + rawCommand. The first override for
- *   a command replaces the default's key (isDefault: false, origin
- *   'user-config'); further overrides for the same command (another key or
- *   `when` context) are added as entries of their own.
- * - Unbind overrides (isUnbound: VS Code `-command`, Ghostty `unbind`)
+ * Overrides match defaults by source + rawCommand.
+ *
+ * - Removals (isUnbound: VS Code `-command`, Ghostty `unbind`, vim `unmap`)
  *   mark the matching default as unbound instead of adding an entry. A
  *   removal matches by command and, when it names a key, by that key too;
- *   a removal whose command is unknown to the cheatsheet (Ghostty `unbind`)
- *   matches defaults by key alone.
+ *   a removal whose command is unknown to the cheatsheet (Ghostty `unbind`,
+ *   vim `unmap`) matches defaults by key alone.
+ * - `additive`: a binding is added as a user-config entry next to the
+ *   default. Re-binding the exact key of a default turns that default into
+ *   the user entry instead of duplicating it (and undoes an earlier
+ *   removal of it).
+ * - `replace`: the first binding for a command replaces the default's key;
+ *   further bindings for the same command are added as entries of their own.
  * - Overrides that match nothing are added as new entries.
- * - Cheatsheet entries not overridden are kept with isDefault: true,
- *   origin 'cheatsheet'.
+ * - Cheatsheet entries not overridden keep isDefault: true, origin
+ *   'cheatsheet'.
  */
 export function mergeShortcuts(
   cheatsheetDefaults: Shortcut[],
   parserOverrides: Shortcut[],
+  mode: MergeMode = 'additive',
 ): Shortcut[] {
   const result: Shortcut[] = cheatsheetDefaults.map((s) => ({
     ...s,
@@ -67,9 +83,19 @@ export function mergeShortcuts(
       continue;
     }
 
-    const target = sameCommand.find((i) => !replaced.has(i));
+    const target = mode === 'additive'
+      ? sameCommand.find((i) => result[i].searchKey === override.searchKey)
+      : sameCommand.find((i) => !replaced.has(i));
     if (target === undefined) {
-      added.push({ ...override, isDefault: false, origin: 'user-config' });
+      // A new key for a known command keeps the cheatsheet's label.
+      const known = sameCommand.length > 0 ? result[sameCommand[0]] : undefined;
+      added.push({
+        ...override,
+        command: known?.command ?? override.command,
+        category: known?.category ?? override.category,
+        isDefault: false,
+        origin: 'user-config',
+      });
       continue;
     }
     replaced.add(target);

@@ -71,6 +71,22 @@ describe('loadCheatsheets', () => {
     );
   });
 
+  it('skips file with an unknown mergeMode with warning', async () => {
+    const results = await loadCheatsheets(FIXTURES_DIR);
+
+    expect(results.find((d) => d.id === 'badmerge')).toBeUndefined();
+    expect(log.warn).toHaveBeenCalledWith(
+      expect.stringContaining('invalid mergeMode "override"'),
+    );
+  });
+
+  it('keeps a valid mergeMode and leaves it unset when absent', async () => {
+    const results = await loadCheatsheets(FIXTURES_DIR);
+
+    expect(results.find((d) => d.id === 'testapp')?.mergeMode).toBe('replace');
+    expect(results.find((d) => d.id === 'minimal')?.mergeMode).toBeUndefined();
+  });
+
   it('handles cheatsheet with empty shortcuts array', async () => {
     const results = await loadCheatsheets(FIXTURES_DIR);
     const minimal = results.find((d) => d.id === 'minimal');

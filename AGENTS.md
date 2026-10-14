@@ -52,6 +52,7 @@ Main process (src/main)                          Renderer (src/renderer)
 
 - Cheatsheets: `src/cheatsheets/sources/*.json`, bundled with `import.meta.glob` in `src/main/cheatsheets/loader.ts`; schema `src/cheatsheets/schema.json`, enforced by `tests/unit/cheatsheets/shipped.test.ts`.
 - Adding a parser: create `src/main/parsers/<name>.parser.ts` extending `BaseParser` (`meta`, `isAvailable()`, `getWatchPaths()`, `parse()`), add it to `PARSERS` in `registry.ts`, add a cheatsheet with `"parser": "<name>"`, a fixture in `fixtures/` and a test.
+- Parser output is merged onto the cheatsheet defaults per the cheatsheet's `mergeMode` (`additive` or `replace`): [docs/spec.md §6.2](docs/spec.md#62-parser-system).
 - IPC channel names: `src/shared/ipc-channels.ts` (`keybindings:*`, `commands:*`, `settings:*`, `window:*`, `prefs:*`); the renderer calls them through `window.electronAPI` (typed in the preload).
 - Shared types: `src/shared/types.ts` (`Shortcut`, `Command`, `SubcommandDetail`, `ParserMeta`), keys in `src/shared/keys.ts`, settings and defaults in `src/shared/settings.ts`. Path alias `@shared/*` → `src/shared/*`.
 - Keys are structured `strokes` resolved per keyboard layout in the renderer: read [docs/keyboard-layouts.md](docs/keyboard-layouts.md) before touching key display, search or copy.

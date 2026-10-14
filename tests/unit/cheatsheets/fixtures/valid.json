@@ -4,6 +4,7 @@
   "icon": "🧪",
   "platforms": ["darwin", "linux"],
   "parser": "testapp",
+  "mergeMode": "replace",
   "lastVerified": { "version": "1.0.0", "date": "2026-01-01" },
   "defaultPaths": {
     "darwin": ["~/Library/TestApp/config.json"],

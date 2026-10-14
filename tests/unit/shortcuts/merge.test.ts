@@ -20,7 +20,91 @@ function makeShortcut(overrides: Partial<Shortcut> = {}): Shortcut {
 }
 
 describe('mergeShortcuts', () => {
-  it('should replace key when override matches by rawCommand', () => {
+  it('additive: keeps the default and adds the user binding for the same command', () => {
+    const defaults = [makeShortcut()];
+    const overrides = [
+      makeShortcut({
+        id: 'user00000001',
+        key: '⌘T',
+        searchKey: 'cmd t',
+        command: 'workbench.action.reopenClosedEditor',
+        filePath: '/user/keybindings.json',
+        origin: 'user-config',
+      }),
+    ];
+
+    const result = mergeShortcuts(defaults, overrides);
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({
+      key: '⌘⇧T', isDefault: true, isUnbound: false, origin: 'cheatsheet',
+    });
+    expect(result[1]).toMatchObject({
+      key: '⌘T',
+      searchKey: 'cmd t',
+      isDefault: false,
+      origin: 'user-config',
+      filePath: '/user/keybindings.json',
+      // The cheatsheet label wins over the parser's humanized id.
+      command: 'Reopen Closed Editor',
+    });
+  });
+
+  it('additive is the default mode', () => {
+    const overrides = [makeShortcut({ key: '⌘T', searchKey: 'cmd t' })];
+    expect(mergeShortcuts([makeShortcut()], overrides)).toEqual(
+      mergeShortcuts([makeShortcut()], overrides, 'additive'),
+    );
+  });
+
+  it('additive: re-binding the exact default key dedupes into one user entry', () => {
+    const defaults = [makeShortcut()];
+    const overrides = [
+      makeShortcut({ id: 'user00000001', filePath: '/user/keybindings.json', context: 'editorFocus' }),
+    ];
+
+    const result = mergeShortcuts(defaults, overrides);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      id: 'abc123def456',
+      key: '⌘⇧T',
+      isDefault: false,
+      origin: 'user-config',
+      filePath: '/user/keybindings.json',
+      context: 'editorFocus',
+    });
+  });
+
+  it('additive: a removal then a re-add of the same key restores the binding', () => {
+    const defaults = [makeShortcut()];
+    const overrides = [
+      makeShortcut({ rawCommand: '-workbench.action.reopenClosedEditor', isUnbound: true }),
+      makeShortcut({ filePath: '/user/keybindings.json' }),
+    ];
+
+    const result = mergeShortcuts(defaults, overrides);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ isUnbound: false, origin: 'user-config' });
+  });
+
+  it('additive: an explicit removal of the default plus a new key moves the binding', () => {
+    const defaults = [makeShortcut()];
+    const overrides = [
+      makeShortcut({ rawCommand: '-workbench.action.reopenClosedEditor', isUnbound: true }),
+      makeShortcut({ key: '⌘T', searchKey: 'cmd t' }),
+    ];
+
+    const result = mergeShortcuts(defaults, overrides);
+
+    expect(result.map((s) => [s.key, s.isUnbound, s.origin])).toEqual([
+      ['⌘⇧T', true, 'user-config'],
+      ['⌘T', false, 'user-config'],
+    ]);
+  });
+
+  it('replace: a user binding replaces the default key of its command', () => {
     const defaults = [makeShortcut()];
     const overrides = [
       makeShortcut({
@@ -31,7 +115,7 @@ describe('mergeShortcuts', () => {
       }),
     ];
 
-    const result = mergeShortcuts(defaults, overrides);
+    const result = mergeShortcuts(defaults, overrides, 'replace');
 
     expect(result).toHaveLength(1);
     expect(result[0].key).toBe('⌘T');
@@ -42,6 +126,21 @@ describe('mergeShortcuts', () => {
     // Preserves non-overridden fields from cheatsheet
     expect(result[0].command).toBe('Reopen Closed Editor');
     expect(result[0].source).toBe('vscode');
+  });
+
+  it('replace: further bindings of the same command are added', () => {
+    const defaults = [makeShortcut()];
+    const overrides = [
+      makeShortcut({ key: '⌘T', searchKey: 'cmd t' }),
+      makeShortcut({ key: '⌘Y', searchKey: 'cmd y' }),
+    ];
+
+    const result = mergeShortcuts(defaults, overrides, 'replace');
+
+    expect(result.map((s) => [s.key, s.origin])).toEqual([
+      ['⌘T', 'user-config'],
+      ['⌘Y', 'user-config'],
+    ]);
   });
 
   it('should add unmatched user entries', () => {
@@ -85,7 +184,7 @@ describe('mergeShortcuts', () => {
 
     const result = mergeShortcuts(defaults, overrides);
 
-    expect(result).toHaveLength(2);
+    expect(result).toHaveLength(3);
     const preserved = result.find(
       (s) => s.rawCommand === 'workbench.action.save',
     );
@@ -139,14 +238,15 @@ describe('mergeShortcuts', () => {
       makeShortcut({
         key: '⌘T',
         searchKey: 'cmd t',
+        category: undefined,
       }),
     ];
 
-    const result = mergeShortcuts(defaults, overrides);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].category).toBe('Navigation');
-    expect(result[0].key).toBe('⌘T');
-    expect(result[0].isDefault).toBe(false);
+    for (const mode of ['additive', 'replace'] as const) {
+      const result = mergeShortcuts(defaults, overrides, mode);
+      const user = result.find((s) => s.key === '⌘T');
+      expect(user?.category).toBe('Navigation');
+      expect(user?.isDefault).toBe(false);
+    }
   });
 });

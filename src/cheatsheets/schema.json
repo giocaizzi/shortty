@@ -15,6 +15,11 @@
       "type": ["string", "null"],
       "description": "Parser class ID, or null for cheatsheet-only"
     },
+    "mergeMode": {
+      "type": "string",
+      "enum": ["additive", "replace"],
+      "description": "How the app combines a user binding with the default of the same command: 'additive' keeps the default unless the config removes it, 'replace' swaps the default's key. Defaults to 'additive'. See docs/spec.md §6.2"
+    },
     "lastVerified": {
       "type": "object",
       "properties": {

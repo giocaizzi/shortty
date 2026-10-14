@@ -2,6 +2,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import log from '../logger';
+import type { MergeMode } from '../shortcuts/merge';
 
 type Platform = 'darwin' | 'win32' | 'linux';
 
@@ -20,6 +21,8 @@ export interface CheatsheetDefinition {
   icon: string;
   platforms: Platform[];
   parser?: string | null;
+  /** How user bindings combine with these defaults; 'additive' when absent. */
+  mergeMode?: MergeMode;
   lastVerified?: { version: string; date: string };
   defaultPaths?: Partial<Record<Platform, string[]>>;
   shortcuts: CheatsheetShortcut[];
@@ -30,6 +33,8 @@ const VALID_PLATFORMS: ReadonlySet<string> = new Set([
   'win32',
   'linux',
 ]);
+
+const MERGE_MODES: ReadonlySet<string> = new Set(['additive', 'replace']);
 
 /** Validate that a parsed JSON object has all required cheatsheet fields. */
 function validate(
@@ -67,6 +72,13 @@ function validate(
       );
       return null;
     }
+  }
+
+  if (obj.mergeMode !== undefined && !MERGE_MODES.has(obj.mergeMode as string)) {
+    log.warn(
+      `[cheatsheet] ${filePath}: invalid mergeMode "${String(obj.mergeMode)}"`,
+    );
+    return null;
   }
 
   // shortcuts

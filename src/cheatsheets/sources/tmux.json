@@ -4,6 +4,7 @@
   "icon": "📟",
   "platforms": ["darwin", "linux"],
   "parser": "tmux",
+  "mergeMode": "additive",
   "defaultPaths": {
     "darwin": ["~/.tmux.conf", "$XDG_CONFIG_HOME/tmux/tmux.conf"],
     "linux": ["~/.tmux.conf", "$XDG_CONFIG_HOME/tmux/tmux.conf"]

@@ -4,6 +4,7 @@
   "icon": "📝",
   "platforms": ["darwin", "linux"],
   "parser": "vim",
+  "mergeMode": "additive",
   "lastVerified": { "version": "9.1", "date": "2026-04-01" },
   "defaultPaths": {
     "darwin": ["~/.vimrc", "~/.vim/vimrc"],

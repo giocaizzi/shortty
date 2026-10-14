@@ -196,6 +196,7 @@ src/cheatsheets/
   "icon": "⌨️",
   "platforms": ["darwin", "win32", "linux"],
   "parser": "vscode",
+  "mergeMode": "additive",
   "lastVerified": { "version": "1.96", "date": "2026-04-01" },
   "defaultPaths": {
     "darwin": ["~/Library/Application Support/Code/User/keybindings.json"],
@@ -218,6 +219,7 @@ src/cheatsheets/
 Key schema decisions:
 - **`key`**: platform map object `{ darwin, win32, linux }` — explicit per-platform keys
 - **`parser`**: string ID referencing a parser class, or `null` for cheatsheet-only sources
+- **`mergeMode`**: `"additive"` (default) or `"replace"`, how the app combines a user binding with the default of the same command (§6.2)
 - **`defaultPaths`**: per-platform arrays, community-maintainable within the cheatsheet file
 - **`category`**: optional string for UI grouping within a source
 - **`context`**: generic field for mode/state (vim modes, VS Code when clauses, tmux tables, zsh keymaps)
@@ -251,15 +253,38 @@ Parsers are **optional enhancers** that detect user customizations from config f
 3. Start file watcher on config path (if parser active)
 ```
 
-**Merge rules:**
-- Match by `source` + `rawCommand`
-- User override replaces cheatsheet default's `key` field
-- User override sets `isDefault: false`, `origin: 'user-config'`
-- User entries not in cheatsheet → added as new entries
-- Cheatsheet entries not overridden → kept with `isDefault: true`, `origin: 'cheatsheet'`
+#### Merge
 
-**Special case (tmux, macOS System, Zsh, Bash):**
-Parser provides all data (defaults + user config). Cheatsheet has empty `shortcuts` array, serving only as metadata shell (id, label, icon, paths).
+`mergeShortcuts` (`src/main/shortcuts/merge.ts`) merges the parser output onto the cheatsheet defaults, following the cheatsheet's `mergeMode`. Apps disagree on what a user binding does to the default binding of the same command:
+
+- **Additive** apps keep the default and add the user's key. In VS Code, `{ "key": "cmd+e", "command": "X" }` makes `X` reachable from both its default key and ⌘E; Ghostty `keybind`, tmux `bind`, vim `map` and zsh `bindkey` work the same way. A default disappears only when the config removes it explicitly.
+- **Replace** apps store the full list of keys per command: an Obsidian `hotkeys.json` entry for a command *is* that command's hotkeys, and a macOS symbolic hotkey entry *is* the hotkey.
+
+| Source | `mergeMode` | User binding for a default's command | Explicit removal |
+|---|---|---|---|
+| VS Code | additive | adds a key | `-command` entry (with a key: that key; without: every key) |
+| Ghostty | additive | adds a trigger | `keybind = <trigger>=unbind` (matches by key) |
+| tmux | additive | adds a key | `unbind` (merged inside the tmux parser) |
+| vim | additive | adds a mapping | `unmap`, or a map to `<Nop>` (matches by key) |
+| zsh | additive | adds a binding | `bindkey -r` |
+| bash | additive | adds a binding | `bind -r` |
+| Chrome | additive | extension commands only, no overlap with defaults | none |
+| Obsidian | replace | replaces the command's hotkeys | empty hotkey list |
+| macOS System | replace | replaces the hotkey | hotkey disabled |
+| Finder | — | cheatsheet only, no parser | — |
+
+Rules (overrides match defaults by `source` + `rawCommand`, ignoring the VS Code `-` removal prefix):
+
+1. **Removal** (`isUnbound`): marks the matching defaults unbound (`isUnbound: true`, `origin: 'user-config'`) instead of adding an entry. It matches by command and, when the removal names a key, by that key too. A removal whose command the cheatsheet does not know (Ghostty `unbind`, vim `unmap`) matches defaults by key alone. A removal that matches no default is listed as its own entry.
+2. **Binding, additive**: the default stays (`isDefault: true`, `origin: 'cheatsheet'`) and the user binding is added next to it (`isDefault: false`, `origin: 'user-config'`) with the cheatsheet's label and category. A binding on the exact key of the default is one entry: the default becomes the user entry (also undoing an earlier removal of it, e.g. VS Code `-X` then `X` on the same key).
+3. **Binding, replace**: the first binding for a command takes over the default's entry (key, strokes, context); further bindings of the same command are added as entries of their own.
+4. Bindings for commands the cheatsheet does not know are added as `user-config` entries.
+5. Defaults no override touches keep `isDefault: true`, `origin: 'cheatsheet'`.
+
+Known limits: a user binding for a *different* command on a default's key does not shadow that default (in Ghostty and vim a trigger maps to one action, so `keybind = super+d=close_surface` really replaces the default ⌘D `new_split:right`, but both are listed); VS Code removals match on command and key, not on the `when` clause.
+
+**Special case (tmux, macOS System, Zsh, Bash, Obsidian):**
+Parser provides all data (defaults + user config). Cheatsheet has empty `shortcuts` array, serving only as metadata shell (id, label, icon, paths, `mergeMode`). Their `mergeMode` still records the app's semantics so a future cheatsheet merges correctly.
 
 #### Parser Registration
 

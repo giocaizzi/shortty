@@ -4,6 +4,7 @@
   "icon": "💻",
   "platforms": ["darwin", "win32", "linux"],
   "parser": "vscode",
+  "mergeMode": "additive",
   "lastVerified": { "version": "1.96", "date": "2026-04-01" },
   "defaultPaths": {
     "darwin": ["~/Library/Application Support/Code/User/keybindings.json"],

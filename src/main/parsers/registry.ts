@@ -207,7 +207,7 @@ export class ParserRegistry {
 
     // Merge: cheatsheet defaults + parser overrides
     if (cheatsheetDefaults.length > 0 && parserResults.length > 0) {
-      return mergeShortcuts(cheatsheetDefaults, parserResults);
+      return mergeShortcuts(cheatsheetDefaults, parserResults, source.cheatsheet?.mergeMode);
     }
     if (cheatsheetDefaults.length > 0) return cheatsheetDefaults;
     return parserResults;

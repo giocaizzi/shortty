@@ -48,6 +48,18 @@ describe('shipped cheatsheets', () => {
     ]);
   });
 
+  it('declares how each parsed source merges user bindings (docs/spec.md §6.2)', () => {
+    const modes = Object.fromEntries(files.map((f) => {
+      const data = JSON.parse(readFileSync(join(SOURCES, f), 'utf-8'));
+      return [data.id, data.mergeMode ?? null];
+    }));
+    expect(modes).toEqual({
+      bash: 'additive', chrome: 'additive', finder: null, ghostty: 'additive',
+      'macos-system': 'replace', obsidian: 'replace', tmux: 'additive',
+      vim: 'additive', vscode: 'additive', zsh: 'additive',
+    });
+  });
+
   for (const file of files) {
     describe(file, () => {
       const data = JSON.parse(readFileSync(join(SOURCES, file), 'utf-8'));

@@ -4,6 +4,7 @@
   "icon": "🐚",
   "platforms": ["darwin", "linux"],
   "parser": "zsh",
+  "mergeMode": "additive",
   "defaultPaths": {
     "darwin": ["~/.zshrc"],
     "linux": ["~/.zshrc"]

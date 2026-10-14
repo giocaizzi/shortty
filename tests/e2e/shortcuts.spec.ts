@@ -18,11 +18,14 @@ test.describe('shortcut search', () => {
     await expect(shortty.sectionHeader('Shortcuts')).toBeVisible();
   });
 
-  test('shows the user override with its context badge', async ({ shortty }) => {
+  test('shows the user binding with its context badge next to the default', async ({ shortty }) => {
     await shortty.show();
     await shortty.search.fill('toggle word wrap');
-    const row = shortty.win.getByTestId('shortcut-row').filter({ hasText: 'Toggle Word Wrap' });
-    await expect(row.first()).toContainText('editorFocus');
+    const rows = shortty.win.getByTestId('shortcut-row').filter({ hasText: 'Toggle Word Wrap' });
+    // VS Code keybindings add to the defaults (docs/spec.md §6.2).
+    await expect(rows).toHaveCount(2);
+    await expect(rows.filter({ hasText: 'editorFocus' })).toHaveCount(1);
+    await expect(rows.filter({ hasText: 'editorTextFocus' })).toHaveCount(1);
   });
 
   test('Enter copies the key combo of the selected shortcut', async ({ shortty }) => {

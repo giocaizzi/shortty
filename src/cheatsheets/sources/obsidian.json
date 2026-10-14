@@ -4,5 +4,6 @@
   "icon": "💎",
   "platforms": ["darwin", "win32", "linux"],
   "parser": "obsidian",
+  "mergeMode": "replace",
   "shortcuts": []
 }

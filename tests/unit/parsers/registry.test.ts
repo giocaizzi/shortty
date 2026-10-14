@@ -47,9 +47,17 @@ describe('ParserRegistry (bundled cheatsheets + fixture configs)', () => {
 
   it('applies VS Code overrides and removals onto the defaults', () => {
     const vscode = bySource('vscode');
+    // Re-binding the exact default key dedupes into one user entry.
     const reopen = vscode.filter((s) => s.rawCommand === 'workbench.action.reopenClosedEditor');
     expect(reopen).toHaveLength(1);
     expect(reopen[0]).toMatchObject({ key: '⇧⌘T', origin: 'user-config', isDefault: false });
+
+    // A new key for a command adds to its default (VS Code keybindings add).
+    const sidebar = vscode.filter((s) => s.rawCommand === 'workbench.action.toggleSidebarVisibility');
+    expect(sidebar.map((s) => [s.key, s.origin])).toEqual([
+      ['⌘B', 'cheatsheet'],
+      ['⇧⌘E', 'user-config'],
+    ]);
 
     const comment = vscode.filter((s) => s.rawCommand.replace(/^-/, '') === 'editor.action.commentLine');
     expect(comment).toHaveLength(1);
@@ -65,18 +73,23 @@ describe('ParserRegistry (bundled cheatsheets + fixture configs)', () => {
 
   it('merges Ghostty overrides without duplicating defaults', () => {
     const ghostty = bySource('ghostty');
+    // Re-binding the default key (⌘T) dedupes into one user entry.
     const newTab = ghostty.filter((s) => s.rawCommand === 'ghostty.new_tab');
     expect(newTab).toHaveLength(1);
-    expect(newTab[0].origin).toBe('user-config');
+    expect(newTab[0]).toMatchObject({ key: '⌘T', origin: 'user-config' });
 
     // `keybind = super+k=unbind` removes the default ⌘K clear_screen
     const clear = ghostty.find((s) => s.rawCommand === 'ghostty.clear_screen');
     expect(clear).toMatchObject({ key: '⌘K', isUnbound: true });
     expect(ghostty.some((s) => s.rawCommand === 'ghostty.unbind')).toBe(false);
 
-    // user override replaces the default key, keeps the cheatsheet label
-    const split = ghostty.find((s) => s.rawCommand === 'ghostty.new_split:right');
-    expect(split).toMatchObject({ key: '⇧⌘R', command: 'New Split Right' });
+    // Ghostty keybinds add triggers: the default ⌘D stays next to the
+    // user's ⇧⌘R, which keeps the cheatsheet label.
+    const split = ghostty.filter((s) => s.rawCommand === 'ghostty.new_split:right');
+    expect(split.map((s) => [s.key, s.origin, s.command])).toEqual([
+      ['⌘D', 'cheatsheet', 'New Split Right'],
+      ['⇧⌘R', 'user-config', 'New Split Right'],
+    ]);
   });
 
   it('gives every shortcut a unique id', () => {
