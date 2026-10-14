@@ -95,7 +95,7 @@ export class EnrichmentWorker {
         return {
           ...cmd,
           // A man page with only a NAME line (npm) still gives the best one-liner
-          description: cmd.description || manResult?.description || helpResult.longDescription || '',
+          description: cmd.description || manResult?.description || '',
           synopsis: helpResult.synopsis,
           longDescription: helpResult.longDescription,
           subcommands: helpResult.subcommands,
