@@ -449,6 +449,7 @@ The index holds one entry per executable. Subcommand names are a search key of t
 | Resume when | Window hidden or 5s idle |
 | Batch save | Every 50 commands enriched |
 | Priority | Commands with man pages first |
+| Drill-in | A command opened in the detail view before the worker reached it is enriched at once (`commands:getDetail`), even while paused; its `--help` still waits for the one-at-a-time slot and the worker skips it afterwards |
 | First launch | Enrichment starts immediately |
 
 **Enrichment source discovery:**

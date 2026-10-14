@@ -11,7 +11,8 @@ Legend: **done** · **deferred** (wanted, not in v1) · **not doing** (out of sc
 - **done**: merge layer by `source` + `rawCommand`, including VS Code unbinds (`-cmd`) and Ghostty ids; tmux always merges `list-keys` defaults with config binds.
 - **done**: path resolver with `$XDG_CONFIG_HOME` → `~/.config` fallback; path overrides re-resolve and re-detect without restart.
 - **done**: file watcher handles `change`, `add` and `unlink`, so configs created after startup are picked up.
-- **deferred**: Zsh and Bash defaults (`bindkey -L`, `bind -p`); both parse only the user's rc files, so a user without custom binds sees an empty source.
+- **done**: Zsh and Bash defaults from the shell itself (`zsh -f` `bindkey -L`, emacs or viins/vicmd after `bindkey -v`; `bash --norc -i` `bind -p`), sandboxed and cached per binary path + mtime, noise filtered, rc binds merged by keymap + key (`src/main/parsers/shell-defaults.ts`). On this Mac: 81 zsh 5.9 emacs defaults (102 in vi mode), 89 bash 3.2 defaults.
+- **deferred**: Bash vi-mode defaults (`set editing-mode vi` / `set -o vi` still lists the emacs defaults); zsh vi mode is detected only from `bindkey -v`, not `set -o vi` or `$EDITOR`.
 - **deferred**: tmux and macOS-system parsers still call `execFileSync` on the main thread at startup.
 - **not doing**: vim cheatsheet ↔ `.vimrc` merge (user maps are additive), `minVersion` filtering, Neovim Lua.
 
@@ -23,7 +24,7 @@ Legend: **done** · **deferred** (wanted, not in v1) · **not doing** (out of sc
 - **done**: enrichment worker: man pages 3 at a time, `--help` one at a time, paused while the launcher is visible (resumes on hide or after 5s); a stopped worker emits nothing.
 - **done**: `--help` sandbox: env allowlist, temp cwd, stdin closed, 2s SIGKILL to the process group, 1 MB output cap; blocklist and owner checks also on subcommand drill-in.
 - **done**: on-demand recursive subcommand drill-in (replaces the expanded index; spec §7.4).
-- **deferred**: drilling into an unenriched top-level command does not enrich it on demand; the view waits for the background worker (`getCommandDetail` is exposed in the preload but unused by the renderer).
+- **done**: drilling into an unenriched command enriches it on demand (`getCommandDetail` → `CommandsEngine.enrichNow`), ahead of the paused background worker, keeping `--help` one at a time; the view shows "Enriching..." meanwhile.
 - **deferred**: cache writes are synchronous (`writeFileSync`).
 - **not doing**: zsh/bash completion files as enrichment sources; Windows `--help`-only path.
 
@@ -40,7 +41,7 @@ Legend: **done** · **deferred** (wanted, not in v1) · **not doing** (out of sc
 
 - **done**: collapsible 750px window (72px / 180px / 580px), on the display under the cursor.
 - **done**: Vaise-style rows, source monogram tiles, footer with status and key hints, `?` button and hotkey hint in the search bar.
-- **done**: light/dark tokens following the Theme setting; reduced motion and reduced transparency.
+- **done**: light/dark tokens following the Theme setting (KeyCombo included, no white utilities left in it); reduced motion and reduced transparency.
 - **done**: drilled source lists every entry by category; Esc/←/Backspace restore the previous level (query, expanded sections, selection).
 - **done**: "Show all" as a keyboard-selectable row; Tab never leaves the field; selection scrolls into view.
 - **done**: command detail follows the live command (fills in when enrichment lands); "Source: man page / --help" line.
@@ -60,13 +61,13 @@ Legend: **done** · **deferred** (wanted, not in v1) · **not doing** (out of sc
 
 - **done**: System Settings-like design, light/dark, keyboard navigation in the sidebar.
 - **done**: shortcut recorder by physical key, labelled for the user's layout.
-- **done**: Sources: ✓/✗ per path, `~` display, save on blur/Enter, Browse… (native picker), Reset, warning for a missing path.
+- **done**: Sources: ✓/✗ per path, `~` display, save on blur/Enter, Browse… (native picker), Reset, warning for a missing path; the same monogram tiles as the launcher (`SourceIcon`).
 - **done**: Search (weights, fuzziness, prefix mode, limits) and Commands (toggle, progress, status).
 - **deferred**: Obsidian multi-path list with add/remove (a single custom path field only).
 
 ## Quality
 
-- **done**: unit and component tests (`tests/unit/**`, `tests/components/**`), including `App` navigation, registry, merge, path resolver, commands engine and worker, shell-env, window geometry. **Deferred:** no automated test covers the file watcher (`src/main/watcher.ts`).
+- **done**: unit and component tests (`tests/unit/**`, `tests/components/**`), including `App` navigation, registry, merge, path resolver, commands engine and worker, shell-env, window geometry, and the file watcher (`tests/unit/main/watcher.test.ts`, real chokidar on a temp dir).
 - **done**: Playwright e2e suite on the built app in hermetic mode ([runbook](../runbooks/run-e2e-tests.md)); no known-bug markers left.
 - **done**: `make precommit` (lint, typecheck, test, knip) passes.
 - **done**: benchmark of the launcher ([benchmark.md](benchmark.md)).

@@ -269,7 +269,7 @@ Command hasn't been enriched yet by the background worker.
 ```
 
 - Shows the description (from `apropos`)
-- "Enriching..." text until the background worker reaches the command
+- "Enriching..." text while the command is enriched on demand (drilling in asks for it at once instead of waiting for the background worker)
 - The view follows the live command: it fills in with subcommands and flags as soon as enrichment lands, without leaving and re-entering
 - When enrichment found nothing: "No subcommands or flags documented"
 
