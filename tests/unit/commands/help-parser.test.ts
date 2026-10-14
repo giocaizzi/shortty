@@ -9,21 +9,42 @@ vi.mock('../../../src/main/commands/sandbox-exec', () => ({
 
 vi.mock('node:fs/promises', () => ({
   stat: vi.fn(),
+  realpath: vi.fn(),
+  open: vi.fn(),
 }));
 
 import { runSandboxed } from '../../../src/main/commands/sandbox-exec';
-import { stat } from 'node:fs/promises';
+import { open, realpath, stat } from 'node:fs/promises';
 
 const mockRun = vi.mocked(runSandboxed);
 const mockStat = vi.mocked(stat);
+const mockRealpath = vi.mocked(realpath);
+const mockOpen = vi.mocked(open);
+
+const MACH_O = Buffer.from('cffaedfe', 'hex');
+const SHEBANG = Buffer.from('#!/b');
+
+/** The binary's first bytes, as read by the trust check. */
+function setMagic(bytes: Buffer) {
+  mockOpen.mockResolvedValue({
+    read: async (buf: Buffer) => ({ bytesRead: bytes.copy(buf), buffer: buf }),
+    close: async () => undefined,
+  } as unknown as Awaited<ReturnType<typeof open>>);
+}
+
+function setStat(uid: number, mode = 0o100755) {
+  mockStat.mockResolvedValue({ uid, mode } as Awaited<ReturnType<typeof stat>>);
+}
 
 function setupMocks(helpOutput: string, overrides: Partial<Awaited<ReturnType<typeof runSandboxed>>> = {}) {
-  mockStat.mockResolvedValue({ uid: 0 } as Awaited<ReturnType<typeof stat>>);
+  setStat(0);
+  setMagic(MACH_O);
   mockRun.mockResolvedValue({ output: helpOutput, exitCode: 0, timedOut: false, truncated: false, ...overrides });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockRealpath.mockImplementation(async (p) => String(p));
 });
 
 const DOCKER_HELP = `Usage:  docker [OPTIONS] COMMAND
@@ -158,9 +179,72 @@ describe('parseHelp', () => {
 
   it('skips binaries owned by another user', async () => {
     setupMocks(SIMPLE_HELP);
-    mockStat.mockResolvedValue({ uid: 4242 } as Awaited<ReturnType<typeof stat>>);
+    setStat(4242);
     expect(await parseHelp('mytool', '/usr/local/bin/mytool')).toBeNull();
     expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  it('skips group- or world-writable binaries', async () => {
+    setupMocks(SIMPLE_HELP);
+    for (const mode of [0o100775, 0o100757, 0o100777]) {
+      setStat(0, mode);
+      expect(await parseHelp('mytool', '/usr/bin/mytool')).toBeNull();
+    }
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  it('probes native executables anywhere, including user-owned ones', async () => {
+    setupMocks(SIMPLE_HELP);
+    setStat(process.getuid?.() ?? 501);
+    expect(await parseHelp('mytool', '/Users/me/bin/mytool')).not.toBeNull();
+    setMagic(Buffer.from('7f454c46', 'hex'));
+    expect(await parseHelp('mytool', '/Users/me/bin/mytool')).not.toBeNull();
+    expect(mockRun).toHaveBeenCalledTimes(2);
+  });
+
+  it('never probes a user script outside the trusted install prefixes', async () => {
+    setupMocks(SIMPLE_HELP);
+    setStat(process.getuid?.() ?? 501);
+    setMagic(SHEBANG);
+    for (const bin of ['/Users/me/bin/deploy', '/Users/me/.local/bin/deploy', '/tmp/x/deploy']) {
+      expect(await parseHelp('deploy', bin)).toBeNull();
+    }
+    expect(await parseSubcommandHelp('/Users/me/bin/deploy', ['prod'], 'deploy prod')).toBeNull();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  it('probes scripts under system and package-manager prefixes (resolved path)', async () => {
+    setupMocks(SIMPLE_HELP);
+    setMagic(SHEBANG);
+    for (const bin of ['/usr/bin/tool', '/opt/homebrew/lib/node_modules/npm/bin/npm-cli.js', '/nix/store/abc-tool/bin/tool']) {
+      expect(await parseHelp('tool', bin)).not.toBeNull();
+    }
+    // ~/.local/bin/ruff -> ~/.local/share/uv/tools/ruff/bin/ruff: judged by where it lives
+    mockRealpath.mockResolvedValue(`${process.env.HOME}/.local/share/uv/tools/ruff/bin/ruff`);
+    expect(await parseHelp('ruff', `${process.env.HOME}/.local/bin/ruff`)).not.toBeNull();
+    expect(mockRun).toHaveBeenCalledTimes(4);
+  });
+
+  it('skips files that are neither native executables nor scripts', async () => {
+    setupMocks(SIMPLE_HELP);
+    setMagic(Buffer.from('PK\u0003\u0004'));
+    expect(await parseHelp('tool', '/usr/bin/tool')).toBeNull();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  it('refuses a blocklisted program reached through a symlink with another name', async () => {
+    setupMocks(SIMPLE_HELP);
+    mockRealpath.mockResolvedValue('/usr/bin/env');
+    expect(await parseHelp('myenv', '/usr/local/bin/myenv')).toBeNull();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+});
+
+describe('isBlocklisted', () => {
+  it('covers wrappers that execute their arguments', () => {
+    for (const name of ['env', 'xargs', 'nohup', 'nice', 'caffeinate', 'watch', 'sudo', 'doas', 'time', 'timeout', 'exec']) {
+      expect(isBlocklisted(name)).toBe(true);
+    }
   });
 });
 

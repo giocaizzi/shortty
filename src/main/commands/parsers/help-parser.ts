@@ -1,4 +1,6 @@
-import { stat } from 'node:fs/promises';
+import { open, realpath, stat } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { basename, join, sep } from 'node:path';
 import type { ArgumentDetail, CommandDetail, FlagDetail, SubcommandDetail } from '../../../shared/types';
 import {
   parseFlagsFromText,
@@ -27,19 +29,86 @@ const BLOCKLIST = new Set([
   'sudo', 'su', 'login', 'passwd', 'dscl', 'dseditgroup',
   // GUI apps that open windows when invoked
   'jconsole', 'electron',
+  // Wrappers that run their arguments as a command: on implementations
+  // without a --help flag, `wrapper --help` would execute "--help" (or worse)
+  'env', 'xargs', 'nohup', 'nice', 'renice', 'caffeinate', 'watch', 'doas',
+  'time', 'timeout', 'gtimeout', 'exec', 'command', 'builtin', 'chroot',
+  'sandbox-exec', 'stdbuf', 'gstdbuf', 'unbuffer', 'script', 'setsid', 'flock',
+  'ionice', 'taskset', 'chrt', 'pkexec', 'runuser', 'sg', 'newgrp', 'arch',
+  'parallel', 'entr',
 ]);
 
 export function isBlocklisted(name: string): boolean {
   return BLOCKLIST.has(name);
 }
 
-/** Help output is only trusted from binaries owned by root or the current user. */
+/**
+ * Install prefixes whose `#!` scripts may be probed with `--help` (see
+ * docs/commands-safety.md): system directories and package managers, whose
+ * scripts are packaged CLIs that implement --help. Scripts anywhere else
+ * (~/bin, ~/.local/bin, project dirs) are the user's own and may act on any
+ * argument, so they get man-page/whatis data only. Matched against the
+ * resolved (symlink-free) path.
+ */
+function trustedScriptPrefixes(): string[] {
+  const home = homedir();
+  const prefixes = [
+    '/usr/', '/bin/', '/sbin/', '/System/', '/Library/Apple/',
+    '/opt/homebrew/', '/opt/local/', '/nix/store/',
+    join(home, '.cargo', 'bin') + sep,
+    join(home, '.rustup', 'toolchains') + sep,
+    join(home, '.local', 'share', 'uv', 'tools') + sep,
+    join(home, '.local', 'pipx', 'venvs') + sep,
+  ];
+  // The e2e suite's fake CLIs are scripts in its hermetic dir (docs/e2e.md)
+  const e2eDir = process.env.SHORTTY_E2E === '1' ? process.env.SHORTTY_E2E_DIR : undefined;
+  if (e2eDir) prefixes.push(join(e2eDir, 'bin') + sep);
+  return prefixes;
+}
+
+const NATIVE_MAGICS = [
+  'feedface', 'feedfacf', 'cefaedfe', 'cffaedfe', // Mach-O 32/64, both byte orders
+  'cafebabe', 'bebafeca', // Mach-O universal (fat)
+  '7f454c46', // ELF
+];
+
+async function readMagic(path: string): Promise<Buffer | null> {
+  let handle: Awaited<ReturnType<typeof open>> | undefined;
+  try {
+    handle = await open(path, 'r');
+    const buf = Buffer.alloc(4);
+    const { bytesRead } = await handle.read(buf, 0, 4, 0);
+    return buf.subarray(0, bytesRead);
+  } catch {
+    return null;
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
+}
+
+/**
+ * Whether `binPath --help` may be run (SPECS §7.5, docs/commands-safety.md):
+ * never as root; only files owned by root or the current user and not
+ * writable by group or others; native executables anywhere, `#!` scripts
+ * only under trusted install prefixes; never a blocklisted program reached
+ * through a symlink with another name.
+ */
 async function isTrustedBinary(binPath: string): Promise<boolean> {
-  // Never run help as root (docs/spec.md §7.5)
   if (process.getuid?.() === 0) return false;
   try {
-    const s = await stat(binPath);
-    return s.uid === 0 || s.uid === process.getuid?.();
+    const real = await realpath(binPath);
+    if (isBlocklisted(basename(real))) return false;
+    const s = await stat(real);
+    if (s.uid !== 0 && s.uid !== process.getuid?.()) return false;
+    if ((s.mode & 0o022) !== 0) return false;
+
+    const magic = await readMagic(real);
+    if (!magic || magic.length < 2) return false;
+    if (NATIVE_MAGICS.includes(magic.toString('hex'))) return true;
+    if (magic[0] === 0x23 && magic[1] === 0x21) {
+      return trustedScriptPrefixes().some((prefix) => real.startsWith(prefix));
+    }
+    return false;
   } catch {
     return false;
   }
