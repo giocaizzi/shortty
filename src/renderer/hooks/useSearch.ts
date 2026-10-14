@@ -21,6 +21,39 @@ const EMPTY_RESULTS: SearchResults = {
   totalCommands: 0,
 };
 
+/** Command search weights (SPECS §8.3): name, description, subcommand names. */
+export const COMMAND_FUSE_OPTIONS: IFuseOptions<Command> = {
+  keys: [
+    { name: 'name', weight: 0.5 },
+    { name: 'description', weight: 0.3 },
+    // "commit" finds git via "git commit", "compose" finds docker
+    { name: 'subcommands.name', weight: 0.2 },
+  ],
+  threshold: 0.35,
+  ignoreLocation: true,
+  includeScore: true,
+};
+
+/**
+ * Fuse scores "ls" inside "gnutls-cli" as well as the ls command itself
+ * (ignoreLocation), so rank an exact name first, then name prefixes, then
+ * the Fuse order.
+ */
+export function searchCommands(fuse: Fuse<Command>, term: string): Command[] {
+  const lower = term.toLowerCase();
+  const tier = (name: string) => {
+    const n = name.toLowerCase();
+    if (n === lower) return 0;
+    if (n.startsWith(lower)) return 1;
+    return 2;
+  };
+  return fuse
+    .search(term)
+    .map((r, i) => ({ item: r.item, tier: tier(r.item.name), i }))
+    .sort((a, b) => a.tier - b.tier || a.i - b.i)
+    .map((r) => r.item);
+}
+
 interface UseSearchReturn {
   query: string;
   setQuery: (q: string) => void;
@@ -55,27 +88,14 @@ export function useSearch(
     [searchSettings],
   );
 
-  const commandFuseOptions = useMemo(
-    (): IFuseOptions<Command> => ({
-      keys: [
-        { name: 'name', weight: 0.5 },
-        { name: 'description', weight: 0.3 },
-      ],
-      threshold: 0.35,
-      ignoreLocation: true,
-      includeScore: true,
-    }),
-    [],
-  );
-
   const shortcutFuse = useMemo(
     () => new Fuse(shortcuts, shortcutFuseOptions),
     [shortcuts, shortcutFuseOptions],
   );
 
   const commandFuse = useMemo(
-    () => new Fuse(commands, commandFuseOptions),
-    [commands, commandFuseOptions],
+    () => new Fuse(commands, COMMAND_FUSE_OPTIONS),
+    [commands],
   );
 
   const results = useMemo((): SearchResults => {
@@ -88,9 +108,7 @@ export function useSearch(
     if (!searchTerm) return EMPTY_RESULTS;
 
     // Search commands
-    const allCommandResults = commandFuse
-      .search(searchTerm)
-      .map((r) => r.item);
+    const allCommandResults = searchCommands(commandFuse, searchTerm);
 
     if (isCommandOnly) {
       return {
