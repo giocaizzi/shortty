@@ -67,18 +67,6 @@ function prefersReducedMotion(): boolean {
   );
 }
 
-/**
- * The main-process hide IPC, when the preload exposes it.
- * TODO(WP-A): call `window.electronAPI.hide()` directly once the `hide` IPC
- * is on ElectronAPI. Until then dismissing falls back to `window.blur()`,
- * which does not hide a BrowserWindow.
- */
-function getHide(): (() => void) | null {
-  const api = window.electronAPI;
-  if (!api || !('hide' in api)) return null;
-  const hide: unknown = api.hide;
-  return typeof hide === 'function' ? () => hide.call(api) : null;
-}
 
 export function App() {
   const { shortcuts, sources, loading } = useShortcuts();
@@ -156,22 +144,38 @@ export function App() {
     timers.current.push(setTimeout(fn, ms));
   }, []);
 
-  // Full reset on every show (SPECS §10.1)
+  // Full reset (SPECS §10.1). Done when the window hides, so the old query
+  // never flashes on the next show, and again on show for safety.
+  const resetAll = useCallback(() => {
+    clearTimers();
+    setNavStack([ROOT]);
+    setQuery('');
+    setSelectedIndex(0);
+    setExpanded(NONE_EXPANDED);
+    setCopyFlashIndex(null);
+    setCopied(null);
+    setShowHelp(false);
+    setExiting(false);
+  }, [setQuery, clearTimers]);
+
   useEffect(() => {
     const api = window.electronAPI;
     if (!api) return;
-    return api.onWindowShown(() => {
-      clearTimers();
-      setNavStack([ROOT]);
-      setQuery('');
-      setSelectedIndex(0);
-      setExpanded(NONE_EXPANDED);
-      setCopyFlashIndex(null);
-      setCopied(null);
-      setShowHelp(false);
-      setExiting(false);
+    const unsubShown = api.onWindowShown(resetAll);
+    const unsubHidden = api.onWindowHidden(resetAll);
+    // Every hide (Esc, copy, blur, hotkey) plays the exit animation first;
+    // main waits for this promise (or ~120ms) before hiding.
+    const unsubWillHide = api.onWindowWillHide(() => {
+      if (prefersReducedMotion()) return;
+      setExiting(true);
+      return new Promise<void>((resolve) => setTimeout(resolve, EXIT_ANIMATION_MS));
     });
-  }, [setQuery, clearTimers]);
+    return () => {
+      unsubShown();
+      unsubHidden();
+      unsubWillHide();
+    };
+  }, [resetAll]);
 
   useEffect(() => clearTimers, [clearTimers]);
 
@@ -214,20 +218,11 @@ export function App() {
     }
   }, [sel, groups, navStack, detailData]);
 
+  /** Hide the panel; main asks for the exit animation (onWindowWillHide). */
   const dismiss = useCallback(() => {
     clearTimers();
-    const hide = getHide();
-    if (!hide) {
-      window.blur();
-      return;
-    }
-    if (prefersReducedMotion()) {
-      hide();
-      return;
-    }
-    setExiting(true);
-    later(hide, EXIT_ANIMATION_MS);
-  }, [clearTimers, later]);
+    window.electronAPI?.hideWindow();
+  }, [clearTimers]);
 
   const copy = useCallback(
     (text: string, index: number) => {

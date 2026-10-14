@@ -93,8 +93,6 @@ test('baseline benchmark', async () => {
     shortcuts: (await window.electronAPI.getAllKeybindings()).length,
     commands: (await window.electronAPI.getAllCommands()).length,
   }));
-  // The ">" queries below need prefix mode, whatever the default is.
-  await shortty.setSetting('commandPrefixMode', true);
 
   const showStart = Date.now();
   await shortty.show();

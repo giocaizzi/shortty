@@ -5,8 +5,6 @@ test.describe('commands from the fixture PATH', () => {
     await waitForEnrichment(shortty);
     // Keep the panel open across copies so a test can chain actions.
     await shortty.setSetting('dismissAfterCopy', false);
-    // These tests use the ">" prefix; pin the mode whatever the default is.
-    await shortty.setSetting('commandPrefixMode', true);
     await shortty.show();
   });
 

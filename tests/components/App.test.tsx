@@ -40,6 +40,8 @@ const COMMANDS = [
 ];
 
 let shownListeners: (() => void)[] = [];
+let hiddenListeners: (() => void)[] = [];
+let willHide: (() => void | Promise<void>) | undefined;
 let api: Record<string, ReturnType<typeof vi.fn>>;
 const writeText = vi.fn();
 
@@ -55,6 +57,8 @@ function settingsWith(overrides: Partial<AppSettings>): AppSettings {
 
 function setup(overrides: Partial<AppSettings> = {}) {
   shownListeners = [];
+  hiddenListeners = [];
+  willHide = undefined;
   api = {
     getSources: vi.fn().mockResolvedValue(SOURCES),
     getAllKeybindings: vi.fn().mockResolvedValue(SHORTCUTS),
@@ -73,7 +77,15 @@ function setup(overrides: Partial<AppSettings> = {}) {
     getSettings: vi.fn().mockResolvedValue(settingsWith(overrides)),
     onSettingsChange: vi.fn(() => vi.fn()),
     setWindowHeight: vi.fn(),
-    hide: vi.fn(),
+    hideWindow: vi.fn(),
+    onWindowHidden: vi.fn((cb: () => void) => {
+      hiddenListeners.push(cb);
+      return vi.fn();
+    }),
+    onWindowWillHide: vi.fn((cb: () => void | Promise<void>) => {
+      willHide = cb;
+      return vi.fn();
+    }),
   };
   window.electronAPI = api as unknown as ElectronAPI;
   render(
@@ -246,7 +258,7 @@ describe('App help, copy and dismiss', () => {
     expect(selectedRow()).toHaveClass('copy-flash');
     expect(screen.getByTestId('panel-footer')).toHaveTextContent('Copied⌘X');
     await waitFor(() => expect(selectedRow()).not.toHaveClass('copy-flash'));
-    expect(api.hide).not.toHaveBeenCalled();
+    expect(api.hideWindow).not.toHaveBeenCalled();
   });
 
   it('dismisses after the copy flash when "dismiss after copy" is on', async () => {
@@ -254,16 +266,26 @@ describe('App help, copy and dismiss', () => {
     await type(input, 'cut line');
     await screen.findAllByTestId('shortcut-row');
     press(input, 'Enter');
-    expect(api.hide).not.toHaveBeenCalled();
-    await waitFor(() => expect(api.hide).toHaveBeenCalledOnce());
+    expect(api.hideWindow).not.toHaveBeenCalled();
+    await waitFor(() => expect(api.hideWindow).toHaveBeenCalledOnce());
   });
 
-  it('Esc on an empty query plays the exit animation and hides the window', async () => {
+  it('Esc on an empty query asks main to hide the window', async () => {
     const input = setup();
     await type(input, '');
     press(input, 'Escape');
+    expect(api.hideWindow).toHaveBeenCalledOnce();
+  });
+
+  it('plays the exit animation before main hides the window', async () => {
+    setup();
+    await waitFor(() => expect(willHide).toBeDefined());
+    let pending: void | Promise<void> = undefined;
+    act(() => {
+      pending = willHide?.();
+    });
     expect(screen.getByRole('dialog', { name: /Shortty/ })).toHaveClass('panel-exit');
-    await waitFor(() => expect(api.hide).toHaveBeenCalledOnce());
+    await expect(pending).resolves.toBeUndefined();
   });
 });
 
@@ -277,6 +299,17 @@ describe('App window lifecycle', () => {
     expect(screen.getByText('No matches for “zzzzqqq”')).toBeInTheDocument();
     fireEvent.change(input, { target: { value: 'toggle' } });
     expect(api.setWindowHeight).toHaveBeenLastCalledWith(580);
+  });
+
+  it('resets the query when the window hides, so it never flashes on reopen', async () => {
+    const input = setup();
+    await type(input, 'toggle');
+    await screen.findAllByTestId('shortcut-row');
+    act(() => {
+      for (const listener of [...hiddenListeners]) listener();
+    });
+    expect(input).toHaveValue('');
+    expect(screen.queryByTestId('shortcut-row')).not.toBeInTheDocument();
   });
 
   it('resets everything on show, replays the show animation and does not refetch the data', async () => {
