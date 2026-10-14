@@ -63,7 +63,10 @@ export class ChromeParser extends BaseParser {
             searchKey,
             strokes,
             command: commandName,
-            rawCommand: shortcutKey,
+            // Identity is the extension command, not the key it is bound to.
+            rawCommand: shortcutData.extension && shortcutData.command_name
+              ? `${shortcutData.extension}/${shortcutData.command_name}`
+              : shortcutKey,
             context: shortcutData.global ? 'global' : undefined,
             isDefault: false,
             isUnbound: false,

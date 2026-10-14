@@ -35,7 +35,7 @@ describe('ChromeParser', () => {
   it('keeps _execute_action shortcuts (previously dropped)', async () => {
     parser.setConfigPaths([PROFILE_PREFS]);
     const result = await parser.parse();
-    expect(result.some((kb) => kb.rawCommand === 'mac:Alt+Shift+P')).toBe(true);
+    expect(result.some((kb) => kb.rawCommand === 'bfnaelmomeimhlpmgjnjophhpkkoljpa/_execute_action' && kb.key === '⌥⇧P')).toBe(true);
   });
 
   it('reads descriptions stored inline (older profiles)', async () => {
