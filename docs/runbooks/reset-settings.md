@@ -26,6 +26,11 @@ clearing the commands cache or logs: this resets settings only.
    opens no window.
 4. Start Shortty normally.
 
+A hand-edited `config.json` with an invalid value does not need this: at
+startup every invalid key falls back to its default (object settings field by
+field) and the log says `Invalid settings reset to defaults: <keys>`
+(`src/main/settings-validation.ts`).
+
 The commands cache and logs are not touched. Settings live in
 `config.json` under the app's `userData` directory
 (`~/Library/Application Support/Shortty/` on macOS).

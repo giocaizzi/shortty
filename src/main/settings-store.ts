@@ -1,6 +1,7 @@
 import Store from 'electron-store';
 import type { AppSettings } from '../shared/settings';
 import { DEFAULT_SETTINGS } from '../shared/settings';
+import { sanitizeSettings } from './settings-validation';
 
 const store = new Store<AppSettings>({
   defaults: DEFAULT_SETTINGS,
@@ -21,6 +22,17 @@ export function setSetting<K extends keyof AppSettings>(
   value: AppSettings[K],
 ): void {
   store.set(key, value);
+}
+
+/**
+ * Replace invalid stored values (e.g. a hand-edited config.json) with their
+ * defaults before anything applies them. Returns the repaired keys.
+ */
+export function repairSettings(): string[] {
+  const repaired = sanitizeSettings(store.store as unknown as Record<string, unknown>);
+  const keys = Object.keys(repaired);
+  if (keys.length > 0) store.set({ ...store.store, ...repaired });
+  return keys;
 }
 
 /** Restore every setting to its default (`shortty --reset-settings`). */

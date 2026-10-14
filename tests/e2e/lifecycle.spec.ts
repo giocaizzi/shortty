@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { test, expect, createHermeticEnv } from './fixtures';
+import { test, expect, createHermeticEnv, launchShortty } from './fixtures';
 
 const ROOT = path.resolve(__dirname, '../..');
 // In Node, the electron package exports the path of its binary.
@@ -113,6 +113,31 @@ test.describe('main-process lifecycle', () => {
 
   test('`--reset-settings` refuses to run while Shortty is running', async ({ shortty }) => {
     expect(await runToExit(['--reset-settings'], shortty.hermetic.env)).toBe(1);
+  });
+
+  test('invalid values in a hand-edited config.json fall back to defaults per key', async () => {
+    const shortty = await launchShortty({ theme: 'bogus', windowPosition: 42, showMenuBar: false });
+    try {
+      const settings = await shortty.win.evaluate(() => window.electronAPI.getSettings());
+      expect(settings).toMatchObject({ theme: 'system', windowPosition: 'top-center', showMenuBar: false });
+      await shortty.show();
+      const saved = JSON.parse(
+        readFileSync(path.join(shortty.hermetic.dir, 'userData', 'config.json'), 'utf8'),
+      );
+      expect(saved.theme).toBe('system');
+    } finally {
+      await shortty.app.close();
+      rmSync(shortty.hermetic.dir, { recursive: true, force: true });
+    }
+  });
+
+  test('SETTINGS_SET rejects an invalid value without saving it', async ({ shortty }) => {
+    const result = await shortty.win.evaluate(() =>
+      window.electronAPI.setSetting('theme', 'bogus'),
+    );
+    expect(result.success).toBe(false);
+    const settings = await shortty.win.evaluate(() => window.electronAPI.getSettings());
+    expect(settings.theme).toBe('system');
   });
 
   test('the app menu has no Close item, so ⌘W cannot destroy the launcher', async ({ shortty }) => {

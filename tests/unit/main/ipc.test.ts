@@ -97,6 +97,22 @@ describe('SETTINGS_SET globalShortcut', () => {
     expect(setSetting).not.toHaveBeenCalled();
   });
 
+  it('rejects invalid values and unknown keys before applying or saving them', () => {
+    setSetting.mockClear();
+    changeGlobalShortcut.mockClear();
+    for (const [key, value] of [
+      ['theme', 'bogus'],
+      ['globalShortcut', ''],
+      ['globalShortcut', 7],
+      ['resultLimits', { sources: -1 }],
+      ['notASetting', true],
+    ] as const) {
+      expect(set(key, value)).toEqual({ success: false, error: expect.any(String) });
+    }
+    expect(changeGlobalShortcut).not.toHaveBeenCalled();
+    expect(setSetting).not.toHaveBeenCalled();
+  });
+
   it('other settings are saved directly', () => {
     setSetting.mockClear();
     changeGlobalShortcut.mockClear();

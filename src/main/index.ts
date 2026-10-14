@@ -19,6 +19,7 @@ import {
   getSettings,
   getSetting,
   onSettingsChange,
+  repairSettings,
   resetSettings,
 } from './settings-store';
 import { syncTray, destroyTray, isTrayVisible } from './tray';
@@ -282,71 +283,79 @@ function applyInitialSettings(): void {
 
 function setupSettingsChangeListener(): void {
   onSettingsChange((newSettings, oldSettings) => {
-    // Theme
-    if (newSettings.theme !== oldSettings.theme) {
-      log.info(`Theme changed: ${oldSettings.theme} -> ${newSettings.theme}`);
-      nativeTheme.themeSource = newSettings.theme;
+    // A throw here would be an uncaught exception in the store's emitter
+    try {
+      applySettingsChange(newSettings, oldSettings);
+    } catch (err) {
+      log.error('Failed to apply settings change', err);
     }
-
-    // Dock visibility (macOS)
-    if (
-      newSettings.showDockIcon !== oldSettings.showDockIcon &&
-      process.platform === 'darwin' &&
-      app.dock
-    ) {
-      if (newSettings.showDockIcon) {
-        app.dock.show();
-      } else {
-        app.dock.hide();
-      }
-    }
-
-    // Menu bar icon
-    if (newSettings.showMenuBar !== oldSettings.showMenuBar) {
-      syncTray(newSettings.showMenuBar, trayCallbacks);
-    }
-
-    // Launch at login (never registered by e2e runs)
-    if (newSettings.launchAtLogin !== oldSettings.launchAtLogin && !isE2E) {
-      app.setLoginItemSettings({
-        openAtLogin: newSettings.launchAtLogin,
-      });
-    }
-
-    // The global shortcut is applied by changeGlobalShortcut() before saving.
-
-    // Commands engine toggle
-    if (newSettings.commandsEnabled !== oldSettings.commandsEnabled) {
-      log.info(`Commands engine ${newSettings.commandsEnabled ? 'enabled' : 'disabled'}`);
-      if (newSettings.commandsEnabled && !commandsEngine) {
-        commandsEngine = createCommandsEngine();
-        commandsEngine.initialize().catch((err) => {
-          log.error('Commands engine failed to initialize', err);
-        });
-      } else if (!newSettings.commandsEnabled && commandsEngine) {
-        commandsEngine.stop();
-        commandsEngine = null;
-      }
-    }
-
-    // Parser enable/disable or path overrides change
-    if (
-      JSON.stringify(newSettings.disabledParsers) !==
-        JSON.stringify(oldSettings.disabledParsers) ||
-      JSON.stringify(newSettings.sourcePathOverrides) !==
-        JSON.stringify(oldSettings.sourcePathOverrides)
-    ) {
-      parserRegistry
-        .updateActiveParsers(newSettings.disabledParsers, newSettings.sourcePathOverrides)
-        .then(() => {
-          restartWatching(parserRegistry, launcherAlive);
-        })
-        .catch((err) => log.error('Failed to update active parsers', err));
-    }
-
     // Broadcast to all renderer windows
     broadcastSettingsChange(newSettings);
   });
+}
+
+function applySettingsChange(newSettings: AppSettings, oldSettings: AppSettings): void {
+  // Theme
+  if (newSettings.theme !== oldSettings.theme) {
+    log.info(`Theme changed: ${oldSettings.theme} -> ${newSettings.theme}`);
+    nativeTheme.themeSource = newSettings.theme;
+  }
+
+  // Dock visibility (macOS)
+  if (
+    newSettings.showDockIcon !== oldSettings.showDockIcon &&
+    process.platform === 'darwin' &&
+    app.dock
+  ) {
+    if (newSettings.showDockIcon) {
+      app.dock.show();
+    } else {
+      app.dock.hide();
+    }
+  }
+
+  // Menu bar icon
+  if (newSettings.showMenuBar !== oldSettings.showMenuBar) {
+    syncTray(newSettings.showMenuBar, trayCallbacks);
+  }
+
+  // Launch at login (never registered by e2e runs)
+  if (newSettings.launchAtLogin !== oldSettings.launchAtLogin && !isE2E) {
+    app.setLoginItemSettings({
+      openAtLogin: newSettings.launchAtLogin,
+    });
+  }
+
+  // The global shortcut is applied by changeGlobalShortcut() before saving.
+
+  // Commands engine toggle
+  if (newSettings.commandsEnabled !== oldSettings.commandsEnabled) {
+    log.info(`Commands engine ${newSettings.commandsEnabled ? 'enabled' : 'disabled'}`);
+    if (newSettings.commandsEnabled && !commandsEngine) {
+      commandsEngine = createCommandsEngine();
+      commandsEngine.initialize().catch((err) => {
+        log.error('Commands engine failed to initialize', err);
+      });
+    } else if (!newSettings.commandsEnabled && commandsEngine) {
+      commandsEngine.stop();
+      commandsEngine = null;
+    }
+  }
+
+  // Parser enable/disable or path overrides change
+  if (
+    JSON.stringify(newSettings.disabledParsers) !==
+      JSON.stringify(oldSettings.disabledParsers) ||
+    JSON.stringify(newSettings.sourcePathOverrides) !==
+      JSON.stringify(oldSettings.sourcePathOverrides)
+  ) {
+    parserRegistry
+      .updateActiveParsers(newSettings.disabledParsers, newSettings.sourcePathOverrides)
+      .then(() => {
+        restartWatching(parserRegistry, launcherAlive);
+      })
+      .catch((err) => log.error('Failed to update active parsers', err));
+  }
 }
 
 function openPreferences(): void {
@@ -413,6 +422,11 @@ async function initCommands(): Promise<void> {
 
 async function startup(): Promise<void> {
   log.info('App starting');
+
+  // A hand-edited config.json must not make the app unusable: bad values
+  // fall back to their defaults (per key) before anything reads them.
+  const repaired = repairSettings();
+  if (repaired.length > 0) log.warn(`Invalid settings reset to defaults: ${repaired.join(', ')}`);
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(buildAppMenuTemplate(app.name, app.isPackaged)));
 

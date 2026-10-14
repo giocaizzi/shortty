@@ -7,6 +7,7 @@ import type { ParserRegistry } from './parsers/registry';
 import type { AppSettings } from '../shared/settings';
 import type { SourceStatus } from '../shared/types';
 import { getSettings, setSetting } from './settings-store';
+import { isSettingKey, validateSetting } from './settings-validation';
 import type { CommandsEngine } from './commands/engine';
 
 let registered = false;
@@ -85,13 +86,15 @@ export function registerIpcHandlers(
 
   ipcMain.handle(
     IPC_CHANNELS.SETTINGS_SET,
-    (_event, key: keyof AppSettings, value: unknown) => {
+    (_event, key: unknown, value: unknown) => {
       try {
+        // Validate before anything is applied or persisted
+        const invalid = validateSetting(key, value);
+        if (invalid !== null || !isSettingKey(key)) {
+          return { success: false, error: invalid ?? 'Invalid setting' };
+        }
         if (key === 'globalShortcut') {
-          if (typeof value !== 'string' || !value) {
-            return { success: false, error: 'Invalid shortcut' };
-          }
-          const error = callbacks.changeGlobalShortcut(value);
+          const error = callbacks.changeGlobalShortcut(value as string);
           if (error) return { success: false, error };
         }
         setSetting(key, value as AppSettings[typeof key]);
