@@ -19,6 +19,10 @@ npx playwright test tests/e2e/commands.spec.ts
 npx playwright test -g "drills into the command detail view"
 ```
 
+Runs are serialized machine-wide with `lockf` on `/tmp/shortty-e2e.lock`
+(override with `E2E_LOCK=`), so several worktrees can call `make e2e` at once
+without stealing each other's window focus; a waiting run blocks up to 1 h.
+
 `make e2e` is deliberately **not** part of `make check` / `make precommit`
 (it is slow and needs a desktop session). It runs on a local macOS machine; the
 window shows briefly for each test. Do not click elsewhere while it runs: the
