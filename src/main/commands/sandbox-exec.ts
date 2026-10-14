@@ -49,6 +49,8 @@ export function sandboxEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.Proces
 interface RunOptions {
   timeoutMs?: number;
   maxBytes?: number;
+  /** Extra variables set on top of the sandboxed environment. */
+  env?: NodeJS.ProcessEnv;
 }
 
 /**
@@ -59,7 +61,7 @@ interface RunOptions {
 export async function runSandboxed(
   bin: string,
   args: string[],
-  { timeoutMs = HELP_TIMEOUT_MS, maxBytes = HELP_MAX_BYTES }: RunOptions = {},
+  { timeoutMs = HELP_TIMEOUT_MS, maxBytes = HELP_MAX_BYTES, env = {} }: RunOptions = {},
 ): Promise<SandboxResult> {
   const cwd = await mkdtemp(join(tmpdir(), 'shortty-help-'));
   try {
@@ -67,7 +69,7 @@ export async function runSandboxed(
       const useGroup = process.platform !== 'win32';
       const child = spawn(bin, args, {
         cwd,
-        env: sandboxEnv(),
+        env: { ...sandboxEnv(), ...env },
         stdio: ['ignore', 'pipe', 'pipe'],
         detached: useGroup,
       });

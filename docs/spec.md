@@ -286,6 +286,8 @@ Known limits: a user binding for a *different* command on a default's key does n
 **Special case (tmux, macOS System, Zsh, Bash, Obsidian):**
 Parser provides all data (defaults + user config). Cheatsheet has empty `shortcuts` array, serving only as metadata shell (id, label, icon, paths, `mergeMode`). Their `mergeMode` still records the app's semantics so a future cheatsheet merges correctly.
 
+Zsh and Bash defaults come from the shell itself, started without rc files through the `--help` sandbox (`src/main/parsers/shell-defaults.ts`: temp cwd, stdin closed, env allowlist, timeout; Bash also gets `INPUTRC=/dev/null`) and cached per binary path + mtime. Noise is dropped (self-insert, digit arguments, unbound functions, keys listed twice). A config binding replaces the default on the same keymap + key, an unbind marks it unbound; a missing shell leaves only the config bindings.
+
 #### Parser Registration
 
 Parsers register via a code-level map:
@@ -354,8 +356,8 @@ Rebuild triggers:
 | VS Code | Curated (~150-200) | keybindings.json JSONC | all |
 | Ghostty | Curated (~30) | config file | darwin, linux |
 | tmux | Metadata only | config + `tmux list-keys` | darwin, linux |
-| Zsh | Metadata only | .zshrc bindkey | darwin, linux |
-| Bash | Metadata only | .inputrc + .bashrc bind | darwin, linux |
+| Zsh | Metadata only | .zshrc bindkey + `zsh -f` `bindkey -L` (emacs, or viins/vicmd after `bindkey -v`) | darwin, linux |
+| Bash | Metadata only | .inputrc + .bashrc bind + `bash --norc -i` `bind -p` (emacs) | darwin, linux |
 | Obsidian | Metadata only | hotkeys.json per vault | all |
 | Chrome | Curated (~50-60) | extension shortcuts | all |
 | macOS System | Metadata only | symbolichotkeys.plist | darwin |

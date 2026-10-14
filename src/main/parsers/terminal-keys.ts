@@ -13,7 +13,7 @@ import { type ParsedKey, type NormalizedKey, Modifier, normalizeSequence } from 
 /** One decoded input unit before grouping. */
 type Unit =
   | { kind: 'esc' }
-  | { kind: 'char'; char: string; ctrl: boolean; meta: boolean };
+  | { kind: 'char'; char: string; ctrl: boolean };
 
 const CSI_FINAL: Record<string, string> = {
   A: '↑', B: '↓', C: '→', D: '←', H: 'Home', F: 'End',
@@ -47,15 +47,13 @@ function xtermMods(param: string | undefined): Modifier[] {
 function tokenize(seq: string, caret: boolean): Unit[] {
   const units: Unit[] = [];
   let ctrl = false;
-  let meta = false;
   const push = (char: string) => {
     if (char === '\x1b' && !ctrl) {
       units.push({ kind: 'esc' });
     } else {
-      units.push({ kind: 'char', char, ctrl, meta });
+      units.push({ kind: 'char', char, ctrl });
     }
     ctrl = false;
-    meta = false;
   };
 
   for (let i = 0; i < seq.length; i++) {
@@ -63,24 +61,25 @@ function tokenize(seq: string, caret: boolean): Unit[] {
     if (caret && ch === '^' && i + 1 < seq.length) {
       const next = seq[++i];
       if (next === '[') push('\x1b');
-      else if (next === '?') { units.push({ kind: 'char', char: '?', ctrl: true, meta }); ctrl = false; meta = false; }
+      else if (next === '?') { units.push({ kind: 'char', char: '?', ctrl: true }); ctrl = false; }
       else { ctrl = true; push(next); }
       continue;
     }
     if (ch === '\\' && i + 1 < seq.length) {
       const next = seq[i + 1];
       if ((next === 'C' || next === 'M') && seq[i + 2] === '-') {
+        // `\M-x` is ESC x (readline's convert-meta), so `\M-[A` decodes as ↑.
         if (next === 'C') ctrl = true;
-        else meta = true;
+        else units.push({ kind: 'esc' });
         i += 2;
         continue;
       }
       i++;
       switch (next) {
         case 'e': case 'E': push('\x1b'); break;
-        case 't': units.push({ kind: 'char', char: 'I', ctrl: true, meta }); meta = false; break;
-        case 'n': case 'r': units.push({ kind: 'char', char: 'M', ctrl: true, meta }); meta = false; break;
-        case 'd': units.push({ kind: 'char', char: '?', ctrl: true, meta }); meta = false; break;
+        case 't': units.push({ kind: 'char', char: 'I', ctrl: true }); break;
+        case 'n': case 'r': units.push({ kind: 'char', char: 'M', ctrl: true }); break;
+        case 'd': units.push({ kind: 'char', char: '?', ctrl: true }); break;
         default: push(next);
       }
       continue;
@@ -92,7 +91,7 @@ function tokenize(seq: string, caret: boolean): Unit[] {
 
 function unitToKey(unit: Extract<Unit, { kind: 'char' }>, extraMeta: boolean): ParsedKey {
   const modifiers: Modifier[] = [];
-  if (unit.meta || extraMeta) modifiers.push(Modifier.Option);
+  if (extraMeta) modifiers.push(Modifier.Option);
   if (unit.ctrl) {
     const upper = unit.char.toUpperCase();
     if (CONTROL_NAMES[upper]) return { modifiers, key: CONTROL_NAMES[upper] };
@@ -119,14 +118,14 @@ function unitToKey(unit: Extract<Unit, { kind: 'char' }>, extraMeta: boolean): P
  */
 function readEscapeSequence(units: Unit[], i: number): { key: ParsedKey; used: number } | null {
   const first = units[i];
-  if (!first || first.kind !== 'char' || first.ctrl || first.meta) return null;
+  if (!first || first.kind !== 'char' || first.ctrl) return null;
   if (first.char !== '[' && first.char !== 'O') return null;
 
   let body = '';
   let j = i + 1;
   while (j < units.length) {
     const u = units[j];
-    if (u.kind !== 'char' || u.ctrl || u.meta) return null;
+    if (u.kind !== 'char' || u.ctrl) return null;
     body += u.char;
     j++;
     if (/[A-Za-z~]/.test(u.char)) break;

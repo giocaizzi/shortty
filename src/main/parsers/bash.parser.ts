@@ -5,6 +5,21 @@ import { BaseParser } from './base-parser';
 import { type NormalizedKey, Modifier, canonicalKeyName, normalizeSequence } from './key-normalizer';
 import { normalizeTerminalKey } from './terminal-keys';
 import { shellWords } from './zsh.parser';
+import { findOnPath, shellDefaults } from './shell-defaults';
+
+/** Readline functions that are not shortcuts worth listing. */
+const NOISE_FUNCTIONS = new Set([
+  'self-insert',
+  'do-lowercase-version',
+  'digit-argument',
+  'bracketed-paste-begin',
+]);
+
+/** Where default bindings come from, shown as their file path. */
+const DEFAULTS_SOURCE = 'bash bind -p';
+
+/** Keymaps that are the emacs keymap under another name. */
+const EMACS_KEYMAPS = new Set(['emacs', 'emacs-standard']);
 
 /** Readline symbolic key names (readline(3) "Key Bindings"). */
 const READLINE_KEY_NAMES: Record<string, string> = {
@@ -65,7 +80,11 @@ export function parseReadlineBinding(text: string): ReadlineBinding | null {
   };
 }
 
-/** Bash readline bindings from ~/.inputrc and `bind` lines in ~/.bashrc. */
+/**
+ * Bash readline bindings: the emacs-mode defaults (`bind -p` of a bash
+ * started without rc files or inputrc) merged with ~/.inputrc and the
+ * `bind` lines in ~/.bashrc.
+ */
 export class BashParser extends BaseParser {
   get meta(): ParserMeta {
     return {
@@ -77,7 +96,7 @@ export class BashParser extends BaseParser {
   }
 
   async isAvailable(): Promise<boolean> {
-    return this.getConfigPaths().some((p) => existsSync(p));
+    return this.getConfigPaths().some((p) => existsSync(p)) || (await findOnPath('bash')) !== null;
   }
 
   getWatchPaths(): string[] {
@@ -85,6 +104,63 @@ export class BashParser extends BaseParser {
   }
 
   async parse(): Promise<Shortcut[]> {
+    const config = await this.parseConfig();
+    const output = await this.loadDefaults();
+    const defaults = output ? this.parseDefaults(output) : [];
+    return this.mergeWithDefaults(defaults, config);
+  }
+
+  /** `bind -p` of an interactive bash without rc files; null when bash is missing. */
+  protected loadDefaults(): Promise<string | null> {
+    return shellDefaults(
+      'bash',
+      ['--norc', '--noprofile', '-i', '-c', 'bind -p'],
+      { INPUTRC: '/dev/null', HISTFILE: '/dev/null' },
+    );
+  }
+
+  /**
+   * Parse `bind -p` output into default shortcuts, dropping unbound
+   * functions, self-insert, digit arguments, the `do-lowercase-version`
+   * aliases and repeated keys (`\M-OA` and `\M-[A` are both ↑).
+   */
+  parseDefaults(output: string): Shortcut[] {
+    const seen = new Set<string>();
+    const result: Shortcut[] = [];
+    for (const line of output.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('"')) continue;
+      const binding = parseReadlineBinding(trimmed);
+      if (!binding || binding.isMacro || NOISE_FUNCTIONS.has(binding.value)) continue;
+      if (seen.has(binding.key.displayKey)) continue;
+      seen.add(binding.key.displayKey);
+      result.push(this.toShortcut(binding, trimmed, undefined, DEFAULTS_SOURCE, false, true));
+    }
+    return result;
+  }
+
+  /**
+   * A config binding replaces the default bound to the same keymap + key, an
+   * unbind (`bind -r`) marks it unbound; new keys are appended.
+   */
+  mergeWithDefaults(defaults: Shortcut[], config: Shortcut[]): Shortcut[] {
+    const identity = (s: Shortcut) =>
+      `${!s.context || EMACS_KEYMAPS.has(s.context) ? 'emacs' : s.context}\0${s.key}`;
+    const byIdentity = new Map<string, Shortcut>();
+    for (const s of defaults) byIdentity.set(identity(s), s);
+    for (const s of config) {
+      const id = identity(s);
+      const existing = byIdentity.get(id);
+      if (s.isUnbound && existing) {
+        byIdentity.set(id, { ...existing, isUnbound: true, isDefault: false, origin: 'user-config', filePath: s.filePath });
+      } else {
+        byIdentity.set(id, s);
+      }
+    }
+    return Array.from(byIdentity.values());
+  }
+
+  private async parseConfig(): Promise<Shortcut[]> {
     const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
@@ -188,6 +264,7 @@ export class BashParser extends BaseParser {
     context: string | undefined,
     filePath: string,
     isShellCommand: boolean,
+    isDefault = false,
   ): Shortcut {
     const command = isShellCommand
       ? `Run: ${binding.value}`
@@ -201,9 +278,10 @@ export class BashParser extends BaseParser {
       command,
       rawCommand,
       context,
-      isDefault: false,
+      isDefault,
       isUnbound: false,
       filePath,
+      origin: isDefault ? 'app-defaults' : 'user-config',
     });
   }
 
