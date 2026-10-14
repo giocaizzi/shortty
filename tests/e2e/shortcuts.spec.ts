@@ -1,3 +1,5 @@
+import { writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { test, expect } from './fixtures';
 
 test.describe('shortcut search', () => {
@@ -123,5 +125,31 @@ test.describe('drill into a source', () => {
     await shortty.win.keyboard.press('Enter');
     await shortty.win.keyboard.press('Escape');
     await expect(shortty.search).toHaveValue('VS');
+  });
+});
+
+type UpdatesWindow = { __updates: { sourceId: string; keys: string[] }[] };
+
+test.describe('source path overrides', () => {
+  test('pointing a source at another file updates the open launcher', async ({ shortty }) => {
+    const alt = path.join(shortty.hermetic.dir, 'alt-ghostty-config');
+    writeFileSync(alt, 'keybind = cmd+shift+u=new_window\n');
+    await shortty.show();
+    await shortty.win.evaluate(() => {
+      const w = window as unknown as UpdatesWindow;
+      w.__updates = [];
+      window.electronAPI.onKeybindingsUpdate(({ sourceId, keybindings }) => {
+        w.__updates.push({
+          sourceId,
+          keys: keybindings.filter((k) => k.origin !== 'cheatsheet').map((k) => k.rawCommand),
+        });
+      });
+    });
+
+    await shortty.setSetting('sourcePathOverrides', { ghostty: alt });
+
+    await expect
+      .poll(() => shortty.win.evaluate(() => (window as unknown as UpdatesWindow).__updates))
+      .toContainEqual({ sourceId: 'ghostty', keys: ['ghostty.new_window'] });
   });
 });

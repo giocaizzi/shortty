@@ -122,10 +122,16 @@ export class ParserRegistry {
     await this.parseAll();
   }
 
+  /**
+   * Apply the disabled list and path overrides, then re-parse. Returns the
+   * ids of enabled sources whose config paths changed: their shortcuts may
+   * differ while the source list does not, so the caller pushes them.
+   */
   async updateActiveParsers(
     disabledIds: string[],
     pathOverrides: Record<string, string | string[]> = {},
-  ): Promise<void> {
+  ): Promise<string[]> {
+    const repathed: string[] = [];
     for (const [id, source] of this.sources) {
       const wasEnabled = source.enabled;
       source.enabled = !disabledIds.includes(id);
@@ -142,6 +148,7 @@ export class ParserRegistry {
           source.parser.setConfigPaths(newPaths);
         }
         source.detected = await source.parser.isAvailable().catch(() => false);
+        if (source.enabled) repathed.push(id);
       }
 
       // If just disabled, remove from cache
@@ -151,6 +158,7 @@ export class ParserRegistry {
     }
 
     await this.parseAll();
+    return repathed;
   }
 
   getAvailableSources(): ParserMeta[] {

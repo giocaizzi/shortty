@@ -114,6 +114,23 @@ describe('ParserRegistry (bundled cheatsheets + fixture configs)', () => {
     expect(registry.getAllSources().find((s) => s.id === 'vscode')?.detected).toBe(true);
   });
 
+  it('reports the enabled sources whose paths changed, so the launcher can be updated', async () => {
+    const overrides = {
+      vscode: join(FIXTURES, 'does-not-exist.json'),
+      ghostty: join(FIXTURES, 'ghostty-config'),
+    };
+    await registry.updateActiveParsers(DISABLED, overrides);
+    // Same paths again: nothing to push
+    expect(await registry.updateActiveParsers(DISABLED, overrides)).toEqual([]);
+    expect(
+      await registry.updateActiveParsers(DISABLED, {
+        ...overrides,
+        vscode: join(FIXTURES, 'vscode-keybindings.json'),
+      }),
+    ).toEqual(['vscode']);
+    expect(registry.getCachedBySource('vscode').some((s) => s.origin !== 'cheatsheet')).toBe(true);
+  });
+
   it('watches config paths even before the file exists', async () => {
     await registry.updateActiveParsers(DISABLED, {
       vscode: join(FIXTURES, 'later.json'),

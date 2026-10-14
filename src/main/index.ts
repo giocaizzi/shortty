@@ -351,8 +351,17 @@ function applySettingsChange(newSettings: AppSettings, oldSettings: AppSettings)
   ) {
     parserRegistry
       .updateActiveParsers(newSettings.disabledParsers, newSettings.sourcePathOverrides)
-      .then(() => {
+      .then((repathed) => {
         restartWatching(parserRegistry, launcherAlive);
+        // A source pointed at another file keeps its id, so the launcher
+        // (which reloads only when the source list changes) needs a push.
+        const win = launcherAlive();
+        for (const sourceId of repathed) {
+          win?.webContents.send(IPC_CHANNELS.ON_UPDATE, {
+            sourceId,
+            keybindings: parserRegistry.getCachedBySource(sourceId),
+          });
+        }
       })
       .catch((err) => log.error('Failed to update active parsers', err));
   }
