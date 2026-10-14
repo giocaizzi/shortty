@@ -227,7 +227,7 @@ export function strokeToDisplay(stroke: KeyStroke): string {
   return `${modsToGlyphs(stroke.mods)}${stroke.key}`;
 }
 
-function modsToGlyphs(mods: readonly KeyModifier[]): string {
+export function modsToGlyphs(mods: readonly KeyModifier[]): string {
   return sortMods(mods).map((m) => MODIFIER_GLYPHS[m]).join('');
 }
 

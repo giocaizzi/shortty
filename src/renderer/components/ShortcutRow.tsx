@@ -54,7 +54,7 @@ export function ShortcutRow({
       </div>
 
       {/* Right: key combo */}
-      <KeyCombo keys={shortcut.key} />
+      <KeyCombo keys={shortcut.key} strokes={shortcut.strokes} />
     </div>
   );
 }

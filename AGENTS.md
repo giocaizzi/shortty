@@ -73,6 +73,7 @@ Startup → ParserRegistry discovers & parses → cache → chokidar watches con
 - Parser tests mock `getConfigPaths()` to point at `fixtures/` directory
 - Component tests use `@testing-library/react`
 - Test files: `tests/unit/parsers/*.test.ts`, `tests/components/*.test.tsx`
+- Keys are structured `strokes` (`src/shared/keys.ts`) resolved per keyboard layout in the renderer; see [docs/keyboard-layouts.md](docs/keyboard-layouts.md). Layout tests use the fake layout maps in `src/renderer/lib/keyboard-layouts.data.ts`.
 - End-to-end: Playwright `_electron` specs in `tests/e2e/*.spec.ts` drive the built app in a hermetic mode (`SHORTTY_E2E=1`, `src/main/e2e.ts`). Known bugs are `knownBug(...)` fixmes. See [docs/e2e.md](docs/e2e.md); baseline findings in [docs/wip/benchmark.md](docs/wip/benchmark.md).
 
 ## Window Configuration
