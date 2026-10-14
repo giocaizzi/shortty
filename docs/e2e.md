@@ -80,6 +80,7 @@ saves it before a test and restores it after.
 | `SHORTTY_E2E_FIXME=1` | Run tests marked as known bugs instead of reporting them as fixme (to check a fix) |
 | `SHORTTY_E2E_KEEP=1` | Keep each test's temp dir for inspection |
 | `SHORTTY_E2E_BENCHMARK=<label>` | Enable `benchmark.spec.ts` (set by `make e2e-benchmark`) |
+| `SHORTTY_E2E_SHOTS=<dir>` | Make `preferences.spec.ts` save a screenshot of every Preferences tab, light and dark, to `<dir>` (outside `test-results/`, which each run clears) |
 
 ## Writing tests
 
