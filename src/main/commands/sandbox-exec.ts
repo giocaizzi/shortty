@@ -16,15 +16,20 @@ export interface SandboxResult {
   truncated: boolean;
 }
 
+/** Variables a probed binary may see; everything else (tokens, keys) is dropped. */
+const ENV_ALLOWLIST = ['PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'TMPDIR', 'LANG', 'MANPATH'];
+
 /**
- * Environment for help/man invocations: no colours, no pagers, and editors
- * replaced by `true` so a command that misreads its arguments cannot open an
- * interactive session or block on a prompt.
+ * Environment for help/man invocations: only an allowlist of the user's
+ * variables (so secrets never reach arbitrary binaries), no colours, no
+ * pagers, and editors replaced by `true` so a command that misreads its
+ * arguments cannot open an interactive session or block on a prompt.
  */
 export function sandboxEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...base };
-  delete env.CLICOLOR_FORCE;
-  delete env.FORCE_COLOR;
+  const env: NodeJS.ProcessEnv = {};
+  for (const [key, value] of Object.entries(base)) {
+    if (ENV_ALLOWLIST.includes(key) || key.startsWith('LC_')) env[key] = value;
+  }
   return {
     ...env,
     NO_COLOR: '1',

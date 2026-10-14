@@ -95,4 +95,11 @@ describe('sandboxEnv', () => {
     expect(env.CLICOLOR_FORCE).toBeUndefined();
     expect(env.TERM).toBe('dumb');
   });
+
+  it('drops variables outside the allowlist, such as tokens', () => {
+    const env = sandboxEnv({ PATH: '/bin', LC_ALL: 'it_IT.UTF-8', GITHUB_TOKEN: 'x', AWS_SECRET_ACCESS_KEY: 'y' });
+    expect(env.LC_ALL).toBe('it_IT.UTF-8');
+    expect(env.GITHUB_TOKEN).toBeUndefined();
+    expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
+  });
 });
