@@ -114,23 +114,26 @@ screenshot cannot capture; the benchmark paints a dark backdrop
 
 ## After the launcher rework (WP-D search/navigation, WP-E visuals)
 
-Branch `feat/launcher-ux`, rebased on `e080dea` (main-process lifecycle).
-Run like the **workaround** column above (untracked `cheatsheets` symlink,
-493 shortcuts) so the screenshots show real data: `make e2e-benchmark
-LABEL=after-launcher`. Raw numbers: `benchmark/after-launcher-timings.json`.
-Startup numbers are not comparable (main-process changes, host load ~7 during
-the run); the renderer-only numbers are:
+Branch `feat/launcher-ux`, rebased on `2e17715` (main-process lifecycle,
+shortcut engine, commands engine and keyboard layouts merged). Cheatsheets
+now load in the build, so no symlink is needed: 510 shortcuts. Reproduce
+with `make e2e-benchmark LABEL=after-launcher`; raw numbers in
+`benchmark/after-launcher-timings.json`. Startup (291 ms) and enrichment
+times come from the main-process work, not this change. Renderer numbers,
+host load ~3:
 
 | Metric | workaround (before) | after-launcher |
 |---|---|---|
-| `show()` to search input focused | 34 ms | 27 ms |
-| Query to first row rendered, `vs` | 1.7 ms | 3.9 ms |
-| Query to first row rendered, `toggle` | 3.1 ms | 3.4 ms |
-| Query to first row rendered, `>gizmo` | 0.4 ms | 0.9 ms |
+| `show()` to search input focused | 34 ms | 42 ms |
+| Query to first row rendered, `vs` | 1.7 ms | 2.8 ms |
+| Query to first row rendered, `toggle` | 3.1 ms | 4.5 ms |
+| Query to first row rendered, `>gizmo` | 0.4 ms | 0.5 ms |
 
-Search stays under the 5 ms target of SPECS §10.3, but `vs` (150 matches)
-doubled: rows carry more DOM (source tile, footer, section groups). Worth a
-profile against a real PATH before v1.
+Search stays under the 5 ms target of SPECS §10.3, with less margin: the
+shortcut index gained a layout-key field (keyboard layouts) and rows carry
+more DOM (source tile, footer, section groups). Scroll-into-view runs in the
+next frame so it stays off the keystroke path. Runs vary by ±1 ms on a busy
+host; profile against a real PATH before v1.
 
 What changed, by benchmark finding:
 
@@ -156,10 +159,6 @@ What changed, by benchmark finding:
 - Shows and hides animate (exit through `onWindowWillHide`), with
   reduced-motion fallbacks; the state resets when the window hides.
 - No refetch of all shortcuts and commands on every show.
-
-Still visible and owned elsewhere: mixed `Cmd+P` / `⌘P` key labels and
-Ghostty duplicates (shortcut engine), single-entry `--help` sections
-(commands engine).
 
 | State | before (workaround) | after-launcher |
 |---|---|---|

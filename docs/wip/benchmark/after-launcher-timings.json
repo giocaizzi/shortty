@@ -1,32 +1,32 @@
 {
   "label": "after-launcher",
-  "date": "2026-10-14T01:49:11.937Z",
+  "date": "2026-10-14T01:58:46.417Z",
   "host": "darwin-arm64",
   "counts": {
     "sources": 10,
-    "shortcuts": 493,
+    "shortcuts": 510,
     "commands": 3
   },
   "startupMs": {
     "runs": [
-      1806,
-      493,
-      300
+      575,
+      286,
+      291
     ],
-    "median": 493
+    "median": 291
   },
   "startupToEnrichedMs": {
     "runs": [
-      2766,
-      892,
-      683
+      1493,
+      1191,
+      1190
     ],
-    "median": 892
+    "median": 1191
   },
-  "showToFocusedMs": 27,
+  "showToFocusedMs": 42,
   "searchRenderMs": {
-    "vs": 3.9,
-    "toggle": 3.4,
-    ">gizmo": 0.9
+    "vs": 2.8,
+    "toggle": 4.5,
+    ">gizmo": 0.5
   }
 }
