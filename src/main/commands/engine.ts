@@ -8,11 +8,16 @@ import { enrichSubcommand } from './subcommand-enricher';
 
 type CommandsUpdateCallback = (commands: Command[]) => void;
 
+const RESUME_AFTER_MS = 5000;
+
 export class CommandsEngine {
   private commands: Command[] = [];
   private cache: CommandCache;
   private worker: EnrichmentWorker;
   private updateCallback: CommandsUpdateCallback | null = null;
+  private resumeTimer: NodeJS.Timeout | undefined;
+  /** Settles when the background whatis read of the last scan is done (tests). */
+  descriptionsLoaded: Promise<void> = Promise.resolve();
 
   constructor(userDataPath: string) {
     this.cache = new CommandCache(userDataPath);
@@ -37,41 +42,99 @@ export class CommandsEngine {
     return this.fullScan();
   }
 
+  /**
+   * Rescan PATH. Commands whose binary is unchanged (same path and mtime) keep
+   * their enrichment, so a PATH change only enriches what is new or changed.
+   * Descriptions from apropos/whatis arrive asynchronously (a few seconds on
+   * macOS) and are pushed through onUpdate.
+   */
   async fullScan(): Promise<Command[]> {
     const scanned = await scanPath();
-    const descriptions = readWhatis();
+    const previous = new Map(
+      (this.commands.length > 0 ? this.commands : this.cache.readIndex() ?? []).map(c => [c.name, c]),
+    );
 
-    this.commands = scanned.map((s) => ({
-      name: s.name,
-      description: descriptions.get(s.name) ?? '',
-      bin: s.bin,
-      mtime: s.mtime,
-      enrichment: 'basic' as const,
-      hasManPage: false,
-      hasCompletion: false,
-      subcommands: [],
-      flags: [],
-      arguments: [],
-    }));
+    let kept = 0;
+    this.commands = scanned.map((s) => {
+      const prev = previous.get(s.name);
+      if (prev && prev.bin === s.bin && prev.mtime === s.mtime) {
+        kept++;
+        return prev;
+      }
+      return {
+        name: s.name,
+        description: prev?.description ?? '',
+        bin: s.bin,
+        mtime: s.mtime,
+        enrichment: 'basic' as const,
+        hasManPage: false,
+        hasCompletion: false,
+        subcommands: [],
+        flags: [],
+        arguments: [],
+      };
+    });
 
-    log.info(`Commands scan complete: ${this.commands.length} commands found`);
+    log.info(`Commands scan complete: ${this.commands.length} commands found (${kept} unchanged)`);
     this.cache.writeIndex(this.commands);
     this.cache.writeMeta({
       pathHash: await this.cache.computePathHash(),
       timestamp: new Date().toISOString(),
       commandCount: this.commands.length,
-      enrichedCount: 0,
+      enrichedCount: this.commands.filter(c => c.enrichment !== 'basic').length,
     });
 
+    this.descriptionsLoaded = this.loadDescriptions();
     this.startEnrichment();
 
     return this.commands;
   }
 
+  /** Fill empty descriptions from the whatis database without blocking the scan. */
+  private async loadDescriptions(): Promise<void> {
+    let descriptions: Map<string, string>;
+    try {
+      descriptions = await readWhatis();
+    } catch (err) {
+      log.warn('Reading whatis descriptions failed', err);
+      return;
+    }
+    const changed: Command[] = [];
+    this.commands = this.commands.map((cmd) => {
+      const desc = descriptions.get(cmd.name);
+      if (cmd.description || !desc) return cmd;
+      const updated = { ...cmd, description: desc };
+      changed.push(updated);
+      return updated;
+    });
+    if (changed.length === 0) return;
+    log.info(`Descriptions loaded for ${changed.length} commands`);
+    this.cache.writeIndex(this.commands);
+    this.updateCallback?.(changed);
+  }
+
+  /** PATH hash check (cheap); rescans only when PATH or a PATH directory changed. */
   async checkAndRefresh(): Promise<boolean> {
     if (await this.cache.isValid()) return false;
     await this.fullScan();
+    this.updateCallback?.(this.commands);
     return true;
+  }
+
+  /**
+   * Launcher shown: re-check PATH (SPECS §11.3) and hold enrichment so it does
+   * not compete with the UI; it resumes on hide or after 5s.
+   */
+  onWindowShown(): void {
+    this.worker.pause();
+    clearTimeout(this.resumeTimer);
+    this.resumeTimer = setTimeout(() => this.worker.resume(), RESUME_AFTER_MS);
+    this.checkAndRefresh().catch(err => log.warn('Commands PATH check failed', err));
+  }
+
+  onWindowHidden(): void {
+    clearTimeout(this.resumeTimer);
+    this.worker.resume();
   }
 
   getAll(): Command[] {
@@ -97,6 +160,7 @@ export class CommandsEngine {
   }
 
   stop(): void {
+    clearTimeout(this.resumeTimer);
     this.worker.stop();
   }
 
@@ -119,7 +183,8 @@ export class CommandsEngine {
       if (!detailNames.has(cmd.name)) continue;
 
       const detail = this.cache.readDetail(cmd.name);
-      if (detail && detail.enrichment !== 'basic') {
+      // Per-command details are only valid for the same binary (SPECS §7.3)
+      if (detail && detail.enrichment !== 'basic' && detail.bin === cmd.bin && detail.mtime === cmd.mtime) {
         this.commands[i] = { ...cmd, ...detail };
         reconciled++;
       }
@@ -145,10 +210,14 @@ export class CommandsEngine {
   }
 
   private handleEnrichmentBatch(updated: Command[]): void {
+    const applied: Command[] = [];
     for (const cmd of updated) {
       const idx = this.commands.findIndex(c => c.name === cmd.name);
-      if (idx !== -1) {
-        this.commands[idx] = cmd;
+      // Skip results for a binary that a rescan replaced meanwhile
+      if (idx !== -1 && this.commands[idx].bin === cmd.bin && this.commands[idx].mtime === cmd.mtime) {
+        // Keep a description that arrived from whatis while this command was being enriched
+        this.commands[idx] = { ...cmd, description: cmd.description || this.commands[idx].description };
+        applied.push(this.commands[idx]);
       }
     }
 
@@ -161,6 +230,6 @@ export class CommandsEngine {
       this.cache.writeMeta(meta);
     }
 
-    this.updateCallback?.(updated);
+    this.updateCallback?.(applied);
   }
 }

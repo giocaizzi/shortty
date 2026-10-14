@@ -53,7 +53,10 @@ export function useCommands(): UseCommandsReturn {
     const unsubUpdate = api.onCommandsUpdate((updatedBatch) => {
       setCommands((prev) => {
         const updated = new Map(updatedBatch.map((c) => [c.name, c]));
-        return prev.map((c) => updated.get(c.name) ?? c);
+        const merged = prev.map((c) => updated.get(c.name) ?? c);
+        // A PATH rescan pushes commands the renderer has not seen yet
+        const known = new Set(prev.map((c) => c.name));
+        return [...merged, ...updatedBatch.filter((c) => !known.has(c.name))];
       });
       api.getCommandsStats().then(setStats);
     });

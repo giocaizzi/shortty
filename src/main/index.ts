@@ -164,6 +164,7 @@ function showWindow(): void {
   win.focus();
   win.webContents.focus();
   win.webContents.send(IPC_CHANNELS.WINDOW_SHOWN);
+  commandsEngine?.onWindowShown();
 }
 
 /** Dismiss the launcher: the renderer plays its exit animation, then it hides. */
@@ -171,6 +172,7 @@ function hideWindow(): void {
   const win = launcherAlive();
   if (!win || !win.isVisible()) return;
   hider.hide();
+  commandsEngine?.onWindowHidden();
 }
 
 function toggleWindow(): void {

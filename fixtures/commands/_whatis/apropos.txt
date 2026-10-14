@@ -1,0 +1,19 @@
+ABORT(7)                 - abort the current transaction
+brotli(1), brotli(1) -- brotli(1), brcat(1), unbrotli(1) - compress or decompress files
+git(1)                   - the stupid content tracker
+jq(1)                    - Command-line JSON processor
+open(3)                  - perl pragma to set default PerlIO layers for input and output
+tmux(1)                  - terminal multiplexer
+curl(1)                  - transfer a URL
+grep(1), egrep(1), fgrep(1), rgrep(1), bzgrep(1), bzegrep(1), bzfgrep(1), zgrep(1), zegrep(1), zfgrep(1) - file pattern searcher
+kill(1)                  - terminate or signal a process
+ls(1)                    - list directory contents
+open(1)                  - open files and directories
+open(ntcl)               - Open a file-based or command pipeline channel
+printf(1)                - formatted output
+ssh(1)                   - OpenSSH remote login client
+kill(2)                  - send signal to a process
+open(2), openat(2)       - open or create a file for reading or writing
+open(3pm)                - perl pragma to set default PerlIO layers for input and output
+printf(3), fprintf(3), sprintf(3), snprintf(3), asprintf(3), dprintf(3), vprintf(3), vfprintf(3), vsprintf(3), vsnprintf(3), vasprintf(3), vdprintf(3) - formatted output conversion
+make(1)                  - GNU make utility to maintain groups of programs
