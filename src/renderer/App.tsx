@@ -218,17 +218,27 @@ export function App() {
   }, [windowHeight]);
 
   // Keep the selected row visible; at the top, show its section header too.
+  // Scrolling forces a layout, so do it in the next frame (with the paint)
+  // instead of on the keystroke's critical path.
   useEffect(() => {
-    const root = contentRef.current;
-    if (!root) return;
-    const el = root.querySelector(`[role="option"][data-index="${sel}"]`);
-    if (!(el instanceof HTMLElement)) return;
-    const scroller = el.closest('[data-scroll]');
-    if (sel === 0 && scroller instanceof HTMLElement) {
-      scroller.scrollTop = 0;
-    } else if (typeof el.scrollIntoView === 'function') {
-      el.scrollIntoView({ block: 'nearest' });
+    const scroll = () => {
+      const root = contentRef.current;
+      if (!root) return;
+      const el = root.querySelector(`[role="option"][data-index="${sel}"]`);
+      if (!(el instanceof HTMLElement)) return;
+      const scroller = el.closest('[data-scroll]');
+      if (sel === 0 && scroller instanceof HTMLElement) {
+        scroller.scrollTop = 0;
+      } else if (typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ block: 'nearest' });
+      }
+    };
+    if (typeof requestAnimationFrame !== 'function') {
+      scroll();
+      return;
     }
+    const frame = requestAnimationFrame(scroll);
+    return () => cancelAnimationFrame(frame);
   }, [sel, groups, navStack, detailData]);
 
   /** Hide the panel; main asks for the exit animation (onWindowWillHide). */
