@@ -32,6 +32,7 @@ import {
   resizeBounds,
 } from './window-geometry';
 import { WindowHider } from './window-hider';
+import { importLoginShellPath } from './shell-env';
 
 // `shortty --reset-settings` (SPECS §9.1 escape hatch): restore defaults and quit.
 const resetRequested = process.argv.includes('--reset-settings');
@@ -392,7 +393,8 @@ async function startup(): Promise<void> {
 
   // Environment setup that must finish before the engines read PATH/HOME
   // (e.g. importing the login-shell PATH) chains in here.
-  const environmentReady: Promise<void> = Promise.resolve();
+  // Finder/login launches only get launchd's minimal PATH; never rejects.
+  const environmentReady: Promise<void> = importLoginShellPath();
 
   // Both engines load in parallel; neither promise rejects.
   const shortcutsReady = environmentReady.then(initShortcuts);
