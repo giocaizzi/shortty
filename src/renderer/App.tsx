@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Check } from 'lucide-react';
-import type { Command } from '../shared/types';
+import type { Command, Shortcut } from '../shared/types';
 import { useShortcuts } from './hooks/useShortcuts';
 import { useCommands } from './hooks/useCommands';
 import { useSearch } from './hooks/useSearch';
 import { useSubcommandDetail } from './hooks/useSubcommandDetail';
 import { useAppSettings } from './context/SettingsContext';
+import { resolveStrokes, useKeyboardLayout, type KeyboardLayout } from './lib/keyboard-layout';
 import { LauncherPanel } from './components/LauncherPanel';
 import { SearchInput, formatAccelerator } from './components/SearchInput';
 import { ResultsContainer } from './components/ResultsContainer';
@@ -60,6 +61,17 @@ function isDetailLevel(level: NavLevel): level is NavLevel & { kind: 'command' |
   return level.kind === 'command' || level.kind === 'subcommand';
 }
 
+/**
+ * The key combo as the row shows it on the user's layout (KeyCombo), so the
+ * clipboard gets "⌘Ò" on an Italian keyboard rather than the US "⌘;".
+ */
+function shortcutLabel(shortcut: Shortcut, layout: KeyboardLayout): string {
+  if (!shortcut.strokes?.length) return shortcut.key;
+  return resolveStrokes(shortcut.strokes, layout)
+    .map((s) => s.text)
+    .join(' ');
+}
+
 function prefersReducedMotion(): boolean {
   return (
     typeof window.matchMedia === 'function' &&
@@ -73,6 +85,7 @@ export function App() {
   const { commands } = useCommands();
   const { commandPrefixMode, dismissAfterCopy, commandsEnabled, resultLimits, globalShortcut } =
     useAppSettings();
+  const layout = useKeyboardLayout();
 
   const [navStack, setNavStack] = useState<StackEntry[]>([ROOT]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -281,7 +294,9 @@ export function App() {
           pushLevel({ kind: 'drilled-source', sourceId: item.meta.id, sourceLabel: item.meta.label });
           break;
         case 'shortcut':
-          if (item.shortcut.key && !item.shortcut.isUnbound) copy(item.shortcut.key, index);
+          if (item.shortcut.key && !item.shortcut.isUnbound) {
+            copy(shortcutLabel(item.shortcut, layout), index);
+          }
           break;
         case 'command':
           copy(item.command.name, index);
@@ -293,7 +308,7 @@ export function App() {
           break;
       }
     },
-    [inDetail, detailData, query, items, copy, pushLevel],
+    [inDetail, detailData, query, items, copy, pushLevel, layout],
   );
 
   /** Tab / → on the row at `index`. Returns whether it drilled in. */

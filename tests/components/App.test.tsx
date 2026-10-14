@@ -5,7 +5,34 @@ import type { AppSettings } from '../../src/shared/settings';
 import { DEFAULT_SETTINGS } from '../../src/shared/settings';
 import { App } from '../../src/renderer/App';
 import { SettingsProvider } from '../../src/renderer/context/SettingsContext';
+import { formatKeyCombo } from '../../src/main/parsers/key-normalizer';
 import { makeCommand, makeParserMeta, makeShortcut } from '../helpers';
+
+const layoutState = vi.hoisted(() => ({ italian: false }));
+vi.mock('../../src/renderer/lib/keyboard-layout', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/renderer/lib/keyboard-layout')>();
+  const { layoutMapOf } = await import('../../src/renderer/lib/keyboard-layouts.data');
+  const italian = actual.makeLayout(layoutMapOf('it'));
+  return {
+    ...actual,
+    useKeyboardLayout: () => (layoutState.italian ? italian : actual.US_KEYBOARD),
+  };
+});
+
+/** A shortcut bound to a physical key (code), like VS Code's [Semicolon]. */
+function physicalShortcut(combo: string, code: string, command: string) {
+  const n = formatKeyCombo(combo);
+  return makeShortcut({
+    id: `phys-${code}`,
+    source: 'tmux',
+    sourceLabel: 'tmux',
+    command,
+    rawCommand: command,
+    key: n.displayKey,
+    searchKey: n.searchKey,
+    strokes: n.strokes.map((st) => ({ ...st, code })),
+  });
+}
 
 const SOURCES = [
   makeParserMeta({ id: 'vscode', label: 'VS Code' }),
@@ -25,6 +52,7 @@ const SHORTCUTS = [
     key: '⌃B Z',
     rawCommand: 'resize-pane -Z',
   }),
+  physicalShortcut('cmd+;', 'Semicolon', 'Jump Semicolon'),
 ];
 
 const COMMANDS = [
@@ -127,6 +155,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   writeText.mockReset().mockResolvedValue(undefined);
+  layoutState.italian = false;
 });
 
 afterEach(() => {
@@ -259,6 +288,15 @@ describe('App help, copy and dismiss', () => {
     expect(screen.getByTestId('panel-footer')).toHaveTextContent('Copied⌘X');
     await waitFor(() => expect(selectedRow()).not.toHaveClass('copy-flash'));
     expect(api.hideWindow).not.toHaveBeenCalled();
+  });
+
+  it('copies the key as labelled on the user\'s keyboard layout', async () => {
+    layoutState.italian = true;
+    const input = setup();
+    await type(input, 'jump semicolon');
+    await screen.findAllByTestId('shortcut-row');
+    press(input, 'Enter');
+    expect(writeText).toHaveBeenCalledWith('⌘Ò');
   });
 
   it('dismisses after the copy flash when "dismiss after copy" is on', async () => {

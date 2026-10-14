@@ -196,6 +196,10 @@ kbd.kbd-sm {
   color: var(--fg-4);
 }
 
+.keys kbd[data-layout-hint] {
+  text-decoration-color: var(--fg-4);
+}
+
 /* Panel show/hide (SPECS §10.9). App re-applies .panel-enter on every
    window:shown and .panel-exit before a dismiss it starts itself. */
 @keyframes panel-show {
