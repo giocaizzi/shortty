@@ -17,7 +17,6 @@
   "ignoreBinaries": [
     "plutil",
     "man",
-    "col",
-    "whatis"
+    "col"
   ]
 }
