@@ -3,7 +3,7 @@
   "productName": "Shortty",
   "version": "0.1.0",
   "description": "A cross-platform keybinding discovery app styled as a Spotlight/Raycast-style floating launcher",
-  "main": ".vite/build/index.js",
+  "main": ".vite/build/index.cjs",
   "private": true,
   "scripts": {
     "start": "electron-forge start",
