@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
-import type { Keybinding, ParserMeta } from '../../shared/types';
-import { getConfigPaths } from '../platform/paths';
+import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
+import { formatKeyCombo } from './key-normalizer';
 
 export class ChromeParser extends BaseParser {
   get meta(): ParserMeta {
@@ -14,15 +14,15 @@ export class ChromeParser extends BaseParser {
   }
 
   async isAvailable(): Promise<boolean> {
-    return getConfigPaths('chrome').some((p) => existsSync(p));
+    return this.getConfigPaths().some((p) => existsSync(p));
   }
 
   getWatchPaths(): string[] {
-    return getConfigPaths('chrome').filter((p) => existsSync(p));
+    return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
-  async parse(): Promise<Keybinding[]> {
-    const keybindings: Keybinding[] = [];
+  async parse(): Promise<Shortcut[]> {
+    const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
       const content = await this.readFileIfExists(filePath);
@@ -47,9 +47,13 @@ export class ChromeParser extends BaseParser {
         const commandName = this.resolveCommandName(shortcutData);
         if (!commandName) continue;
 
+        // Chrome may use either "+" or "-" as separator; normalize to "+"
+        const { displayKey, searchKey } = formatKeyCombo(keyCombo.replace(/-/g, '+'));
+
         keybindings.push(
-          this.makeKeybinding({
-            key: this.normalizeChromeKey(keyCombo),
+          this.makeShortcut({
+            key: displayKey,
+            searchKey,
             command: commandName,
             rawCommand: shortcutKey,
             context: shortcutData.global ? 'global' : undefined,
@@ -76,15 +80,12 @@ export class ChromeParser extends BaseParser {
     command_name?: string;
     description?: string;
   }): string | null {
-    // Prefer human-readable description
     if (data.description) return data.description;
 
-    // Skip entries with only an internal Chrome command name
     if (!data.command_name || ChromeParser.INTERNAL_COMMANDS.has(data.command_name)) {
       return null;
     }
 
-    // Humanize the command name (e.g. "toggle_pause" → "Toggle Pause")
     return data.command_name
       .replace(/^_+/, '')
       .replace(/[_-]/g, ' ')
@@ -100,10 +101,6 @@ export class ChromeParser extends BaseParser {
       default:
         return 'linux';
     }
-  }
-
-  private normalizeChromeKey(key: string): string {
-    return this.normalizeKey(key.replace(/-/g, '+'));
   }
 }
 

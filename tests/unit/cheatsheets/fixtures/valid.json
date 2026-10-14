@@ -1,0 +1,27 @@
+{
+  "id": "testapp",
+  "label": "Test App",
+  "icon": "🧪",
+  "platforms": ["darwin", "linux"],
+  "parser": "testapp",
+  "lastVerified": { "version": "1.0.0", "date": "2026-01-01" },
+  "defaultPaths": {
+    "darwin": ["~/Library/TestApp/config.json"],
+    "linux": ["~/.config/testapp/config.json"]
+  },
+  "shortcuts": [
+    {
+      "command": "Save File",
+      "rawCommand": "file.save",
+      "key": { "darwin": "⌘s", "linux": "Ctrl+S" },
+      "category": "File",
+      "context": "editorFocus"
+    },
+    {
+      "command": "Open Settings",
+      "rawCommand": "app.openSettings",
+      "key": { "darwin": "⌘,", "linux": "Ctrl+," },
+      "category": "General"
+    }
+  ]
+}

@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { MacosSystemParser } from '../../../src/main/parsers/macos-system.parser';
 
 describe('MacosSystemParser', () => {
@@ -6,6 +8,11 @@ describe('MacosSystemParser', () => {
 
   beforeEach(() => {
     parser = new MacosSystemParser();
+    if (process.platform === 'darwin') {
+      parser.setConfigPaths([
+        join(homedir(), 'Library/Preferences/com.apple.symbolichotkeys.plist'),
+      ]);
+    }
   });
 
   it('has correct metadata', () => {

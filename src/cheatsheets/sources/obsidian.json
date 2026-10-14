@@ -1,0 +1,8 @@
+{
+  "id": "obsidian",
+  "label": "Obsidian",
+  "icon": "💎",
+  "platforms": ["darwin", "win32", "linux"],
+  "parser": "obsidian",
+  "shortcuts": []
+}

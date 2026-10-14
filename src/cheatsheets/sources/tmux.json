@@ -1,0 +1,12 @@
+{
+  "id": "tmux",
+  "label": "tmux",
+  "icon": "📟",
+  "platforms": ["darwin", "linux"],
+  "parser": "tmux",
+  "defaultPaths": {
+    "darwin": ["~/.tmux.conf", "~/.config/tmux/tmux.conf"],
+    "linux": ["~/.tmux.conf", "~/.config/tmux/tmux.conf"]
+  },
+  "shortcuts": []
+}

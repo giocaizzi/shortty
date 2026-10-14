@@ -1,18 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { join } from 'node:path';
 import { GhosttyParser } from '../../../src/main/parsers/ghostty.parser';
 
 const FIXTURE_PATH = join(__dirname, '../../../fixtures/ghostty-config');
-
-vi.mock('../../../src/main/platform/paths', () => ({
-  getConfigPaths: () => [FIXTURE_PATH],
-}));
 
 describe('GhosttyParser', () => {
   let parser: GhosttyParser;
 
   beforeEach(() => {
     parser = new GhosttyParser();
+    parser.setConfigPaths([FIXTURE_PATH]);
   });
 
   it('has correct metadata', () => {
@@ -58,8 +55,9 @@ describe('GhosttyParser', () => {
   });
 
   it('returns empty for no watch paths', async () => {
-    vi.spyOn(parser, 'getWatchPaths').mockReturnValue([]);
-    const result = await parser.parse();
+    const p = new GhosttyParser();
+    p.setConfigPaths([]);
+    const result = await p.parse();
     expect(result).toEqual([]);
   });
 });

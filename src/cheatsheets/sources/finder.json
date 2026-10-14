@@ -1,0 +1,310 @@
+{
+  "id": "finder",
+  "label": "Finder",
+  "icon": "📁",
+  "platforms": ["darwin"],
+  "parser": null,
+  "lastVerified": { "version": "15.0", "date": "2026-04-01" },
+  "shortcuts": [
+    {
+      "command": "New Folder",
+      "rawCommand": "finder.newFolder",
+      "key": { "darwin": "Cmd+Shift+N" },
+      "category": "File"
+    },
+    {
+      "command": "New Finder Window",
+      "rawCommand": "finder.newWindow",
+      "key": { "darwin": "Cmd+N" },
+      "category": "Window"
+    },
+    {
+      "command": "New Smart Folder",
+      "rawCommand": "finder.newSmartFolder",
+      "key": { "darwin": "Cmd+Alt+N" },
+      "category": "File"
+    },
+    {
+      "command": "New Tab",
+      "rawCommand": "finder.newTab",
+      "key": { "darwin": "Cmd+T" },
+      "category": "Window"
+    },
+    {
+      "command": "Close Window",
+      "rawCommand": "finder.closeWindow",
+      "key": { "darwin": "Cmd+W" },
+      "category": "Window"
+    },
+    {
+      "command": "Close All Windows",
+      "rawCommand": "finder.closeAllWindows",
+      "key": { "darwin": "Cmd+Alt+W" },
+      "category": "Window"
+    },
+    {
+      "command": "Minimize Window",
+      "rawCommand": "finder.minimize",
+      "key": { "darwin": "Cmd+M" },
+      "category": "Window"
+    },
+    {
+      "command": "Toggle Full Screen",
+      "rawCommand": "finder.fullScreen",
+      "key": { "darwin": "Ctrl+Cmd+F" },
+      "category": "Window"
+    },
+    {
+      "command": "Show/Hide Tab Bar",
+      "rawCommand": "finder.toggleTabBar",
+      "key": { "darwin": "Cmd+Shift+T" },
+      "category": "Window"
+    },
+    {
+      "command": "Show/Hide Path Bar",
+      "rawCommand": "finder.togglePathBar",
+      "key": { "darwin": "Cmd+Alt+P" },
+      "category": "Window"
+    },
+    {
+      "command": "Show/Hide Status Bar",
+      "rawCommand": "finder.toggleStatusBar",
+      "key": { "darwin": "Cmd+/" },
+      "category": "Window"
+    },
+    {
+      "command": "Show/Hide Sidebar",
+      "rawCommand": "finder.toggleSidebar",
+      "key": { "darwin": "Cmd+Alt+S" },
+      "category": "Window"
+    },
+    {
+      "command": "Show/Hide Preview",
+      "rawCommand": "finder.togglePreview",
+      "key": { "darwin": "Cmd+Shift+P" },
+      "category": "Window"
+    },
+    {
+      "command": "Get Info",
+      "rawCommand": "finder.getInfo",
+      "key": { "darwin": "Cmd+I" },
+      "category": "File"
+    },
+    {
+      "command": "Show Inspector",
+      "rawCommand": "finder.showInspector",
+      "key": { "darwin": "Cmd+Alt+I" },
+      "category": "File"
+    },
+    {
+      "command": "Duplicate",
+      "rawCommand": "finder.duplicate",
+      "key": { "darwin": "Cmd+D" },
+      "category": "File"
+    },
+    {
+      "command": "Make Alias",
+      "rawCommand": "finder.makeAlias",
+      "key": { "darwin": "Cmd+L" },
+      "category": "File"
+    },
+    {
+      "command": "Move to Trash",
+      "rawCommand": "finder.moveToTrash",
+      "key": { "darwin": "Cmd+Delete" },
+      "category": "File"
+    },
+    {
+      "command": "Empty Trash",
+      "rawCommand": "finder.emptyTrash",
+      "key": { "darwin": "Cmd+Shift+Delete" },
+      "category": "File"
+    },
+    {
+      "command": "Open",
+      "rawCommand": "finder.open",
+      "key": { "darwin": "Cmd+O" },
+      "category": "File"
+    },
+    {
+      "command": "Quick Look",
+      "rawCommand": "finder.quickLook",
+      "key": { "darwin": "Space" },
+      "category": "File"
+    },
+    {
+      "command": "Rename",
+      "rawCommand": "finder.rename",
+      "key": { "darwin": "Enter" },
+      "category": "File"
+    },
+    {
+      "command": "Open Enclosing Folder",
+      "rawCommand": "finder.openEnclosingFolder",
+      "key": { "darwin": "Cmd+Up" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Open Selected Folder",
+      "rawCommand": "finder.openSelectedFolder",
+      "key": { "darwin": "Cmd+Down" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Go to Folder",
+      "rawCommand": "finder.goToFolder",
+      "key": { "darwin": "Cmd+Shift+G" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Go to Home",
+      "rawCommand": "finder.goHome",
+      "key": { "darwin": "Cmd+Shift+H" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Go to Desktop",
+      "rawCommand": "finder.goDesktop",
+      "key": { "darwin": "Cmd+Shift+D" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Go to Computer",
+      "rawCommand": "finder.goComputer",
+      "key": { "darwin": "Cmd+Shift+C" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Go to AirDrop",
+      "rawCommand": "finder.goAirDrop",
+      "key": { "darwin": "Cmd+Shift+R" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Go to Applications",
+      "rawCommand": "finder.goApplications",
+      "key": { "darwin": "Cmd+Shift+A" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Go to Utilities",
+      "rawCommand": "finder.goUtilities",
+      "key": { "darwin": "Cmd+Shift+U" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Go to Documents",
+      "rawCommand": "finder.goDocuments",
+      "key": { "darwin": "Cmd+Shift+O" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Go to Downloads",
+      "rawCommand": "finder.goDownloads",
+      "key": { "darwin": "Cmd+Alt+L" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Go to iCloud Drive",
+      "rawCommand": "finder.goICloudDrive",
+      "key": { "darwin": "Cmd+Shift+I" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Go to Network",
+      "rawCommand": "finder.goNetwork",
+      "key": { "darwin": "Cmd+Shift+K" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Go Back",
+      "rawCommand": "finder.goBack",
+      "key": { "darwin": "Cmd+[" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Go Forward",
+      "rawCommand": "finder.goForward",
+      "key": { "darwin": "Cmd+]" },
+      "category": "Navigation"
+    },
+    {
+      "command": "View as Icons",
+      "rawCommand": "finder.viewIcons",
+      "key": { "darwin": "Cmd+1" },
+      "category": "View"
+    },
+    {
+      "command": "View as List",
+      "rawCommand": "finder.viewList",
+      "key": { "darwin": "Cmd+2" },
+      "category": "View"
+    },
+    {
+      "command": "View as Columns",
+      "rawCommand": "finder.viewColumns",
+      "key": { "darwin": "Cmd+3" },
+      "category": "View"
+    },
+    {
+      "command": "View as Gallery",
+      "rawCommand": "finder.viewGallery",
+      "key": { "darwin": "Cmd+4" },
+      "category": "View"
+    },
+    {
+      "command": "Show/Hide Hidden Files",
+      "rawCommand": "finder.toggleHiddenFiles",
+      "key": { "darwin": "Cmd+Shift+." },
+      "category": "View"
+    },
+    {
+      "command": "Show View Options",
+      "rawCommand": "finder.viewOptions",
+      "key": { "darwin": "Cmd+J" },
+      "category": "View"
+    },
+    {
+      "command": "Select All",
+      "rawCommand": "finder.selectAll",
+      "key": { "darwin": "Cmd+A" },
+      "category": "Selection"
+    },
+    {
+      "command": "Find",
+      "rawCommand": "finder.find",
+      "key": { "darwin": "Cmd+F" },
+      "category": "Selection"
+    },
+    {
+      "command": "Copy",
+      "rawCommand": "finder.copy",
+      "key": { "darwin": "Cmd+C" },
+      "category": "File"
+    },
+    {
+      "command": "Paste",
+      "rawCommand": "finder.paste",
+      "key": { "darwin": "Cmd+V" },
+      "category": "File"
+    },
+    {
+      "command": "Move (Paste without Copy)",
+      "rawCommand": "finder.move",
+      "key": { "darwin": "Cmd+Alt+V" },
+      "category": "File"
+    },
+    {
+      "command": "Undo",
+      "rawCommand": "finder.undo",
+      "key": { "darwin": "Cmd+Z" },
+      "category": "File"
+    },
+    {
+      "command": "Redo",
+      "rawCommand": "finder.redo",
+      "key": { "darwin": "Cmd+Shift+Z" },
+      "category": "File"
+    }
+  ]
+}

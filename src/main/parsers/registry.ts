@@ -1,5 +1,10 @@
-import type { Keybinding, ParserMeta } from '../../shared/types';
+import type { Shortcut, ParserMeta } from '../../shared/types';
+import { generateShortcutId } from '../../shared/types';
 import type { ParserPlugin } from './types';
+import log from '../logger';
+import { loadCheatsheets, type CheatsheetDefinition } from '../cheatsheets/loader';
+import { mergeShortcuts } from '../shortcuts/merge';
+import { resolveDefaultPaths, resolvePath } from '../utils/path-resolver';
 import { VscodeParser } from './vscode.parser';
 import { GhosttyParser } from './ghostty.parser';
 import { TmuxParser } from './tmux.parser';
@@ -7,85 +12,263 @@ import { ZshParser } from './zsh.parser';
 import { ObsidianParser } from './obsidian.parser';
 import { ChromeParser } from './chrome.parser';
 import { MacosSystemParser } from './macos-system.parser';
+import { VimParser } from './vim.parser';
+import { BashParser } from './bash.parser';
+import { BaseParser } from './base-parser';
+
+type Platform = 'darwin' | 'win32' | 'linux';
+
+/** Map of parser IDs to their constructor. */
+const PARSERS: Record<string, new () => BaseParser> = {
+  vscode: VscodeParser,
+  ghostty: GhosttyParser,
+  tmux: TmuxParser,
+  zsh: ZshParser,
+  obsidian: ObsidianParser,
+  chrome: ChromeParser,
+  'macos-system': MacosSystemParser,
+  vim: VimParser,
+  bash: BashParser,
+};
+
+interface SourceInfo {
+  id: string;
+  label: string;
+  icon: string;
+  platforms: Platform[];
+  parser: ParserPlugin | null;
+  cheatsheet: CheatsheetDefinition | null;
+  enabled: boolean;
+  detected: boolean;
+  configPaths: string[];
+}
 
 export class ParserRegistry {
-  private parsers: ParserPlugin[] = [];
-  private cache: Map<string, Keybinding[]> = new Map();
-  private activeParsers: ParserPlugin[] = [];
+  private sources: Map<string, SourceInfo> = new Map();
+  private cache: Map<string, Shortcut[]> = new Map();
 
-  constructor() {
-    this.parsers = [
-      new VscodeParser(),
-      new GhosttyParser(),
-      new TmuxParser(),
-      new ZshParser(),
-      new ObsidianParser(),
-      new ChromeParser(),
-      new MacosSystemParser(),
-    ];
-  }
+  async initialize(
+    disabledIds: string[] = [],
+    pathOverrides: Record<string, string | string[]> = {},
+    cheatsheetsDir?: string,
+  ): Promise<void> {
+    const cheatsheets = await loadCheatsheets(cheatsheetsDir);
+    const platform = process.platform as Platform;
 
-  async initialize(): Promise<void> {
-    const results = await Promise.allSettled(
-      this.parsers.map(async (p) => ({
-        parser: p,
-        available: await p.isAvailable(),
-      })),
+    // Register sources from cheatsheets
+    for (const cs of cheatsheets) {
+      if (!cs.platforms.includes(platform)) continue;
+
+      const ParserClass = cs.parser ? PARSERS[cs.parser] : null;
+      const parser = ParserClass ? new ParserClass() : null;
+
+      // Resolve config paths: user override > cheatsheet defaults
+      let configPaths: string[];
+      const override = pathOverrides[cs.id];
+      if (override) {
+        configPaths = (Array.isArray(override) ? override : [override]).map(resolvePath);
+      } else {
+        configPaths = resolveDefaultPaths(cs.defaultPaths);
+      }
+
+      if (parser) {
+        parser.setConfigPaths(configPaths);
+      }
+
+      const source: SourceInfo = {
+        id: cs.id,
+        label: cs.label,
+        icon: cs.icon,
+        platforms: cs.platforms,
+        parser,
+        cheatsheet: cs,
+        enabled: !disabledIds.includes(cs.id),
+        detected: parser ? await parser.isAvailable().catch(() => false) : false,
+        configPaths,
+      };
+
+      this.sources.set(cs.id, source);
+    }
+
+    // Register standalone parsers (in PARSERS map but no cheatsheet)
+    for (const [id, ParserClass] of Object.entries(PARSERS)) {
+      if (this.sources.has(id)) continue;
+
+      const parser = new ParserClass();
+      const source: SourceInfo = {
+        id,
+        label: parser.meta.label,
+        icon: parser.meta.icon,
+        platforms: parser.meta.platforms,
+        parser,
+        cheatsheet: null,
+        enabled: !disabledIds.includes(id),
+        detected: await parser.isAvailable().catch(() => false),
+        configPaths: [],
+      };
+
+      this.sources.set(id, source);
+    }
+
+    const detected = Array.from(this.sources.values()).filter((s) => s.detected);
+    log.info(
+      `Parser registry initialized: ${this.sources.size} sources, ${detected.length} detected`,
     );
 
-    this.activeParsers = results
-      .filter(
-        (r): r is PromiseFulfilledResult<{ parser: ParserPlugin; available: boolean }> =>
-          r.status === 'fulfilled' && r.value.available,
-      )
-      .map((r) => r.value.parser);
-
-    // Initial parse of all available sources
     await this.parseAll();
   }
 
-  async parseAll(): Promise<Keybinding[]> {
-    const results = await Promise.allSettled(
-      this.activeParsers.map(async (p) => {
-        const keybindings = await p.parse();
-        this.cache.set(p.meta.id, keybindings);
-        return keybindings;
-      }),
-    );
+  async updateActiveParsers(
+    disabledIds: string[],
+    pathOverrides: Record<string, string | string[]> = {},
+  ): Promise<void> {
+    for (const [id, source] of this.sources) {
+      const wasEnabled = source.enabled;
+      source.enabled = !disabledIds.includes(id);
 
-    return results
-      .filter(
-        (r): r is PromiseFulfilledResult<Keybinding[]> =>
-          r.status === 'fulfilled',
-      )
-      .flatMap((r) => r.value);
+      // Update path overrides if provided
+      const override = pathOverrides[id];
+      if (override) {
+        const newPaths = (Array.isArray(override) ? override : [override]).map(resolvePath);
+        source.configPaths = newPaths;
+        if (source.parser && source.parser instanceof BaseParser) {
+          source.parser.setConfigPaths(newPaths);
+        }
+      }
+
+      // If just disabled, remove from cache
+      if (wasEnabled && !source.enabled) {
+        this.cache.delete(id);
+      }
+    }
+
+    await this.parseAll();
   }
 
-  async parseSource(sourceId: string): Promise<Keybinding[]> {
-    const parser = this.activeParsers.find((p) => p.meta.id === sourceId);
-    if (!parser) return [];
+  getAvailableSources(): ParserMeta[] {
+    return Array.from(this.sources.values())
+      .filter((s) => s.detected || (s.cheatsheet && s.cheatsheet.shortcuts.length > 0))
+      .map((s) => ({
+        id: s.id,
+        label: s.label,
+        icon: s.icon,
+        platforms: s.platforms,
+      }));
+  }
 
-    const keybindings = await parser.parse();
+  getAllSources(): SourceInfo[] {
+    return Array.from(this.sources.values());
+  }
+
+  async parseAll(): Promise<Shortcut[]> {
+    const results = await Promise.allSettled(
+      Array.from(this.sources.values())
+        .filter((s) => s.enabled)
+        .map(async (source) => {
+          const keybindings = await this.parseSource(source);
+          this.cache.set(source.id, keybindings);
+          return keybindings;
+        }),
+    );
+
+    const failed = results.filter((r) => r.status === 'rejected');
+    if (failed.length > 0) {
+      log.warn(`${failed.length} parser(s) failed during parseAll`);
+    }
+
+    const keybindings = results
+      .filter((r): r is PromiseFulfilledResult<Shortcut[]> => r.status === 'fulfilled')
+      .flatMap((r) => r.value);
+
+    log.info(`Parsed ${keybindings.length} shortcuts total`);
+    return keybindings;
+  }
+
+  private async parseSource(source: SourceInfo): Promise<Shortcut[]> {
+    const cheatsheetDefaults = this.convertCheatsheetToShortcuts(source);
+
+    let parserResults: Shortcut[] = [];
+    if (source.parser && source.detected) {
+      try {
+        parserResults = await source.parser.parse();
+        log.debug(`Parsed ${parserResults.length} shortcuts from ${source.id}`);
+      } catch (err) {
+        log.warn(`Parser failed for ${source.id}`, err);
+      }
+    }
+
+    // Merge: cheatsheet defaults + parser overrides
+    if (cheatsheetDefaults.length > 0 && parserResults.length > 0) {
+      return mergeShortcuts(cheatsheetDefaults, parserResults);
+    }
+    if (cheatsheetDefaults.length > 0) return cheatsheetDefaults;
+    return parserResults;
+  }
+
+  /** Convert cheatsheet shortcuts to Shortcut objects for current platform. */
+  private convertCheatsheetToShortcuts(source: SourceInfo): Shortcut[] {
+    if (!source.cheatsheet || source.cheatsheet.shortcuts.length === 0) return [];
+
+    const platform = process.platform as Platform;
+    const shortcuts: Shortcut[] = [];
+
+    for (const cs of source.cheatsheet.shortcuts) {
+      const keyForPlatform = cs.key[platform];
+      if (!keyForPlatform) continue;
+
+      shortcuts.push({
+        id: generateShortcutId(source.id, cs.rawCommand),
+        source: source.id,
+        sourceLabel: source.label,
+        key: keyForPlatform,
+        searchKey: keyForPlatform.toLowerCase(),
+        command: cs.command,
+        rawCommand: cs.rawCommand,
+        context: cs.context,
+        category: cs.category,
+        isDefault: true,
+        isUnbound: false,
+        filePath: '',
+        origin: 'cheatsheet',
+      });
+    }
+
+    return shortcuts;
+  }
+
+  async parseSingleSource(sourceId: string): Promise<Shortcut[]> {
+    const source = this.sources.get(sourceId);
+    if (!source || !source.enabled) return [];
+
+    const keybindings = await this.parseSource(source);
     this.cache.set(sourceId, keybindings);
     return keybindings;
   }
 
-  getAllCached(): Keybinding[] {
+  getAllCached(): Shortcut[] {
     return Array.from(this.cache.values()).flat();
   }
 
-  getCachedBySource(sourceId: string): Keybinding[] {
+  getCachedBySource(sourceId: string): Shortcut[] {
     return this.cache.get(sourceId) ?? [];
   }
 
   getSources(): ParserMeta[] {
-    return this.activeParsers.map((p) => p.meta);
+    return Array.from(this.sources.values())
+      .filter((s) => s.enabled)
+      .map((s) => ({
+        id: s.id,
+        label: s.label,
+        icon: s.icon,
+        platforms: s.platforms,
+      }));
   }
 
   getWatchPaths(): Map<string, string[]> {
     const paths = new Map<string, string[]>();
-    for (const parser of this.activeParsers) {
-      paths.set(parser.meta.id, parser.getWatchPaths());
+    for (const [id, source] of this.sources) {
+      if (!source.enabled || !source.parser) continue;
+      paths.set(id, source.parser.getWatchPaths());
     }
     return paths;
   }

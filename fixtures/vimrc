@@ -1,0 +1,38 @@
+" Vim Configuration
+" Leader key
+let mapleader = ","
+
+" Basic mappings
+nmap <leader>w :w<CR>
+nmap <leader>q :q<CR>
+nnoremap <C-p> :Files<CR>
+vnoremap <C-c> "+y
+
+" Insert mode mappings
+inoremap jk <Esc>
+imap <C-a> <Home>
+
+" Command mode
+cnoremap <C-a> <Home>
+
+" Operator-pending
+onoremap p i(
+
+" Visual-only (x) and Select (s)
+xnoremap < <gv
+snoremap <C-j> <Down>
+
+" Unmap
+nunmap <C-z>
+
+" Silent and buffer-local mapping
+nmap <silent> <leader>f :FZF<CR>
+nmap <buffer> <leader>b :Buffers<CR>
+
+" Multi-modifier
+nnoremap <C-S-k> :move .-1<CR>
+nnoremap <D-s> :w<CR>
+
+" Noremap (no prefix = normal mode)
+noremap <Space> :
+map j gj

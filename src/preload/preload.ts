@@ -1,30 +1,39 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
-import type { Keybinding, ParserMeta } from '../shared/types';
+import type { Shortcut, ParserMeta, Command, SubcommandDetail, SourceStatus } from '../shared/types';
+import type { AppSettings } from '../shared/settings';
 
 const electronAPI = {
   getSources(): Promise<ParserMeta[]> {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_SOURCES);
   },
 
-  getAllKeybindings(): Promise<Keybinding[]> {
+  getAvailableSources(): Promise<ParserMeta[]> {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_AVAILABLE_SOURCES);
+  },
+
+  getAllSources(): Promise<SourceStatus[]> {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_ALL_SOURCES);
+  },
+
+  getAllKeybindings(): Promise<Shortcut[]> {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_ALL);
   },
 
-  getKeybindingsBySource(sourceId: string): Promise<Keybinding[]> {
+  getKeybindingsBySource(sourceId: string): Promise<Shortcut[]> {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_BY_SOURCE, sourceId);
   },
 
-  refreshKeybindings(): Promise<Keybinding[]> {
+  refreshKeybindings(): Promise<Shortcut[]> {
     return ipcRenderer.invoke(IPC_CHANNELS.REFRESH);
   },
 
   onKeybindingsUpdate(
-    cb: (data: { sourceId: string; keybindings: Keybinding[] }) => void,
+    cb: (data: { sourceId: string; keybindings: Shortcut[] }) => void,
   ): () => void {
     const handler = (
       _event: Electron.IpcRendererEvent,
-      data: { sourceId: string; keybindings: Keybinding[] },
+      data: { sourceId: string; keybindings: Shortcut[] },
     ) => cb(data);
     ipcRenderer.on(IPC_CHANNELS.ON_UPDATE, handler);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.ON_UPDATE, handler);
@@ -40,6 +49,63 @@ const electronAPI = {
     const handler = () => cb();
     ipcRenderer.on('window:hidden', handler);
     return () => ipcRenderer.removeListener('window:hidden', handler);
+  },
+
+  getSettings(): Promise<AppSettings> {
+    return ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET_ALL);
+  },
+
+  setSetting(
+    key: keyof AppSettings,
+    value: unknown,
+  ): Promise<{ success: boolean; error?: string }> {
+    return ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET, key, value);
+  },
+
+  onSettingsChange(cb: (settings: AppSettings) => void): () => void {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      settings: AppSettings,
+    ) => cb(settings);
+    ipcRenderer.on(IPC_CHANNELS.SETTINGS_ON_CHANGE, handler);
+    return () =>
+      ipcRenderer.removeListener(IPC_CHANNELS.SETTINGS_ON_CHANGE, handler);
+  },
+
+  openPreferences(): void {
+    ipcRenderer.send(IPC_CHANNELS.OPEN_PREFERENCES);
+  },
+
+  getAllCommands(): Promise<Command[]> {
+    return ipcRenderer.invoke(IPC_CHANNELS.COMMANDS_GET_ALL);
+  },
+
+  getCommandDetail(name: string): Promise<Command | null> {
+    return ipcRenderer.invoke(IPC_CHANNELS.COMMANDS_GET_DETAIL, name);
+  },
+
+  refreshCommands(): Promise<Command[]> {
+    return ipcRenderer.invoke(IPC_CHANNELS.COMMANDS_REFRESH);
+  },
+
+  onCommandsUpdate(callback: (commands: Command[]) => void): () => void {
+    const handler = (_event: Electron.IpcRendererEvent, commands: Command[]) =>
+      callback(commands);
+    ipcRenderer.on(IPC_CHANNELS.COMMANDS_ON_UPDATE, handler);
+    return () =>
+      ipcRenderer.removeListener(IPC_CHANNELS.COMMANDS_ON_UPDATE, handler);
+  },
+
+  getSubcommandDetail(qualifiedName: string): Promise<SubcommandDetail | null> {
+    return ipcRenderer.invoke(IPC_CHANNELS.COMMANDS_GET_SUBCOMMAND_DETAIL, qualifiedName);
+  },
+
+  getCommandsStats(): Promise<{ total: number; enriched: number; running: boolean }> {
+    return ipcRenderer.invoke(IPC_CHANNELS.COMMANDS_GET_STATS);
+  },
+
+  setWindowHeight(height: number): void {
+    ipcRenderer.send(IPC_CHANNELS.SET_WINDOW_HEIGHT, height);
   },
 };
 

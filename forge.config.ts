@@ -13,6 +13,10 @@ const config: ForgeConfig = {
     name: 'Shortty',
     executableName: 'shortty',
     appBundleId: 'com.shortty.app',
+    extraResource: [
+      'src/assets/tray-iconTemplate.png',
+      'src/assets/tray-iconTemplate@2x.png',
+    ],
     extendInfo: {
       LSUIElement: true,
     },
@@ -41,6 +45,10 @@ const config: ForgeConfig = {
       renderer: [
         {
           name: 'main_window',
+          config: 'vite.renderer.config.mts',
+        },
+        {
+          name: 'preferences_window',
           config: 'vite.renderer.config.mts',
         },
       ],

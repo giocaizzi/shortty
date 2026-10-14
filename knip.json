@@ -2,6 +2,7 @@
   "entry": [
     "src/main/index.ts",
     "src/preload/preload.ts",
+    "src/renderer/preferences/main.tsx",
     "forge.config.ts",
     "vite.main.config.ts",
     "vite.preload.config.ts",
@@ -13,6 +14,9 @@
     "@electron-forge/shared-types"
   ],
   "ignoreBinaries": [
-    "plutil"
+    "plutil",
+    "man",
+    "col",
+    "whatis"
   ]
 }

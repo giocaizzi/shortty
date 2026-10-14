@@ -1,11 +1,11 @@
-import { existsSync } from 'node:fs';
-import type { Keybinding, ParserMeta } from '../../shared/types';
-import { discoverObsidianVaults } from '../platform/paths';
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
+import { parseModifierWord, normalizeToCanonical } from './key-normalizer';
 
 export class ObsidianParser extends BaseParser {
-  private vaultPaths: string[] = [];
-
   get meta(): ParserMeta {
     return {
       id: 'obsidian',
@@ -16,16 +16,56 @@ export class ObsidianParser extends BaseParser {
   }
 
   async isAvailable(): Promise<boolean> {
-    this.vaultPaths = discoverObsidianVaults();
-    return this.vaultPaths.length > 0;
+    // If no config paths were set by the registry, discover vaults
+    if (this.getConfigPaths().length === 0) {
+      this.setConfigPaths(ObsidianParser.discoverVaults());
+    }
+    return this.getConfigPaths().some((p) => existsSync(p));
   }
 
   getWatchPaths(): string[] {
-    return this.vaultPaths.filter((p) => existsSync(p));
+    return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
-  async parse(): Promise<Keybinding[]> {
-    const keybindings: Keybinding[] = [];
+  /** Discover Obsidian vaults by scanning common directories. */
+  static discoverVaults(): string[] {
+    const home = homedir();
+    const vaults: string[] = [];
+    const searchDirs = [
+      join(home, 'Documents'),
+      join(home, 'Desktop'),
+      home,
+    ];
+
+    for (const dir of searchDirs) {
+      if (!existsSync(dir)) continue;
+      try {
+        for (const entry of readdirSync(dir)) {
+          if (entry.startsWith('.')) continue;
+          const entryPath = join(dir, entry);
+          try {
+            if (!statSync(entryPath).isDirectory()) continue;
+            const obsidianDir = join(entryPath, '.obsidian');
+            if (existsSync(obsidianDir)) {
+              const hotkeysPath = join(obsidianDir, 'hotkeys.json');
+              if (existsSync(hotkeysPath)) {
+                vaults.push(hotkeysPath);
+              }
+            }
+          } catch {
+            // Skip inaccessible entries
+          }
+        }
+      } catch {
+        // Skip inaccessible directories
+      }
+    }
+
+    return vaults;
+  }
+
+  async parse(): Promise<Shortcut[]> {
+    const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
       const content = await this.readFileIfExists(filePath);
@@ -42,8 +82,9 @@ export class ObsidianParser extends BaseParser {
         // Empty array means explicitly unbound
         if (bindings.length === 0) {
           keybindings.push(
-            this.makeKeybinding({
+            this.makeShortcut({
               key: '',
+              searchKey: '',
               command: this.humanizeCommand(commandId),
               rawCommand: commandId,
               isDefault: false,
@@ -55,9 +96,11 @@ export class ObsidianParser extends BaseParser {
         }
 
         for (const binding of bindings) {
+          const { displayKey, searchKey } = this.normalizeObsidianKey(binding);
           keybindings.push(
-            this.makeKeybinding({
-              key: this.normalizeObsidianKey(binding),
+            this.makeShortcut({
+              key: displayKey,
+              searchKey,
               command: this.humanizeCommand(commandId),
               rawCommand: commandId,
               isDefault: false,
@@ -72,15 +115,18 @@ export class ObsidianParser extends BaseParser {
     return keybindings;
   }
 
-  private normalizeObsidianKey(hotkey: ObsidianHotkey): string {
-    const mods = (hotkey.modifiers ?? [])
-      .map((m) => this.normalizeKey(m))
-      .join('');
-    return `${mods}${hotkey.key}`;
+  private normalizeObsidianKey(hotkey: ObsidianHotkey): {
+    displayKey: string;
+    searchKey: string;
+  } {
+    const modifiers = (hotkey.modifiers ?? [])
+      .map((m) => parseModifierWord(m))
+      .filter((m): m is NonNullable<typeof m> => m !== null);
+
+    return normalizeToCanonical({ modifiers, key: hotkey.key });
   }
 
   private humanizeCommand(commandId: string): string {
-    // "plugin-id:command-name" -> "Command Name"
     const parts = commandId.split(':');
     const name = parts[parts.length - 1];
     return name

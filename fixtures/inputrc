@@ -1,0 +1,14 @@
+# Bash inputrc configuration
+set editing-mode emacs
+
+# Key bindings
+"\C-a": beginning-of-line
+"\C-e": end-of-line
+"\C-k": kill-line
+"\C-u": unix-line-discard
+"\e[A": history-search-backward
+"\e[B": history-search-forward
+"\C-r": reverse-search-history
+"\M-f": forward-word
+"\M-b": backward-word
+"\C-x\C-e": edit-and-execute-command

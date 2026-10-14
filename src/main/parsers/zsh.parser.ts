@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
-import type { Keybinding, ParserMeta } from '../../shared/types';
-import { getConfigPaths } from '../platform/paths';
+import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
+import { Modifier } from './key-normalizer';
+import { normalizeTerminalKey } from './terminal-keys';
 
 export class ZshParser extends BaseParser {
   get meta(): ParserMeta {
@@ -14,15 +15,15 @@ export class ZshParser extends BaseParser {
   }
 
   async isAvailable(): Promise<boolean> {
-    return getConfigPaths('zsh').some((p) => existsSync(p));
+    return this.getConfigPaths().some((p) => existsSync(p));
   }
 
   getWatchPaths(): string[] {
-    return getConfigPaths('zsh').filter((p) => existsSync(p));
+    return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
-  async parse(): Promise<Keybinding[]> {
-    const keybindings: Keybinding[] = [];
+  async parse(): Promise<Shortcut[]> {
+    const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
       const content = await this.readFileIfExists(filePath);
@@ -39,10 +40,12 @@ export class ZshParser extends BaseParser {
         if (!match) continue;
 
         const [, keymap, sequence, widget] = match;
+        const { displayKey, searchKey } = this.normalizeZshKey(sequence);
 
         keybindings.push(
-          this.makeKeybinding({
-            key: this.normalizeZshKey(sequence),
+          this.makeShortcut({
+            key: displayKey,
+            searchKey,
             command: this.humanizeWidget(widget),
             rawCommand: trimmed,
             context: keymap,
@@ -57,15 +60,29 @@ export class ZshParser extends BaseParser {
     return keybindings;
   }
 
-  private normalizeZshKey(sequence: string): string {
-    return sequence
-      .replace(/\^\[/g, '⌥')
-      .replace(/\^/g, '⌃')
-      .replace(/\\e\[A/g, '↑')
-      .replace(/\\e\[B/g, '↓')
-      .replace(/\\e\[C/g, '→')
-      .replace(/\\e\[D/g, '←')
-      .replace(/\\e/g, '⌥');
+  private normalizeZshKey(sequence: string): {
+    displayKey: string;
+    searchKey: string;
+  } {
+    return normalizeTerminalKey(sequence, (seq) => {
+      const modifiers: Modifier[] = [];
+      let remaining = seq;
+
+      if (remaining.startsWith('^[')) {
+        modifiers.push(Modifier.Option);
+        remaining = remaining.slice(2);
+      } else if (remaining.startsWith('\\e')) {
+        modifiers.push(Modifier.Option);
+        remaining = remaining.slice(2);
+      }
+
+      if (remaining.startsWith('^')) {
+        modifiers.push(Modifier.Control);
+        remaining = remaining.slice(1);
+      }
+
+      return { modifiers, remaining };
+    });
   }
 
   private humanizeWidget(widget: string): string {
