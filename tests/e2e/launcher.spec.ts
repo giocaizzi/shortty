@@ -1,4 +1,4 @@
-import { test, expect, knownBug } from './fixtures';
+import { test, expect } from './fixtures';
 
 test.describe('launcher window', () => {
   test('starts hidden and shows with a focused, empty search bar', async ({ shortty }) => {
@@ -144,7 +144,6 @@ test.describe('preferences', () => {
   });
 
   test('renders the preferences UI with its four tabs', async ({ shortty }) => {
-    knownBug('GeneralTab reads process.platform, undefined in the sandboxed renderer: ErrorBoundary');
     const opened = shortty.app.waitForEvent('window');
     await shortty.openPreferences();
     const prefs = await opened;

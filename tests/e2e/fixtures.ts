@@ -310,6 +310,8 @@ export async function pressLayoutKey(
 /**
  * Mark the running test as a known bug (reported as "fixme", not run to the
  * end). Set SHORTTY_E2E_FIXME=1 to run these anyway and check a fix.
+ * Kept while no test needs it: it is the documented convention (docs/e2e.md).
+ * @public
  */
 export function knownBug(reason: string): void {
   base.fixme(process.env.SHORTTY_E2E_FIXME !== '1', reason);

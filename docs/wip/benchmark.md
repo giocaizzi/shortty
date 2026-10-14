@@ -114,7 +114,7 @@ screenshot cannot capture; the benchmark paints a dark backdrop
 
 ## After the launcher rework (WP-D search/navigation, WP-E visuals)
 
-Branch `feat/launcher-ux`, rebased on `2e17715` (main-process lifecycle,
+Branch `feat/launcher-ux`, measured on base `2e17715` (main-process lifecycle,
 shortcut engine, commands engine and keyboard layouts merged). Cheatsheets
 now load in the build, so no symlink is needed: 510 shortcuts. Reproduce
 with `make e2e-benchmark LABEL=after-launcher`; raw numbers in
