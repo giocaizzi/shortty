@@ -26,4 +26,11 @@ describe('KeyCombo', () => {
     render(<KeyCombo keys={undefined as any} />);
     expect(screen.getByText('unbound')).toBeInTheDocument();
   });
+
+  it('paints the separator and "unbound" with the theme tokens, not white', () => {
+    const { container } = render(<><KeyCombo keys="⌘K ⌘C" /><KeyCombo keys="" /></>);
+    expect(screen.getByText('·')).toHaveClass('text-fg-4');
+    expect(screen.getByText('unbound')).toHaveClass('text-fg-4');
+    expect(container.innerHTML).not.toMatch(/white/);
+  });
 });

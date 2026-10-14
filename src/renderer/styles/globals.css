@@ -188,18 +188,6 @@ kbd.kbd-sm {
   color: var(--fg-3);
 }
 
-/* KeyCombo still paints its separator and "unbound" label with Tailwind
-   white utilities; map them to tokens so they read in the light theme too.
-   TODO: drop once KeyCombo uses the fg tokens directly. */
-.keys .text-white\/15,
-.keys .text-white\/20 {
-  color: var(--fg-4);
-}
-
-.keys kbd[data-layout-hint] {
-  text-decoration-color: var(--fg-4);
-}
-
 /* Panel show/hide (docs/spec.md §10.9). App re-applies .panel-enter on every
    window:shown and .panel-exit before a dismiss it starts itself. */
 @keyframes panel-show {
