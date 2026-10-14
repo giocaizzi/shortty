@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { join } from 'node:path';
 import { VimParser } from '../../../src/main/parsers/vim.parser';
+import { FIXTURES, rows } from './parser-helpers';
 
-const FIXTURE_PATH = join(__dirname, '../../../fixtures/vimrc');
+const FIXTURE_PATH = join(FIXTURES, 'vimrc');
+const NVO = 'normal, visual, operator-pending';
 
 describe('VimParser', () => {
   let parser: VimParser;
@@ -17,119 +19,59 @@ describe('VimParser', () => {
     expect(parser.meta.label).toBe('vim');
   });
 
-  it('parses basic nmap entries', async () => {
+  it('parses every mapping with exact key, command, mode and unbound flag', async () => {
     const result = await parser.parse();
-    const leaderW = result.find((kb) => kb.rawCommand.includes('nmap <leader>w'));
-    expect(leaderW).toBeDefined();
-    expect(leaderW?.command).toBe('w');
-    expect(leaderW?.context).toBe('normal');
+    expect(rows(result)).toEqual([
+      [', w', 'w', 'normal', false],
+      [', q', 'q', 'normal', false],
+      ['⌃P', 'Files', 'normal', false],
+      ['⌃C', '"+y', 'visual', false],
+      ['j k', '<Esc>', 'insert', false],
+      ['⌃A', '<Home>', 'insert', false],
+      ['⌃A', '<Home>', 'command', false],
+      ['p', 'i(', 'operator-pending', false],
+      ['<', '<gv', 'visual', false],
+      ['⌃J', '<Down>', 'select', false],
+      ['⌃Z', 'Unmap', 'normal', true],
+      [', f', 'FZF', 'normal', false],
+      [', b', 'Buffers', 'normal', false],
+      ['⌃⇧K', 'move .-1', 'normal', false],
+      ['⌘S', 'w', 'normal', false],
+      ['Space', ':', NVO, false],
+      ['j', 'gj', NVO, false],
+      // leader changed to <Space> half-way through the file
+      ['Space f f', 'Telescope find_files', 'normal', false],
+      [', t', 'TestNearest', 'normal', false],
+      ['↑', 'Disabled', 'normal', true],
+      // <Plug> mapping skipped
+      ['⌃V', '<C-r>+', 'insert, command', false],
+      ['⌃]', 'g<C-]>', 'normal', false],
+      ['g c c', 'Commentary', 'normal', false],
+      ['W', 'w', 'normal', false],
+      ['Escape', '<C-\\><C-n>', 'terminal', false],
+    ]);
   });
 
-  it('substitutes leader key', async () => {
+  it('keeps plain characters literal and case-sensitive', async () => {
     const result = await parser.parse();
-    const leaderW = result.find((kb) => kb.rawCommand.includes('nmap <leader>w'));
-    // Leader is "," so <leader>w becomes ", w" in display
-    expect(leaderW?.key).toContain(',');
-    expect(leaderW?.key).toContain('w');
+    const upperW = result.find((kb) => kb.rawCommand === 'nnoremap W :w<CR>');
+    expect(upperW?.strokes).toEqual([{ mods: [], key: 'W', literal: true }]);
+    const ctrlP = result.find((kb) => kb.rawCommand.startsWith('nnoremap <C-p>'));
+    expect(ctrlP?.strokes).toEqual([{ mods: ['ctrl'], key: 'P' }]);
   });
 
-  it('parses multi-modifier keys (C-S-k)', async () => {
+  it('generates unique IDs', async () => {
     const result = await parser.parse();
-    const ctrlShiftK = result.find((kb) => kb.rawCommand.includes('<C-S-k>'));
-    expect(ctrlShiftK).toBeDefined();
-    // Should contain both Ctrl and Shift glyphs
-    expect(ctrlShiftK?.key).toContain('⌃');
-    expect(ctrlShiftK?.key).toContain('⇧');
+    const ids = result.map((kb) => kb.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('handles Cmd modifier (D-s)', async () => {
-    const result = await parser.parse();
-    const cmdS = result.find((kb) => kb.rawCommand.includes('<D-s>'));
-    expect(cmdS).toBeDefined();
-    expect(cmdS?.key).toContain('⌘');
-  });
-
-  it('handles unmap commands', async () => {
-    const result = await parser.parse();
-    const unmap = result.find((kb) => kb.isUnbound);
-    expect(unmap).toBeDefined();
-    expect(unmap?.command).toBe('Unmap');
-    expect(unmap?.context).toBe('normal');
-  });
-
-  it('detects mode from command prefix', async () => {
-    const result = await parser.parse();
-
-    const visual = result.find((kb) => kb.rawCommand.startsWith('vnoremap'));
-    expect(visual?.context).toBe('visual');
-
-    const insert = result.find((kb) => kb.rawCommand.startsWith('inoremap jk'));
-    expect(insert?.context).toBe('insert');
-
-    const cmdMode = result.find((kb) => kb.rawCommand.startsWith('cnoremap'));
-    expect(cmdMode?.context).toBe('command');
-
-    const operPending = result.find((kb) => kb.rawCommand.startsWith('onoremap'));
-    expect(operPending?.context).toBe('operator-pending');
-
-    const xnore = result.find((kb) => kb.rawCommand.startsWith('xnoremap'));
-    expect(xnore?.context).toBe('visual');
-
-    const snore = result.find((kb) => kb.rawCommand.startsWith('snoremap'));
-    expect(snore?.context).toBe('select');
-  });
-
-  it('handles noremap (no prefix) as normal mode', async () => {
-    const result = await parser.parse();
-    const noremap = result.find((kb) => kb.rawCommand.startsWith('noremap'));
-    expect(noremap?.context).toBe('normal');
-  });
-
-  it('handles map (no prefix) as normal mode', async () => {
-    const result = await parser.parse();
-    const mapJ = result.find((kb) => kb.rawCommand === 'map j gj');
-    expect(mapJ?.context).toBe('normal');
-  });
-
-  it('ignores comment and blank lines', async () => {
-    const result = await parser.parse();
-    // No keybinding should have rawCommand starting with "
-    expect(result.every((kb) => !kb.rawCommand.startsWith('"'))).toBe(true);
-  });
-
-  it('returns empty for missing file', async () => {
+  it('returns empty for missing file or no config paths', async () => {
     const p = new VimParser();
-    p.setConfigPaths(['/nonexistent/vimrc']);
-    const result = await p.parse();
-    expect(result).toEqual([]);
-  });
-
-  it('returns empty for no config paths', async () => {
-    const p = new VimParser();
-    p.setConfigPaths([]);
-    const result = await p.parse();
-    expect(result).toEqual([]);
-  });
-
-  it('reports unavailable for missing paths', async () => {
-    const p = new VimParser();
-    p.setConfigPaths(['/nonexistent/vimrc']);
+    p.setConfigPaths(['/tmp/nonexistent-vimrc']);
+    expect(await p.parse()).toEqual([]);
     expect(await p.isAvailable()).toBe(false);
-  });
-
-  it('handles silent and buffer options', async () => {
-    const result = await parser.parse();
-    const silent = result.find((kb) => kb.rawCommand.includes('<silent>'));
-    expect(silent).toBeDefined();
-    expect(silent?.command).toBe('FZF');
-
-    const buffer = result.find((kb) => kb.rawCommand.includes('<buffer>'));
-    expect(buffer).toBeDefined();
-    expect(buffer?.command).toBe('Buffers');
-  });
-
-  it('sets source on all keybindings', async () => {
-    const result = await parser.parse();
-    expect(result.every((kb) => kb.source === 'vim')).toBe(true);
+    p.setConfigPaths([]);
+    expect(await p.parse()).toEqual([]);
   });
 });

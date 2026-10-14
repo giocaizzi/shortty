@@ -32,7 +32,8 @@ export function startWatching(
     awaitWriteFinish: { stabilityThreshold: 300 },
   });
 
-  watcher.on('change', async (changedPath) => {
+  // 'add'/'unlink' cover config files created or removed after startup.
+  const onEvent = async (changedPath: string) => {
     const sourceId = pathToSource.get(changedPath);
     if (!sourceId) return;
 
@@ -50,7 +51,10 @@ export function startWatching(
     } catch (err) {
       log.error(`Failed to re-parse ${sourceId} after file change`, err);
     }
-  });
+  };
+  watcher.on('change', onEvent);
+  watcher.on('add', onEvent);
+  watcher.on('unlink', onEvent);
 }
 
 export function stopWatching(): void {

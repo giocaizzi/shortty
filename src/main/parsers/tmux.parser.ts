@@ -1,29 +1,34 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
 import {
+  type NormalizedKey,
   type ParsedKey,
   Modifier,
   normalizeToCanonical,
 } from './key-normalizer';
 import { TMUX_COMMAND_LABELS } from './data/tmux-commands';
 
-/** Map tmux special key names to display glyphs/names. */
+/** tmux key names (tmux(1) KEY BINDINGS) → canonical key names. */
 const TMUX_SPECIAL_KEYS: Record<string, string> = {
   Up: '↑',
   Down: '↓',
   Left: '←',
   Right: '→',
-  BSpace: 'Delete',
-  NPage: 'PageDown',
-  PPage: 'PageUp',
-  Enter: 'Return',
-  Space: 'Space',
-  Tab: 'Tab',
-  Escape: 'Escape',
+  BSpace: 'Backspace',
   DC: 'Delete',
   IC: 'Insert',
+  NPage: 'PageDown',
+  PageDown: 'PageDown',
+  PgDn: 'PageDown',
+  PPage: 'PageUp',
+  PageUp: 'PageUp',
+  PgUp: 'PageUp',
+  Enter: 'Return',
+  Escape: 'Escape',
+  Space: 'Space',
+  Tab: 'Tab',
   Home: 'Home',
   End: 'End',
 };
@@ -31,11 +36,115 @@ const TMUX_SPECIAL_KEYS: Record<string, string> = {
 /** Default tmux prefix in tmux notation. */
 const DEFAULT_PREFIX = 'C-b';
 
-/** Pre-computed display form of the default prefix. */
-const DEFAULT_PREFIX_DISPLAY = normalizeToCanonical({
-  modifiers: [Modifier.Control],
-  key: 'B',
-}).displayKey;
+/** One parsed `bind-key` / `unbind-key`. */
+interface TmuxBinding {
+  table: string;
+  key: string;
+  command: string;
+  unbind: boolean;
+  /** `bind -N "note"`: the user's own description of the binding. */
+  note?: string;
+}
+
+/**
+ * Split a tmux config line into words, honouring '…', "…" and backslash
+ * escapes. Returns each word with the offset just past it so the command
+ * can be taken verbatim from the rest of the line.
+ */
+function tokenize(line: string): { word: string; end: number }[] {
+  const out: { word: string; end: number }[] = [];
+  let i = 0;
+  while (i < line.length) {
+    while (i < line.length && /\s/.test(line[i])) i++;
+    if (i >= line.length) break;
+    let word = '';
+    while (i < line.length && !/\s/.test(line[i])) {
+      const ch = line[i];
+      if (ch === "'" || ch === '"') {
+        const close = line.indexOf(ch, i + 1);
+        const stop = close === -1 ? line.length : close;
+        word += line.slice(i + 1, stop);
+        i = stop + 1;
+      } else if (ch === '\\' && i + 1 < line.length) {
+        word += line[i + 1];
+        i += 2;
+      } else {
+        word += ch;
+        i++;
+      }
+    }
+    out.push({ word, end: i });
+  }
+  return out;
+}
+
+/**
+ * Parse `bind-key [-nr] [-N note] [-T table] key command…` and
+ * `unbind-key [-anq] [-T table] key`, as written in tmux.conf or printed
+ * by `tmux list-keys`. Returns null for anything else.
+ */
+export function parseBindLine(line: string): TmuxBinding | null {
+  const trimmed = line.trim();
+  if (!/^(?:bind|bind-key|unbind|unbind-key)\s/.test(trimmed)) return null;
+  const tokens = tokenize(trimmed);
+  const unbind = tokens[0].word.startsWith('unbind');
+  let table = 'prefix';
+  let note: string | undefined;
+  let i = 1;
+  while (i < tokens.length && tokens[i].word.startsWith('-') && tokens[i].word.length > 1) {
+    const flags = tokens[i].word.slice(1);
+    i++;
+    for (const flag of flags) {
+      if (flag === 'n') table = 'root';
+      else if (flag === 'T') table = tokens[i++]?.word ?? table;
+      else if (flag === 'N') note = tokens[i++]?.word;
+      else if (flag === 'a' && unbind) return null; // unbind -a: all keys
+    }
+  }
+  const keyToken = tokens[i];
+  if (!keyToken) return null;
+  const command = trimmed.slice(keyToken.end).trim();
+  if (!unbind && !command) return null;
+  return { table, key: keyToken.word, command, unbind, note };
+}
+
+/** Parse tmux key notation (C-a, M-x, C-M-v, S-Up, ^A, BTab, %) into a ParsedKey. */
+export function parseTmuxKey(rawKey: string): ParsedKey {
+  const modifiers: Modifier[] = [];
+  let remaining = rawKey;
+
+  for (;;) {
+    if (remaining.length > 2 && /^[CMS]-/.test(remaining)) {
+      modifiers.push(
+        remaining[0] === 'C' ? Modifier.Control
+          : remaining[0] === 'M' ? Modifier.Option
+            : Modifier.Shift,
+      );
+      remaining = remaining.slice(2);
+    } else if (remaining.length === 2 && remaining[0] === '^') {
+      modifiers.push(Modifier.Control);
+      remaining = remaining.slice(1);
+    } else {
+      break;
+    }
+  }
+
+  if (remaining === 'BTab') {
+    return { modifiers: [...modifiers, Modifier.Shift], key: 'Tab' };
+  }
+  const special = TMUX_SPECIAL_KEYS[remaining];
+  if (special) return { modifiers, key: special };
+  if (/^F\d{1,2}$/.test(remaining)) return { modifiers, key: remaining };
+  if (/^KP/.test(remaining)) return { modifiers, key: `Numpad${remaining.slice(2)}` };
+
+  if (remaining.length === 1 && /[a-z]/i.test(remaining)) {
+    // tmux keys are characters: `N` is Shift+n. Ctrl+letter ignores case.
+    const isUpper = remaining !== remaining.toLowerCase();
+    if (isUpper && !modifiers.includes(Modifier.Control)) modifiers.push(Modifier.Shift);
+    return { modifiers, key: remaining.toUpperCase() };
+  }
+  return { modifiers, key: remaining };
+}
 
 export class TmuxParser extends BaseParser {
   get meta(): ParserMeta {
@@ -48,57 +157,76 @@ export class TmuxParser extends BaseParser {
   }
 
   async isAvailable(): Promise<boolean> {
-    try {
-      execSync('which tmux', { stdio: 'ignore' });
-      return true;
-    } catch {
-      return false;
-    }
+    return this.runTmux(['-V']) !== null;
   }
 
   getWatchPaths(): string[] {
     return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
+  /**
+   * Defaults (from a throw-away tmux server started without any config)
+   * merged with the user's tmux.conf: a config `bind` replaces the default
+   * bound to the same table+key, an `unbind` marks it unbound.
+   */
   async parse(): Promise<Shortcut[]> {
-    const resolvedPrefix = this.detectPrefix();
-    const configKeybindings = await this.parseConfigFiles(resolvedPrefix);
-    if (configKeybindings.length > 0) return configKeybindings;
-    return this.parseLiveKeys(resolvedPrefix);
+    const prefix = this.detectPrefix();
+    const defaults = this.runTmux([
+      '-L', `shortty-defaults-${process.pid}`, '-f', '/dev/null',
+      'start-server', ';', 'list-keys', ';', 'kill-server',
+    ]);
+    const defaultShortcuts = defaults ? this.parseTmuxListKeys(defaults, prefix) : [];
+    const configShortcuts = await this.parseConfigFiles(prefix);
+    return this.mergeWithDefaults(defaultShortcuts, configShortcuts);
   }
 
-  /** Detect the user's tmux prefix key and return its normalized display form. */
-  private detectPrefix(): string {
-    // Try live tmux first
+  /** Run tmux, returning stdout or null when tmux is missing or fails. */
+  protected runTmux(args: string[]): string | null {
     try {
-      const raw = execSync('tmux show-option -gv prefix 2>/dev/null', {
+      return execFileSync('tmux', args, {
         encoding: 'utf-8',
-        timeout: 2000,
-      }).trim();
-      if (raw) {
-        const { displayKey } = this.normalizeTmuxKey(raw);
-        return displayKey;
-      }
-    } catch { /* tmux not running */ }
+        timeout: 5000,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+    } catch {
+      return null;
+    }
+  }
 
-    // Fall back to parsing config files
+  /** The prefix key: tmux.conf `set -g prefix`, else default C-b. */
+  detectPrefix(): ParsedKey {
     for (const filePath of this.getConfigPaths()) {
       try {
         const content = readFileSync(filePath, 'utf-8');
-        const match = content.match(/^\s*set(?:-option)?\s+(?:-g\s+)?prefix\s+(\S+)/m);
-        if (match) {
-          const { displayKey } = this.normalizeTmuxKey(match[1]);
-          return displayKey;
+        let found: string | undefined;
+        for (const m of content.matchAll(
+          /^\s*set(?:-option)?\s+(?:-[a-zA-Z]+\s+)*prefix\s+(\S+)/gm,
+        )) {
+          found = m[1];
         }
+        if (found && found !== 'None') return parseTmuxKey(found.replace(/^['"]|['"]$/g, ''));
       } catch { /* file not found */ }
     }
-
-    // Default tmux prefix
-    const { displayKey } = this.normalizeTmuxKey(DEFAULT_PREFIX);
-    return displayKey;
+    return parseTmuxKey(DEFAULT_PREFIX);
   }
 
-  private async parseConfigFiles(resolvedPrefix: string): Promise<Shortcut[]> {
+  mergeWithDefaults(defaults: Shortcut[], config: Shortcut[]): Shortcut[] {
+    const identity = (s: Shortcut) => `${s.context ?? ''}\u0000${s.key}`;
+    const byIdentity = new Map<string, Shortcut>();
+    for (const s of defaults) byIdentity.set(identity(s), s);
+    for (const s of config) {
+      const id = identity(s);
+      const existing = byIdentity.get(id);
+      if (s.isUnbound) {
+        if (existing) byIdentity.set(id, { ...existing, isUnbound: true, isDefault: false, origin: 'user-config', filePath: s.filePath });
+        continue;
+      }
+      byIdentity.set(id, s);
+    }
+    return Array.from(byIdentity.values());
+  }
+
+  private async parseConfigFiles(prefix: ParsedKey): Promise<Shortcut[]> {
     const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
@@ -106,66 +234,21 @@ export class TmuxParser extends BaseParser {
       if (!content) continue;
 
       for (const line of content.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-
-        const match = trimmed.match(
-          /^(?:bind-key|bind)\s+(?:-([nrT])\s+)?(?:(\S+)\s+)?(\S+)\s+(.+)$/,
-        );
-        if (!match) continue;
-
-        const [, flag, tableOrKey, keyOrCmd, rest] = match;
-        const isRoot = flag === 'n';
-        let key: string;
-        let command: string;
-
-        if (flag === 'T') {
-          if (tableOrKey && TmuxParser.IGNORED_TABLES.has(tableOrKey)) continue;
-          key = keyOrCmd;
-          command = rest;
-        } else if (isRoot) {
-          key = tableOrKey ?? keyOrCmd;
-          command = rest;
-        } else {
-          key = tableOrKey ?? keyOrCmd;
-          command = `${keyOrCmd} ${rest}`.trim();
-        }
-
-        if (TmuxParser.MOUSE_KEY_RE.test(key)) continue;
-
-        const prefixKey = isRoot ? undefined : resolvedPrefix;
-        const { displayKey, searchKey } = this.normalizeTmuxKey(key, prefixKey);
-
-        keybindings.push(
-          this.makeShortcut({
-            key: displayKey,
-            searchKey,
-            command: this.humanizeCommand(command),
-            rawCommand: command,
-            isDefault: false,
-            isUnbound: false,
-            filePath,
-          }),
-        );
+        const binding = parseBindLine(line);
+        if (!binding) continue;
+        const shortcut = this.toShortcut(binding, prefix, {
+          isDefault: false,
+          filePath,
+          origin: 'user-config',
+        });
+        if (shortcut) keybindings.push(shortcut);
       }
     }
 
     return keybindings;
   }
 
-  private parseLiveKeys(resolvedPrefix: string): Shortcut[] {
-    try {
-      const output = execSync('tmux list-keys 2>/dev/null', {
-        encoding: 'utf-8',
-        timeout: 5000,
-      });
-      return this.parseTmuxListKeys(output, resolvedPrefix);
-    } catch {
-      return [];
-    }
-  }
-
-  /** Tables that produce noise (copy-mode vi/emacs bindings, mouse events). */
+  /** Tables that produce noise (copy-mode vi/emacs bindings). */
   private static readonly IGNORED_TABLES = new Set([
     'copy-mode',
     'copy-mode-vi',
@@ -173,81 +256,67 @@ export class TmuxParser extends BaseParser {
 
   /** Keys that are mouse events rather than keyboard shortcuts. */
   private static readonly MOUSE_KEY_RE =
-    /^(?:Mouse|WheelUp|WheelDown|DoubleClick|TripleClick|DragEnd|SecondClick)/;
+    /^(?:[CMS]-)*(?:Mouse|WheelUp|WheelDown|DoubleClick|TripleClick|SecondClick|DragEnd)/;
 
   parseTmuxListKeys(
     output: string,
-    resolvedPrefix: string = DEFAULT_PREFIX_DISPLAY,
+    prefix: ParsedKey = parseTmuxKey(DEFAULT_PREFIX),
   ): Shortcut[] {
     const keybindings: Shortcut[] = [];
-
     for (const line of output.split('\n')) {
-      const match = line.match(
-        /^bind-key\s+-T\s+(\S+)\s+(\S+)\s+(.+)$/,
-      );
-      if (!match) continue;
-
-      const [, table, key, command] = match;
-
-      if (TmuxParser.IGNORED_TABLES.has(table)) continue;
-      if (TmuxParser.MOUSE_KEY_RE.test(key)) continue;
-
-      const prefixKey = table === 'root' ? undefined : resolvedPrefix;
-      const { displayKey, searchKey } = this.normalizeTmuxKey(key, prefixKey);
-
-      keybindings.push(
-        this.makeShortcut({
-          key: displayKey,
-          searchKey,
-          command: this.humanizeCommand(command),
-          rawCommand: command,
-          context: table !== 'prefix' && table !== 'root' ? table : undefined,
-          isDefault: true,
-          isUnbound: false,
-          filePath: 'tmux list-keys',
-        }),
-      );
+      const binding = parseBindLine(line);
+      if (!binding || binding.unbind) continue;
+      const shortcut = this.toShortcut(binding, prefix, {
+        isDefault: true,
+        filePath: 'tmux list-keys',
+        origin: 'app-defaults',
+      });
+      if (shortcut) keybindings.push(shortcut);
     }
-
     return keybindings;
   }
 
-  /** Parse tmux key notation (C-a, M-x, C-M-v) into a normalized form. */
-  private normalizeTmuxKey(
-    rawKey: string,
-    prefix?: string,
-  ): { displayKey: string; searchKey: string } {
-    const modifiers: Modifier[] = [];
-    let remaining = rawKey;
+  private toShortcut(
+    binding: TmuxBinding,
+    prefix: ParsedKey,
+    meta: Pick<Shortcut, 'isDefault' | 'filePath' | 'origin'>,
+  ): Shortcut | null {
+    const { table, key, command, unbind, note } = binding;
+    if (TmuxParser.IGNORED_TABLES.has(table)) return null;
+    if (TmuxParser.MOUSE_KEY_RE.test(key)) return null;
 
-    // Parse chained modifier prefixes: C-, M-, S-
-    while (remaining.length > 2) {
-      if (remaining.startsWith('C-')) {
-        modifiers.push(Modifier.Control);
-        remaining = remaining.slice(2);
-      } else if (remaining.startsWith('M-')) {
-        modifiers.push(Modifier.Option);
-        remaining = remaining.slice(2);
-      } else if (remaining.startsWith('S-')) {
-        modifiers.push(Modifier.Shift);
-        remaining = remaining.slice(2);
-      } else {
-        break;
-      }
-    }
-
-    // Map special key names or uppercase single letters
-    const keyName = TMUX_SPECIAL_KEYS[remaining] ?? (
-      remaining.length === 1 ? remaining.toUpperCase() : remaining
+    const parsed = parseTmuxKey(key);
+    const normalized: NormalizedKey = normalizeToCanonical(
+      table === 'prefix' ? { ...parsed, prefix } : parsed,
     );
-
-    const parsed: ParsedKey = { modifiers, key: keyName, prefix };
-    return normalizeToCanonical(parsed);
+    return this.makeShortcut({
+      key: normalized.displayKey,
+      searchKey: normalized.searchKey,
+      strokes: normalized.strokes,
+      command: unbind ? 'Unbind' : note ?? this.humanizeCommand(command),
+      rawCommand: unbind ? `unbind ${table} ${key}` : command,
+      context: table !== 'prefix' && table !== 'root' ? table : undefined,
+      isUnbound: unbind,
+      ...meta,
+    });
   }
 
   private humanizeCommand(command: string): string {
-    const cmd = command.trim().split(/\s+/)[0];
-    if (TMUX_COMMAND_LABELS[cmd]) return TMUX_COMMAND_LABELS[cmd];
-    return cmd.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase());
+    // Prompts and confirmations: describe the command they end up running.
+    const inner = command.match(/^(?:command-prompt|confirm-before)\b.*?(?:\{\s*([\w-]+)[^}]*\}|\s([a-z]+-[a-z-]+)\s*$)/);
+    if (inner && (inner[1] ?? inner[2])) return this.humanizeCommand(inner[1] ?? inner[2]);
+    const [cmd, ...args] = command.trim().split(/\s+/);
+    const base = TMUX_COMMAND_LABELS[cmd]
+      ?? cmd.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase());
+    if (cmd === 'split-window' || cmd === 'splitw') {
+      return args.includes('-h') ? `${base} Horizontally` : `${base} Vertically`;
+    }
+    if (cmd === 'select-pane' || cmd === 'resize-pane') {
+      const dir = args.find((a) => /^-[UDLR]$/.test(a));
+      const names: Record<string, string> = { '-U': 'Up', '-D': 'Down', '-L': 'Left', '-R': 'Right' };
+      if (dir) return `${base} ${names[dir]}`;
+      if (cmd === 'resize-pane' && args.includes('-Z')) return 'Zoom Pane';
+    }
+    return base;
   }
 }

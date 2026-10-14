@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { join } from 'node:path';
-import { ZshParser } from '../../../src/main/parsers/zsh.parser';
+import { ZshParser, shellWords } from '../../../src/main/parsers/zsh.parser';
+import { normalizeTerminalKey } from '../../../src/main/parsers/terminal-keys';
+import { FIXTURES, rows } from './parser-helpers';
 
-const FIXTURE_PATH = join(__dirname, '../../../fixtures/zshrc');
+const FIXTURE_PATH = join(FIXTURES, 'zshrc');
 
 describe('ZshParser', () => {
   let parser: ZshParser;
@@ -17,45 +19,90 @@ describe('ZshParser', () => {
     expect(parser.meta.label).toBe('Zsh');
   });
 
-  it('parses bindkey entries from fixture', async () => {
+  it('parses every bindkey with exact key, widget, keymap and unbound flag', async () => {
     const result = await parser.parse();
-
-    expect(result.length).toBe(6);
-    expect(result.every((kb) => kb.source === 'zsh')).toBe(true);
+    expect(rows(result)).toEqual([
+      ['⌃R', 'History incremental search backward', null, false],
+      ['⌃P', 'Up line or history', null, false],
+      ['⌃N', 'Down line or history', null, false],
+      ['↑', 'Up line or search', null, false],
+      ['↓', 'Down line or search', null, false],
+      ['K', 'Up line or history', 'vicmd', false],
+      ['⌥B', 'Backward word', null, false],
+      ['⌥F', 'Forward word', null, false],
+      ['⌃→', 'Forward word', null, false],
+      ['Delete', 'Delete char', null, false],
+      ['⌥Backspace', 'Backward kill word', null, false],
+      ['⌃X ⌃E', 'Edit command line', null, false],
+      ['J K', 'Vi cmd mode', 'viins', false],
+      ['⇧Tab', 'Reverse menu complete', 'menuselect', false],
+      ['⌃U', 'Backward kill line', null, false],
+      ['⌃G', 'Type “git status\\n”', null, false],
+      ['⌃S', 'Unbind', null, true],
+    ]);
   });
 
-  it('normalizes ^ to ctrl (Ctrl)', async () => {
+  it('skips keymap selection (bindkey -e) and parameter expansions', async () => {
     const result = await parser.parse();
-    const histSearch = result.find(
-      (kb) => kb.rawCommand.includes('history-incremental-search-backward'),
-    );
-    expect(histSearch?.key).toBe('⌃R');
+    expect(result.some((kb) => kb.rawCommand === 'bindkey -e')).toBe(false);
+    expect(result.some((kb) => kb.rawCommand.includes('terminfo'))).toBe(false);
   });
 
-  it('normalizes escape sequences to arrow glyphs', async () => {
+  it('generates unique IDs', async () => {
     const result = await parser.parse();
-    const upSearch = result.find(
-      (kb) => kb.rawCommand.includes('up-line-or-search'),
-    );
-    expect(upSearch?.key).toBe('↑');
+    const ids = result.map((kb) => kb.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('captures keymap as context', async () => {
-    const result = await parser.parse();
-    const vicmd = result.find((kb) => kb.context === 'vicmd');
-    expect(vicmd).toBeDefined();
-    expect(vicmd?.command).toBe('Up line or history');
-  });
-
-  it('ignores non-bindkey lines', async () => {
-    const result = await parser.parse();
-    expect(result.every((kb) => kb.rawCommand.includes('bindkey'))).toBe(true);
-  });
-
-  it('returns empty for no watch paths', async () => {
+  it('returns empty for missing file', async () => {
     const p = new ZshParser();
-    p.setConfigPaths([]);
-    const result = await p.parse();
-    expect(result).toEqual([]);
+    p.setConfigPaths(['/tmp/nonexistent']);
+    expect(await p.parse()).toEqual([]);
+  });
+});
+
+describe('terminal key sequences', () => {
+  const zsh = (seq: string) => normalizeTerminalKey(seq, { caret: true }).displayKey;
+  const readline = (seq: string) => normalizeTerminalKey(seq, { caret: false }).displayKey;
+
+  it('decodes caret notation and escapes', () => {
+    expect(zsh('^A')).toBe('⌃A');
+    expect(zsh('^[x')).toBe('⌥X');
+    expect(zsh('^[X')).toBe('⌥⇧X');
+    expect(zsh('\\e.')).toBe('⌥.');
+    expect(zsh('^?')).toBe('Backspace');
+    expect(zsh('^I')).toBe('Tab');
+    expect(zsh('^@')).toBe('⌃Space');
+    expect(zsh('^[')).toBe('Escape');
+    expect(zsh('^X^K')).toBe('⌃X ⌃K');
+  });
+
+  it('decodes CSI / SS3 sequences with xterm modifiers', () => {
+    expect(zsh('^[[A')).toBe('↑');
+    expect(zsh('^[OB')).toBe('↓');
+    expect(zsh('\\e[1;3D')).toBe('⌥←');
+    expect(zsh('\\e[1;2C')).toBe('⇧→');
+    expect(zsh('\\e[5~')).toBe('PageUp');
+    expect(zsh('\\e[3;5~')).toBe('⌃Delete');
+    expect(zsh('\\e[H')).toBe('Home');
+    expect(zsh('\\eOP')).toBe('F1');
+    expect(zsh('\\e[15~')).toBe('F5');
+  });
+
+  it('treats ^ literally in readline sequences', () => {
+    expect(readline('\\C-x\\C-r')).toBe('⌃X ⌃R');
+    expect(readline('\\M-\\C-h')).toBe('⌃⌥H');
+    expect(readline('^')).toBe('^');
+  });
+});
+
+describe('shellWords', () => {
+  it('splits words and removes quoting, keeping backslash escapes for bindkey', () => {
+    expect(shellWords(`bindkey -M viins "\\e[A" up-line # comment`)).toEqual([
+      'bindkey', '-M', 'viins', '\\e[A', 'up-line',
+    ]);
+    expect(shellWords(`bind '"\\C-r": reverse-search-history'`)).toEqual([
+      'bind', '"\\C-r": reverse-search-history',
+    ]);
   });
 });

@@ -6,6 +6,9 @@ bind '"\C-l": clear-screen'
 bind '"\C-p": history-search-backward'
 bind -x '"\C-g": git status'
 bind -x '"\C-t": tmux new-session'
+bind -m vi-insert '"\C-a": beginning-of-line'
+bind 'set completion-ignore-case on'
+bind -r '\C-s'
 
 # Aliases
 alias ll="ls -la"

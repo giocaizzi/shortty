@@ -1,9 +1,9 @@
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
-import { parseModifierWord, normalizeToCanonical } from './key-normalizer';
+import { type NormalizedKey, canonicalKeyName, parseModifierWord, normalizeToCanonical } from './key-normalizer';
 
 export class ObsidianParser extends BaseParser {
   get meta(): ParserMeta {
@@ -27,10 +27,27 @@ export class ObsidianParser extends BaseParser {
     return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
-  /** Discover Obsidian vaults by scanning common directories. */
+  /**
+   * Discover vault hotkey files: first from Obsidian's own vault registry
+   * (obsidian.json), then by scanning common directories.
+   */
   static discoverVaults(): string[] {
     const home = homedir();
     const vaults: string[] = [];
+    for (const registry of ObsidianParser.registryPaths(home)) {
+      try {
+        const data = JSON.parse(readFileSync(registry, 'utf-8')) as {
+          vaults?: Record<string, { path?: string }>;
+        };
+        for (const vault of Object.values(data.vaults ?? {})) {
+          if (!vault?.path) continue;
+          const hotkeysPath = join(vault.path, '.obsidian', 'hotkeys.json');
+          if (existsSync(hotkeysPath) && !vaults.includes(hotkeysPath)) vaults.push(hotkeysPath);
+        }
+      } catch {
+        // No registry on this machine
+      }
+    }
     const searchDirs = [
       join(home, 'Documents'),
       join(home, 'Desktop'),
@@ -48,7 +65,7 @@ export class ObsidianParser extends BaseParser {
             const obsidianDir = join(entryPath, '.obsidian');
             if (existsSync(obsidianDir)) {
               const hotkeysPath = join(obsidianDir, 'hotkeys.json');
-              if (existsSync(hotkeysPath)) {
+              if (existsSync(hotkeysPath) && !vaults.includes(hotkeysPath)) {
                 vaults.push(hotkeysPath);
               }
             }
@@ -64,6 +81,22 @@ export class ObsidianParser extends BaseParser {
     return vaults;
   }
 
+  /** Locations of Obsidian's obsidian.json vault registry per platform. */
+  private static registryPaths(home: string): string[] {
+    const xdg = process.env.XDG_CONFIG_HOME || join(home, '.config');
+    return [
+      join(home, 'Library/Application Support/obsidian/obsidian.json'),
+      join(xdg, 'obsidian/obsidian.json'),
+      ...(process.env.APPDATA ? [join(process.env.APPDATA, 'obsidian/obsidian.json')] : []),
+    ];
+  }
+
+  /** Vault name for a `<vault>/.obsidian/hotkeys.json` path. */
+  private static vaultName(filePath: string): string | undefined {
+    const configDir = dirname(filePath);
+    return basename(configDir) === '.obsidian' ? basename(dirname(configDir)) : undefined;
+  }
+
   async parse(): Promise<Shortcut[]> {
     const keybindings: Shortcut[] = [];
 
@@ -77,9 +110,11 @@ export class ObsidianParser extends BaseParser {
       } catch {
         continue;
       }
+      const context = ObsidianParser.vaultName(filePath);
 
       for (const [commandId, bindings] of Object.entries(hotkeys)) {
-        // Empty array means explicitly unbound
+        if (!Array.isArray(bindings)) continue;
+        // Empty array means the default hotkey was removed
         if (bindings.length === 0) {
           keybindings.push(
             this.makeShortcut({
@@ -87,6 +122,7 @@ export class ObsidianParser extends BaseParser {
               searchKey: '',
               command: this.humanizeCommand(commandId),
               rawCommand: commandId,
+              context,
               isDefault: false,
               isUnbound: true,
               filePath,
@@ -96,13 +132,16 @@ export class ObsidianParser extends BaseParser {
         }
 
         for (const binding of bindings) {
-          const { displayKey, searchKey } = this.normalizeObsidianKey(binding);
+          if (!binding || typeof binding.key !== 'string') continue;
+          const { displayKey, searchKey, strokes } = this.normalizeObsidianKey(binding);
           keybindings.push(
             this.makeShortcut({
               key: displayKey,
               searchKey,
+              strokes,
               command: this.humanizeCommand(commandId),
               rawCommand: commandId,
+              context,
               isDefault: false,
               isUnbound: false,
               filePath,
@@ -115,15 +154,13 @@ export class ObsidianParser extends BaseParser {
     return keybindings;
   }
 
-  private normalizeObsidianKey(hotkey: ObsidianHotkey): {
-    displayKey: string;
-    searchKey: string;
-  } {
+  /** Obsidian modifiers are "Mod" (⌘ on macOS, Ctrl elsewhere), "Ctrl", "Meta", "Alt", "Shift". */
+  private normalizeObsidianKey(hotkey: ObsidianHotkey): NormalizedKey {
     const modifiers = (hotkey.modifiers ?? [])
       .map((m) => parseModifierWord(m))
       .filter((m): m is NonNullable<typeof m> => m !== null);
 
-    return normalizeToCanonical({ modifiers, key: hotkey.key });
+    return normalizeToCanonical({ modifiers, key: canonicalKeyName(hotkey.key) });
   }
 
   private humanizeCommand(commandId: string): string {

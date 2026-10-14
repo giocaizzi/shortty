@@ -1,44 +1,189 @@
-import { type ParsedKey, Modifier, normalizeToCanonical } from './key-normalizer';
+import { type ParsedKey, type NormalizedKey, Modifier, normalizeSequence } from './key-normalizer';
 
-const TERMINAL_ESCAPE_SEQUENCES: Array<{ pattern: RegExp; toKey: ParsedKey }> = [
-  { pattern: /^\\e\[1;5A$/, toKey: { modifiers: [Modifier.Control], key: '↑' } },
-  { pattern: /^\\e\[1;5B$/, toKey: { modifiers: [Modifier.Control], key: '↓' } },
-  { pattern: /^\\e\[1;5C$/, toKey: { modifiers: [Modifier.Control], key: '→' } },
-  { pattern: /^\\e\[1;5D$/, toKey: { modifiers: [Modifier.Control], key: '←' } },
-  { pattern: /^\\e\[1;3A$/, toKey: { modifiers: [Modifier.Option], key: '↑' } },
-  { pattern: /^\\e\[1;3B$/, toKey: { modifiers: [Modifier.Option], key: '↓' } },
-  { pattern: /^\\e\[1;3C$/, toKey: { modifiers: [Modifier.Option], key: '→' } },
-  { pattern: /^\\e\[1;3D$/, toKey: { modifiers: [Modifier.Option], key: '←' } },
-  { pattern: /^\\e\[A$/, toKey: { modifiers: [], key: '↑' } },
-  { pattern: /^\\e\[B$/, toKey: { modifiers: [], key: '↓' } },
-  { pattern: /^\\e\[C$/, toKey: { modifiers: [], key: '→' } },
-  { pattern: /^\\e\[D$/, toKey: { modifiers: [], key: '←' } },
-  { pattern: /^\\e\[3~$/, toKey: { modifiers: [], key: 'Delete' } },
-  { pattern: /^\\e\[2~$/, toKey: { modifiers: [], key: 'Insert' } },
-  { pattern: /^\\e\[5~$/, toKey: { modifiers: [], key: 'PageUp' } },
-  { pattern: /^\\e\[6~$/, toKey: { modifiers: [], key: 'PageDown' } },
-  { pattern: /^\\eOH$/, toKey: { modifiers: [], key: 'Home' } },
-  { pattern: /^\\eOF$/, toKey: { modifiers: [], key: 'End' } },
-  { pattern: /^\\e\[H$/, toKey: { modifiers: [], key: 'Home' } },
-  { pattern: /^\\e\[F$/, toKey: { modifiers: [], key: 'End' } },
-  { pattern: /^\\e\[1~$/, toKey: { modifiers: [], key: 'Home' } },
-  { pattern: /^\\e\[4~$/, toKey: { modifiers: [], key: 'End' } },
-];
+/**
+ * Decoding of terminal key sequences as written in zsh `bindkey` and
+ * readline (`.inputrc`, bash `bind`): caret notation (`^X`, `^[`, `^?`),
+ * backslash escapes (`\e`, `\C-x`, `\M-x`, `\t`), and the CSI/SS3 escape
+ * sequences terminals send for arrows, Home/End and function keys.
+ *
+ * Meta/Escape-prefixed keys are shown with ⌥, matching macOS terminals
+ * configured with "Option as Meta".
+ */
+
+/** One decoded input unit before grouping. */
+type Unit =
+  | { kind: 'esc' }
+  | { kind: 'char'; char: string; ctrl: boolean; meta: boolean };
+
+const CSI_FINAL: Record<string, string> = {
+  A: '↑', B: '↓', C: '→', D: '←', H: 'Home', F: 'End',
+  P: 'F1', Q: 'F2', R: 'F3', S: 'F4',
+};
+
+const CSI_TILDE: Record<string, string> = {
+  1: 'Home', 7: 'Home', 4: 'End', 8: 'End', 2: 'Insert', 3: 'Delete',
+  5: 'PageUp', 6: 'PageDown',
+  11: 'F1', 12: 'F2', 13: 'F3', 14: 'F4', 15: 'F5', 17: 'F6', 18: 'F7',
+  19: 'F8', 20: 'F9', 21: 'F10', 23: 'F11', 24: 'F12',
+};
+
+/** Control characters with a key of their own. */
+const CONTROL_NAMES: Record<string, string> = {
+  I: 'Tab',
+  M: 'Return',
+  '?': 'Backspace',
+};
+
+/** xterm modifier parameter (1 + bitmask: 1 shift, 2 alt, 4 ctrl). */
+function xtermMods(param: string | undefined): Modifier[] {
+  const n = param ? parseInt(param, 10) - 1 : 0;
+  const mods: Modifier[] = [];
+  if (n & 4) mods.push(Modifier.Control);
+  if (n & 2) mods.push(Modifier.Option);
+  if (n & 1) mods.push(Modifier.Shift);
+  return mods;
+}
+
+function tokenize(seq: string, caret: boolean): Unit[] {
+  const units: Unit[] = [];
+  let ctrl = false;
+  let meta = false;
+  const push = (char: string) => {
+    if (char === '\x1b' && !ctrl) {
+      units.push({ kind: 'esc' });
+    } else {
+      units.push({ kind: 'char', char, ctrl, meta });
+    }
+    ctrl = false;
+    meta = false;
+  };
+
+  for (let i = 0; i < seq.length; i++) {
+    const ch = seq[i];
+    if (caret && ch === '^' && i + 1 < seq.length) {
+      const next = seq[++i];
+      if (next === '[') push('\x1b');
+      else if (next === '?') { units.push({ kind: 'char', char: '?', ctrl: true, meta }); ctrl = false; meta = false; }
+      else { ctrl = true; push(next); }
+      continue;
+    }
+    if (ch === '\\' && i + 1 < seq.length) {
+      const next = seq[i + 1];
+      if ((next === 'C' || next === 'M') && seq[i + 2] === '-') {
+        if (next === 'C') ctrl = true;
+        else meta = true;
+        i += 2;
+        continue;
+      }
+      i++;
+      switch (next) {
+        case 'e': case 'E': push('\x1b'); break;
+        case 't': units.push({ kind: 'char', char: 'I', ctrl: true, meta }); meta = false; break;
+        case 'n': case 'r': units.push({ kind: 'char', char: 'M', ctrl: true, meta }); meta = false; break;
+        case 'd': units.push({ kind: 'char', char: '?', ctrl: true, meta }); meta = false; break;
+        default: push(next);
+      }
+      continue;
+    }
+    push(ch);
+  }
+  return units;
+}
+
+function unitToKey(unit: Extract<Unit, { kind: 'char' }>, extraMeta: boolean): ParsedKey {
+  const modifiers: Modifier[] = [];
+  if (unit.meta || extraMeta) modifiers.push(Modifier.Option);
+  if (unit.ctrl) {
+    const upper = unit.char.toUpperCase();
+    if (CONTROL_NAMES[upper]) return { modifiers, key: CONTROL_NAMES[upper] };
+    if (unit.char === '@' || unit.char === ' ') {
+      return { modifiers: [...modifiers, Modifier.Control], key: 'Space' };
+    }
+    modifiers.push(Modifier.Control);
+    return { modifiers, key: upper };
+  }
+  if (unit.char === ' ') return { modifiers, key: 'Space' };
+  if (unit.char === '\x7f') return { modifiers, key: 'Backspace' };
+  if (/^[a-z]$/i.test(unit.char)) {
+    // Terminal keys are characters: an uppercase letter means Shift.
+    if (unit.char !== unit.char.toLowerCase()) modifiers.push(Modifier.Shift);
+    return { modifiers, key: unit.char.toUpperCase() };
+  }
+  return { modifiers, key: unit.char };
+}
+
+/**
+ * Try to read a CSI (`ESC [ … final`) or SS3 (`ESC O final`) sequence
+ * starting at units[i] (the unit after ESC). Returns the key and the
+ * number of units consumed, or null.
+ */
+function readEscapeSequence(units: Unit[], i: number): { key: ParsedKey; used: number } | null {
+  const first = units[i];
+  if (!first || first.kind !== 'char' || first.ctrl || first.meta) return null;
+  if (first.char !== '[' && first.char !== 'O') return null;
+
+  let body = '';
+  let j = i + 1;
+  while (j < units.length) {
+    const u = units[j];
+    if (u.kind !== 'char' || u.ctrl || u.meta) return null;
+    body += u.char;
+    j++;
+    if (/[A-Za-z~]/.test(u.char)) break;
+  }
+  const m = body.match(/^(?:(\d+)(?:;(\d+))?)?([A-Za-z~])$/);
+  if (!m) return null;
+  const [, num, modParam, final] = m;
+  if (final === 'Z' && first.char === '[') {
+    return { key: { modifiers: [Modifier.Shift], key: 'Tab' }, used: j - i };
+  }
+  if (final === '~') {
+    const name = num ? CSI_TILDE[num] : undefined;
+    if (!name) return null;
+    return { key: { modifiers: xtermMods(modParam), key: name }, used: j - i };
+  }
+  const name = CSI_FINAL[final];
+  if (!name) return null;
+  // `ESC [ 1 ; 5 C`: the first number is a placeholder, the second the modifiers.
+  return { key: { modifiers: xtermMods(modParam), key: name }, used: j - i };
+}
+
+/** Decode a terminal key sequence into keystrokes. */
+function parseTerminalSequence(
+  sequence: string,
+  { caret }: { caret: boolean },
+): ParsedKey[] {
+  const units = tokenize(sequence, caret);
+  const keys: ParsedKey[] = [];
+  for (let i = 0; i < units.length; i++) {
+    const unit = units[i];
+    if (unit.kind === 'esc') {
+      const escape = readEscapeSequence(units, i + 1);
+      if (escape) {
+        keys.push(escape.key);
+        i += escape.used;
+        continue;
+      }
+      const next = units[i + 1];
+      if (next && next.kind === 'char') {
+        keys.push(unitToKey(next, true));
+        i++;
+      } else if (next && next.kind === 'esc') {
+        keys.push({ modifiers: [Modifier.Option], key: 'Escape' });
+        i++;
+      } else {
+        keys.push({ modifiers: [], key: 'Escape' });
+      }
+      continue;
+    }
+    keys.push(unitToKey(unit, false));
+  }
+  return keys;
+}
 
 export function normalizeTerminalKey(
   sequence: string,
-  parsePrefixes: (sequence: string) => { modifiers: Modifier[]; remaining: string } | null,
-): { displayKey: string; searchKey: string } {
-  for (const { pattern, toKey } of TERMINAL_ESCAPE_SEQUENCES) {
-    if (pattern.test(sequence)) {
-      return normalizeToCanonical(toKey);
-    }
-  }
-
-  const result = parsePrefixes(sequence);
-  if (!result) return normalizeToCanonical({ modifiers: [], key: sequence });
-
-  const { modifiers, remaining } = result;
-  const key = remaining.length === 1 ? remaining.toUpperCase() : remaining;
-  return normalizeToCanonical({ modifiers, key });
+  options: { caret: boolean },
+): NormalizedKey {
+  return normalizeSequence(parseTerminalSequence(sequence, options));
 }

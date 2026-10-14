@@ -1,0 +1,37 @@
+{
+  "browser": { "has_seen_welcome_page": true },
+  "extensions": {
+    "commands": {
+      "mac:Alt+Shift+P": {
+        "command_name": "_execute_action",
+        "extension": "bfnaelmomeimhlpmgjnjophhpkkoljpa",
+        "global": false
+      },
+      "mac:Command+Period": {
+        "command_name": "toggle_pause",
+        "extension": "gighmmpiobklfepjocnamgkkbiglidom",
+        "global": false
+      },
+      "mac:Command+Shift+9": {
+        "command_name": "generate_password",
+        "extension": "nngceckbapebfimnlniiiahkandclblb",
+        "global": false
+      },
+      "mac:Command+Shift+L": {
+        "command_name": "autofill_login",
+        "extension": "nngceckbapebfimnlniiiahkandclblb",
+        "global": false
+      },
+      "mac:MacCtrl+Shift+Up": {
+        "command_name": "next-track",
+        "extension": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "global": true
+      },
+      "windows:Ctrl+Shift+K": {
+        "command_name": "_execute_action",
+        "extension": "knheggckgoiihginacbkhaalnibhilkk",
+        "global": false
+      }
+    }
+  }
+}

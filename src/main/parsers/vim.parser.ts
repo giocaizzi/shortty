@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
-import { type ParsedKey, Modifier, formatParsedKey } from './key-normalizer';
+import { type NormalizedKey, type ParsedKey, Modifier, normalizeSequence } from './key-normalizer';
 
 /** Vim mode prefix → context label. */
 const MODE_MAP: Record<string, string> = {
@@ -12,9 +12,15 @@ const MODE_MAP: Record<string, string> = {
   o: 'operator-pending',
   x: 'visual',
   s: 'select',
+  t: 'terminal',
+  l: 'lang-arg',
 };
 
-/** Vim special key names → display names. */
+/** Modes covered by `map` / `noremap` without a prefix, and by `map!`. */
+const NVO_CONTEXT = 'normal, visual, operator-pending';
+const BANG_CONTEXT = 'insert, command';
+
+/** Vim special key names (`:h key-notation`) → canonical key names. */
 const VIM_SPECIAL_KEYS: Record<string, string> = {
   cr: 'Return',
   return: 'Return',
@@ -24,6 +30,7 @@ const VIM_SPECIAL_KEYS: Record<string, string> = {
   space: 'Space',
   bs: 'Backspace',
   del: 'Delete',
+  insert: 'Insert',
   up: '↑',
   down: '↓',
   left: '←',
@@ -32,6 +39,9 @@ const VIM_SPECIAL_KEYS: Record<string, string> = {
   end: 'End',
   pageup: 'PageUp',
   pagedown: 'PageDown',
+  lt: '<',
+  bar: '|',
+  bslash: '\\',
   f1: 'F1',
   f2: 'F2',
   f3: 'F3',
@@ -61,15 +71,15 @@ const VIM_MODIFIER_MAP: Record<string, Modifier> = {
  * 4=options+lhs+rhs (captured loosely, parsed further).
  */
 const MAP_RE =
-  /^(n|v|i|c|o|x|s)?(nore)?(?:map)(!?)\s+(.+)$/;
+  /^(n|v|i|c|o|x|s|t|l)?(nore)?(?:map)(!?)\s+(.+)$/;
 
 /** Regex for unmap commands. */
 const UNMAP_RE =
-  /^(n|v|i|c|o|x|s)?unmap(!?)\s+(?:<buffer>\s+|<silent>\s+|<nowait>\s+)*(\S+)/;
+  /^(n|v|i|c|o|x|s|t|l)?unmap(!?)\s+(?:<buffer>\s+|<silent>\s+|<nowait>\s+)*(\S+)/i;
 
-/** Regex to detect leader key assignment. */
+/** Regex to detect leader / local leader assignment. */
 const LEADER_RE =
-  /^let\s+(?:g:)?mapleader\s*=\s*["'](.+?)["']/;
+  /^let\s+(?:g:)?(map(?:local)?leader)\s*=\s*(?:"((?:\\.|[^"\\])*)"|'([^']*)')/;
 
 /** Options that can appear before the LHS in a map command. */
 const MAP_OPTIONS = new Set([
@@ -78,7 +88,18 @@ const MAP_OPTIONS = new Set([
   '<nowait>',
   '<expr>',
   '<unique>',
+  '<script>',
+  '<special>',
 ]);
+
+/** Normalize a leader value to vim key notation (" " / "\<Space>" → <Space>). */
+function leaderToNotation(value: string): string {
+  if (value === ' ') return '<Space>';
+  const special = value.match(/^\\<([^>]+)>$/);
+  if (special) return `<${special[1]}>`;
+  if (value === '\\\\') return '\\';
+  return value;
+}
 
 export class VimParser extends BaseParser {
   get meta(): ParserMeta {
@@ -105,39 +126,36 @@ export class VimParser extends BaseParser {
       const content = await this.readFileIfExists(filePath);
       if (!content) continue;
 
-      const lines = content.split('\n');
-
-      // First pass: detect leader key
+      // The leader applies to mappings defined after it (vim semantics).
       let leader = '\\';
-      for (const line of lines) {
-        const leaderMatch = line.trim().match(LEADER_RE);
-        if (leaderMatch) {
-          leader = leaderMatch[1];
-        }
-      }
+      let localLeader = '\\';
 
-      // Second pass: parse mappings
-      for (const line of lines) {
+      for (const line of content.split('\n')) {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('"')) continue;
 
-        // Skip leader assignment lines
-        if (LEADER_RE.test(trimmed)) continue;
+        const leaderMatch = trimmed.match(LEADER_RE);
+        if (leaderMatch) {
+          const value = leaderToNotation(leaderMatch[2] ?? leaderMatch[3] ?? '\\');
+          if (leaderMatch[1] === 'mapleader') leader = value;
+          else localLeader = value;
+          continue;
+        }
+        const leaders = { leader, localLeader };
 
-        // Try unmap
         const unmapMatch = trimmed.match(UNMAP_RE);
         if (unmapMatch) {
-          const [, modePrefix, , rawKey] = unmapMatch;
-          const context = modePrefix ? MODE_MAP[modePrefix] : 'normal';
-          const { displayKey, searchKey } = this.normalizeVimKey(
-            rawKey,
-            leader,
-          );
+          const [, modePrefix, bang, rawKey] = unmapMatch;
+          const context = modePrefix
+            ? MODE_MAP[modePrefix]
+            : bang ? BANG_CONTEXT : NVO_CONTEXT;
+          const { displayKey, searchKey, strokes } = this.normalizeVimKey(rawKey, leaders);
 
           keybindings.push(
             this.makeShortcut({
               key: displayKey,
               searchKey,
+              strokes,
               command: 'Unmap',
               rawCommand: trimmed,
               context,
@@ -149,12 +167,13 @@ export class VimParser extends BaseParser {
           continue;
         }
 
-        // Try map/noremap
         const mapMatch = trimmed.match(MAP_RE);
         if (!mapMatch) continue;
 
-        const [, modePrefix, , , rest] = mapMatch;
-        const context = modePrefix ? MODE_MAP[modePrefix] : 'normal';
+        const [, modePrefix, , bang, rest] = mapMatch;
+        const context = modePrefix
+          ? MODE_MAP[modePrefix]
+          : bang ? BANG_CONTEXT : NVO_CONTEXT;
 
         // Parse rest: skip options, then LHS, then RHS
         const parts = rest.split(/\s+/);
@@ -167,19 +186,22 @@ export class VimParser extends BaseParser {
         const rawLhs = parts[idx];
         const rawRhs = parts.slice(idx + 1).join(' ');
         if (!rawRhs) continue;
+        // <Plug> mappings are internal names, not keys a user presses.
+        if (/^<plug>/i.test(rawLhs)) continue;
 
-        const { displayKey, searchKey } = this.normalizeVimKey(rawLhs, leader);
-        const command = this.humanizeCommand(rawRhs);
+        const { displayKey, searchKey, strokes } = this.normalizeVimKey(rawLhs, leaders);
+        const isNop = /^<nop>$/i.test(rawRhs.trim());
 
         keybindings.push(
           this.makeShortcut({
             key: displayKey,
             searchKey,
-            command,
+            strokes,
+            command: isNop ? 'Disabled' : this.humanizeCommand(rawRhs),
             rawCommand: trimmed,
             context,
             isDefault: false,
-            isUnbound: false,
+            isUnbound: isNop,
             filePath,
           }),
         );
@@ -189,77 +211,57 @@ export class VimParser extends BaseParser {
     return keybindings;
   }
 
-  /** Normalize a vim key notation string into display and search forms. */
+  /**
+   * Normalize vim key notation (`<leader>w`, `<C-S-k>`, `gcc`, `<Space>f`)
+   * into strokes. Plain characters stay literal (vim is case-sensitive:
+   * `W` is not `w`); `<…>` keys become named keys or modifier combos.
+   */
   private normalizeVimKey(
     raw: string,
-    leader: string,
-  ): { displayKey: string; searchKey: string } {
-    // Substitute <leader> with actual leader key
-    const substituted = raw.replace(/<leader>/gi, leader);
+    leaders: { leader: string; localLeader: string },
+  ): NormalizedKey {
+    const substituted = raw
+      .replace(/<leader>/gi, leaders.leader)
+      .replace(/<localleader>/gi, leaders.localLeader);
 
-    // Try to parse as a single <...> notation
-    const angleBracket = substituted.match(/^<([^>]+)>$/);
-    if (angleBracket) {
-      return this.parseAngleBracketKey(angleBracket[1]);
-    }
-
-    // Check for sequences containing angle brackets mixed with plain keys
-    const segments: string[] = [];
+    const parsed: ParsedKey[] = [];
     let remaining = substituted;
     while (remaining.length > 0) {
-      const bracketMatch = remaining.match(/^<([^>]+)>/);
+      const bracketMatch = remaining.match(/^<([^<>\s]+)>/);
       if (bracketMatch) {
-        const parsed = this.parseAngleBracketKey(bracketMatch[1]);
-        segments.push(parsed.displayKey);
+        parsed.push(this.parseAngleBracketKey(bracketMatch[1]));
         remaining = remaining.slice(bracketMatch[0].length);
       } else {
-        segments.push(remaining[0]);
-        remaining = remaining.slice(1);
+        const ch = [...remaining][0];
+        parsed.push(ch === ' '
+          ? { modifiers: [], key: 'Space' }
+          : { modifiers: [], key: ch, literal: true });
+        remaining = remaining.slice(ch.length);
       }
     }
-
-    if (segments.length === 1) {
-      return { displayKey: segments[0], searchKey: segments[0].toLowerCase() };
-    }
-
-    const display = segments.join(' ');
-    return { displayKey: display, searchKey: display.toLowerCase() };
+    return normalizeSequence(parsed);
   }
 
-  /** Parse the content inside <...> into display/search key. */
-  private parseAngleBracketKey(inner: string): {
-    displayKey: string;
-    searchKey: string;
-  } {
-    // Check for modifier pattern: C-x, S-x, M-x, A-x, D-x, or combos like C-S-x
+  /** Parse the content inside <...> into a key. */
+  private parseAngleBracketKey(inner: string): ParsedKey {
     const modifiers: Modifier[] = [];
     let keyPart = inner;
 
     // Consume modifier prefixes: "C-", "S-", "M-", "A-", "D-"
     while (keyPart.length > 2 && keyPart[1] === '-') {
       const mod = VIM_MODIFIER_MAP[keyPart[0].toLowerCase()];
-      if (mod !== undefined) {
-        modifiers.push(mod);
-        keyPart = keyPart.slice(2);
-      } else {
-        break;
-      }
+      if (mod === undefined) break;
+      modifiers.push(mod);
+      keyPart = keyPart.slice(2);
     }
 
-    // Resolve the key part
     const specialKey = VIM_SPECIAL_KEYS[keyPart.toLowerCase()];
-    const resolvedKey = specialKey ?? keyPart.toUpperCase();
-
-    if (modifiers.length > 0) {
-      const parsed: ParsedKey = { modifiers, key: resolvedKey };
-      return formatParsedKey(parsed);
+    if (specialKey) return { modifiers, key: specialKey };
+    if (modifiers.length === 0) {
+      // Unknown <name>: keep verbatim.
+      return { modifiers, key: `<${inner}>`, literal: true };
     }
-
-    // No modifiers - just a special key name
-    return {
-      displayKey: resolvedKey,
-      searchKey: resolvedKey.toLowerCase(),
-    };
+    return { modifiers, key: keyPart.toUpperCase() };
   }
 
   /** Try to humanize a vim command RHS. */

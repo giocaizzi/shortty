@@ -1,0 +1,17 @@
+{
+  "editor:toggle-bold": [
+    { "modifiers": ["Mod"], "key": "B" }
+  ],
+  "editor:toggle-checklist-status": [
+    { "modifiers": ["Mod"], "key": "Enter" },
+    { "modifiers": ["Mod", "Shift"], "key": "L" }
+  ],
+  "app:toggle-left-sidebar": [
+    { "modifiers": ["Mod"], "key": "\\" }
+  ],
+  "workspace:split-vertical": [
+    { "modifiers": ["Ctrl", "Alt"], "key": "ArrowRight" }
+  ],
+  "app:open-settings": [],
+  "broken-entry": "not-an-array"
+}

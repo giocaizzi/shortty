@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { join } from 'node:path';
-import { VscodeParser } from '../../../src/main/parsers/vscode.parser';
+import { VscodeParser, stripJsonc } from '../../../src/main/parsers/vscode.parser';
+import { FIXTURES, rows, withPlatform } from './parser-helpers';
 
-const FIXTURE_PATH = join(__dirname, '../../../fixtures/vscode-keybindings.json');
+const FIXTURE_PATH = join(FIXTURES, 'vscode-keybindings.json');
 
 describe('VscodeParser', () => {
+  withPlatform('darwin');
   let parser: VscodeParser;
 
   beforeEach(() => {
@@ -17,53 +19,69 @@ describe('VscodeParser', () => {
     expect(parser.meta.label).toBe('VS Code');
   });
 
-  it('parses keybindings from JSONC fixture', async () => {
+  it('parses every binding of the fixture with exact key, command, context and unbound flag', async () => {
     const result = await parser.parse();
-
-    expect(result.length).toBe(9);
-    expect(result.every((kb) => kb.source === 'vscode')).toBe(true);
-    expect(result.every((kb) => kb.sourceLabel === 'VS Code')).toBe(true);
+    expect(rows(result)).toEqual([
+      ['⇧⌘T', 'Reopen Closed Editor', null, false],
+      ['⇧⌘P', 'Show Commands', null, false],
+      ['⌘K ⌘S', 'Open Global Keybindings', null, false],
+      ['⇧⌘E', 'Toggle Sidebar Visibility', null, false],
+      ['⇧⌘F', 'Find In Files', null, false],
+      ['⌘J', 'Toggle Panel', null, false],
+      ['⇧⌘G', 'Show SCM', null, true],
+      ['⌘B', 'Toggle Word Wrap', 'editorFocus', false],
+      ['⌃⇧`', 'Terminal: New', null, false],
+      ['⌘[', 'Outdent Lines', 'editorTextFocus && !editorReadonly', false],
+      ['⌃`', 'Terminal: Toggle Terminal', null, false],
+      ['⌘K ⌘M', 'Editor: Change Language Mode', null, false],
+      ['⌘/', 'Comment Line', 'editorTextFocus && !editorReadonly', true],
+      ['', 'Toggle Zen Mode', null, true],
+      // `isMac` is always true on macOS and is dropped from the context
+      ['⌃Tab', 'Next Editor', null, false],
+      ['⌃⌥→', 'Next Editor', 'terminalFocus', false],
+      // `isWindows` binding skipped; `!isLinux` dropped
+      ['⌥⇧↓', 'Copy Lines Down Action', 'editorTextFocus', false],
+      ['⌘NumpadAdd', 'Zoom In', null, false],
+      ['⌘Return', 'Terminal: Send Sequence', null, false],
+    ]);
   });
 
-  it('normalizes key combos to macOS glyphs', async () => {
+  it('keeps "-command" as rawCommand for removal rules', async () => {
     const result = await parser.parse();
-    const reopenTab = result.find((kb) =>
-      kb.rawCommand === 'workbench.action.reopenClosedEditor',
-    );
-    expect(reopenTab?.key).toBe('⇧⌘t');
+    const removals = result.filter((kb) => kb.isUnbound).map((kb) => kb.rawCommand);
+    expect(removals).toEqual([
+      '-workbench.action.showSCM',
+      '-editor.action.commentLine',
+      '-workbench.action.toggleZenMode',
+    ]);
   });
 
-  it('handles multi-chord keys', async () => {
+  it('marks [ScanCode] keys as physical positions', async () => {
     const result = await parser.parse();
-    const openKb = result.find((kb) =>
-      kb.rawCommand === 'workbench.action.openGlobalKeybindings',
-    );
-    expect(openKb?.key).toBe('⌘k ⌘s');
+    const outdent = result.find((kb) => kb.rawCommand === 'editor.action.outdentLines');
+    expect(outdent?.strokes).toEqual([{ mods: ['cmd'], key: '[', code: 'BracketLeft' }]);
+    const lang = result.find((kb) => kb.rawCommand === 'workbench.action.editor.changeLanguageMode');
+    expect(lang?.strokes).toEqual([
+      { mods: ['cmd'], key: 'K' },
+      { mods: ['cmd'], key: 'M', code: 'KeyM' },
+    ]);
   });
 
-  it('detects unbound commands (prefixed with -)', async () => {
+  it('keeps character keys layout-dependent (no code)', async () => {
     const result = await parser.parse();
-    const unbound = result.find((kb) => kb.isUnbound);
-    expect(unbound).toBeDefined();
-    expect(unbound?.rawCommand).toBe('-workbench.action.showSCM');
+    const comment = result.find((kb) => kb.rawCommand === '-editor.action.commentLine');
+    expect(comment?.strokes).toEqual([{ mods: ['cmd'], key: '/' }]);
   });
 
-  it('captures when clauses as context', async () => {
+  it('produces search text with modifier and symbol names', async () => {
     const result = await parser.parse();
-    const withContext = result.find((kb) => kb.context === 'editorFocus');
-    expect(withContext).toBeDefined();
-    expect(withContext?.rawCommand).toBe('editor.action.toggleWordWrap');
+    const comment = result.find((kb) => kb.rawCommand === '-editor.action.commentLine');
+    expect(comment?.searchKey).toBe('cmd / slash');
+    const chord = result.find((kb) => kb.rawCommand === 'workbench.action.openGlobalKeybindings');
+    expect(chord?.searchKey).toBe('cmd k cmd s');
   });
 
-  it('humanizes command names', async () => {
-    const result = await parser.parse();
-    const showCommands = result.find(
-      (kb) => kb.rawCommand === 'workbench.action.showCommands',
-    );
-    expect(showCommands?.command).toBe('Show Commands');
-  });
-
-  it('generates unique IDs', async () => {
+  it('generates unique IDs even for a command bound twice', async () => {
     const result = await parser.parse();
     const ids = result.map((kb) => kb.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -72,14 +90,35 @@ describe('VscodeParser', () => {
   it('returns empty for missing file', async () => {
     const p = new VscodeParser();
     p.setConfigPaths(['/tmp/nonexistent.json']);
-    const result = await p.parse();
-    expect(result).toEqual([]);
+    expect(await p.parse()).toEqual([]);
   });
 
-  it('handles empty file gracefully', async () => {
+  it('handles empty config paths', async () => {
     const p = new VscodeParser();
     p.setConfigPaths([]);
-    const result = await p.parse();
-    expect(result).toEqual([]);
+    expect(await p.parse()).toEqual([]);
+  });
+
+  describe('on Linux', () => {
+    withPlatform('linux');
+
+    it('drops isMac-only bindings and keeps !isLinux ones out', async () => {
+      const result = await parser.parse();
+      const commands = result.map((kb) => kb.rawCommand);
+      expect(commands).not.toContain('editor.action.copyLinesDownAction');
+      const nextEditor = result.filter((kb) => kb.rawCommand === 'workbench.action.nextEditor');
+      expect(nextEditor.map((kb) => kb.context)).toEqual(['terminalFocus']);
+    });
+  });
+});
+
+describe('stripJsonc', () => {
+  it('removes comments and trailing commas but not "//" inside strings', () => {
+    const input = '[{"a": "http://x" /* c */, "b": 1,}, // tail\n]';
+    expect(JSON.parse(stripJsonc(input))).toEqual([{ a: 'http://x', b: 1 }]);
+  });
+
+  it('handles escaped quotes in strings', () => {
+    expect(JSON.parse(stripJsonc('{"a": "say \\"// hi\\""}'))).toEqual({ a: 'say "// hi"' });
   });
 });

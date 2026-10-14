@@ -2,6 +2,10 @@ import { useMemo, useState } from 'react';
 import Fuse, { type IFuseOptions } from 'fuse.js';
 import type { Shortcut, ParserMeta, Command } from '../../shared/types';
 import { useAppSettings } from '../context/SettingsContext';
+import { layoutSearchText, useKeyboardLayout } from '../lib/keyboard-layout';
+
+/** Shortcut plus the key text as it reads on the user's keyboard layout. */
+type IndexedShortcut = Shortcut & { layoutKey: string };
 
 export interface SearchResults {
   sources: { meta: ParserMeta; count: number }[];
@@ -72,11 +76,15 @@ export function useSearch(
     resultLimits,
   } = useAppSettings();
 
+  const layout = useKeyboardLayout();
+
   const shortcutFuseOptions = useMemo(
-    (): IFuseOptions<Shortcut> => ({
+    (): IFuseOptions<IndexedShortcut> => ({
       keys: [
-        { name: 'key', weight: searchSettings.keyWeight / 2 },
-        { name: 'searchKey', weight: searchSettings.keyWeight / 2 },
+        { name: 'key', weight: searchSettings.keyWeight / 3 },
+        { name: 'searchKey', weight: searchSettings.keyWeight / 3 },
+        // e.g. "ò", "è", "⌥è" on an Italian keyboard (docs/keyboard-layouts.md)
+        { name: 'layoutKey', weight: searchSettings.keyWeight / 3 },
         { name: 'command', weight: searchSettings.commandWeight },
         { name: 'sourceLabel', weight: searchSettings.sourceWeight },
         { name: 'context', weight: searchSettings.contextWeight },
@@ -88,9 +96,17 @@ export function useSearch(
     [searchSettings],
   );
 
+  const indexedShortcuts = useMemo(
+    (): IndexedShortcut[] => shortcuts.map((s) => ({
+      ...s,
+      layoutKey: layoutSearchText(s.strokes, layout),
+    })),
+    [shortcuts, layout],
+  );
+
   const shortcutFuse = useMemo(
-    () => new Fuse(shortcuts, shortcutFuseOptions),
-    [shortcuts, shortcutFuseOptions],
+    () => new Fuse(indexedShortcuts, shortcutFuseOptions),
+    [indexedShortcuts, shortcutFuseOptions],
   );
 
   const commandFuse = useMemo(
