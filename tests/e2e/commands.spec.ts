@@ -86,7 +86,6 @@ test.describe('commands from the fixture PATH', () => {
   }
 
   test('detail view lists every subcommand and flag from --help', async ({ shortty }) => {
-    knownBug('help-parser section regex stops after the first entry (multiline $ in lookahead)');
     await shortty.win.keyboard.type('>gizmo');
     await shortty.win.keyboard.press('Tab');
     await expect(shortty.win.getByTestId('subcommand-row')).toHaveText([/gizmo build/, /gizmo deploy/]);
