@@ -279,6 +279,38 @@ describe('parseManPage', () => {
     expect(result).toBeNull();
   });
 
+  it.runIf(process.platform !== 'win32')('runs man in its own process group and kills the group on timeout', async () => {
+    vi.useFakeTimers();
+    mockManOutput(''); // installs the pass-through col
+    const colOnly = mockSpawn.getMockImplementation();
+    // man that never finishes; the group kill ends its output
+    const man = new EventEmitter() as ReturnType<typeof spawn>;
+    const manOut = new Readable({ read() { /* hangs */ } });
+    (man as unknown as { stdout: Readable }).stdout = manOut;
+    (man as unknown as { pid: number }).pid = 4242;
+    mockSpawn.mockImplementation(((cmd: string, ...rest: unknown[]) =>
+      cmd === 'man' ? man : colOnly!(cmd as never, ...(rest as [never, never]))) as typeof spawn);
+    const kill = vi.spyOn(process, 'kill').mockImplementation(((pid: number) => {
+      if (pid === -4242) {
+        manOut.push(null);
+        man.emit('close', null);
+      }
+      return true;
+    }) as typeof process.kill);
+
+    try {
+      const pending = parseManPage('hangs');
+      expect(mockSpawn).toHaveBeenCalledWith('man', ['hangs'], expect.objectContaining({ detached: true }));
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(kill).toHaveBeenCalledWith(-4242, 'SIGKILL');
+      vi.useRealTimers();
+      expect(await pending).toBeNull();
+    } finally {
+      kill.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it('passes command name as argument array (no shell injection)', async () => {
     mockManOutput(GIT_ADD_MAN);
     await parseManPage('git-add');

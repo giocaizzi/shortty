@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
-import { mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, chmodSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -78,5 +78,28 @@ describe.runIf(process.platform !== 'win32')('importLoginShellPath', () => {
     const env: NodeJS.ProcessEnv = { PATH: LAUNCHD_PATH };
     await importLoginShellPath(env);
     expect(env.PATH).toBe(LAUNCHD_PATH);
+  });
+
+  it('kills the shell and its children when it floods stdout', async () => {
+    const pidFile = join(dir, 'flood.pid');
+    // An rc file that starts a background job, then never stops printing
+    const shell = fakeShell(
+      'flood',
+      `sleep 30 & echo $! > '${pidFile}'; while :; do printf '%01000d\\n' 0; done`,
+    );
+    const env: NodeJS.ProcessEnv = { SHELL: shell, PATH: LAUNCHD_PATH };
+    await importLoginShellPath(env, 10_000);
+    expect(env.PATH).toBe(LAUNCHD_PATH);
+
+    const pid = Number(readFileSync(pidFile, 'utf-8'));
+    const alive = () => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    await vi.waitFor(() => expect(alive()).toBe(false), { timeout: 2000 });
   });
 });

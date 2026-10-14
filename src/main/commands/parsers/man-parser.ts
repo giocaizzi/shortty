@@ -12,15 +12,29 @@ import {
   deduplicateFlags,
 } from './parse-utils';
 
+const MAN_TIMEOUT_MS = 5000;
+
 function fetchManPage(name: string): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     const env = sandboxEnv();
+    // man runs a pipeline (groff, preconv, a pager...): give it its own
+    // process group so a timeout kills all of it, not just man.
+    const useGroup = process.platform !== 'win32';
     const man = spawn('man', [name], {
       stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 5000,
-      killSignal: 'SIGKILL',
+      detached: useGroup,
       env,
     });
+    const manTimer = setTimeout(() => {
+      try {
+        if (useGroup && man.pid) process.kill(-man.pid, 'SIGKILL');
+        else man.kill('SIGKILL');
+      } catch {
+        man.kill('SIGKILL');
+      }
+    }, MAN_TIMEOUT_MS);
+    man.on('close', () => clearTimeout(manTimer));
+    man.on('error', () => clearTimeout(manTimer));
     const col = spawn('col', ['-bx'], {
       stdio: ['pipe', 'pipe', 'ignore'],
       timeout: 6000,

@@ -52,4 +52,7 @@ words) as a command. The full list is `BLOCKLIST` in `help-parser.ts`.
 Every probe runs with a throwaway working directory, stdin closed, an
 allowlisted environment (no tokens or keys; pagers and editors neutralised), a
 2-second hard timeout and a 1 MiB output cap; on timeout or overflow the whole
-process group is killed.
+process group is killed. `man` lookups run in the same environment, in their
+own process group (man starts groff and friends), which is killed after 5
+seconds. The startup login-shell PATH import (`src/main/shell-env.ts`) kills
+the shell's process group on timeout or when it prints more than 1 MiB.

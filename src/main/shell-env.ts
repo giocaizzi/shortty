@@ -40,19 +40,24 @@ function readLoginShellPath(shell: string, env: NodeJS.ProcessEnv, timeoutMs: nu
       return;
     }
 
-    const timer = setTimeout(() => {
+    // Give up on the shell: kill its whole process group (rc files may have
+    // started children) so nothing keeps running after we stop reading.
+    const abandon = () => {
       try {
         if (child.pid) process.kill(-child.pid, 'SIGKILL');
       } catch {
         child.kill('SIGKILL');
       }
+      child.stdout?.destroy();
       done(null);
-    }, timeoutMs);
+    };
+
+    const timer = setTimeout(abandon, timeoutMs);
 
     let out = '';
     child.stdout?.on('data', (chunk: Buffer) => {
       out += chunk.toString('utf-8');
-      if (out.length > 1024 * 1024) done(null);
+      if (out.length > 1024 * 1024) abandon();
     });
     child.on('error', () => done(null));
     child.on('close', () => {
