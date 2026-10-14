@@ -156,7 +156,7 @@ export class CommandsEngine {
     if (!cmd) {
       return { name: qualifiedName, description: '', enrichment: 'failed', subcommands: [], flags: [], arguments: [] };
     }
-    return enrichSubcommand(cmd.bin, qualifiedName, this.cache);
+    return enrichSubcommand({ bin: cmd.bin, mtime: cmd.mtime }, qualifiedName, this.cache);
   }
 
   stop(): void {

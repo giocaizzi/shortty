@@ -40,7 +40,7 @@ describe('enrichSubcommand', () => {
     'git  commit',
   ])('rejects unsafe qualified name %j without running or caching anything', async (name) => {
     const cache = fakeCache();
-    const detail = await enrichSubcommand('/usr/bin/x', name, cache);
+    const detail = await enrichSubcommand({ bin: '/usr/bin/x', mtime: 1 }, name, cache);
     expect(detail.enrichment).toBe('failed');
     expect(mockMan).not.toHaveBeenCalled();
     expect(mockHelp).not.toHaveBeenCalled();
@@ -54,10 +54,36 @@ describe('enrichSubcommand', () => {
       name: 'docker compose up', description: 'Create and start containers',
       subcommands: [], flags: [{ long: '--build', description: 'Build images' }], arguments: [],
     });
-    const detail = await enrichSubcommand('/usr/local/bin/docker', 'docker compose up', cache);
+    const base = { bin: '/usr/local/bin/docker', mtime: 5 };
+    const detail = await enrichSubcommand(base, 'docker compose up', cache);
     expect(mockMan).toHaveBeenCalledWith('docker compose up');
     expect(mockHelp).toHaveBeenCalledWith('/usr/local/bin/docker', ['compose', 'up'], 'docker compose up');
     expect(detail.enrichment).toBe('full');
-    expect(cache.writeSubcommandDetail).toHaveBeenCalledWith('docker compose up', detail);
+    expect(cache.writeSubcommandDetail).toHaveBeenCalledWith('docker compose up', base, detail);
+  });
+
+  it('does not cache a failure, so the next request retries', async () => {
+    const cache = fakeCache();
+    const base = { bin: '/usr/bin/git', mtime: 1 };
+    expect((await enrichSubcommand(base, 'git commit', cache)).enrichment).toBe('failed');
+    expect(cache.writeSubcommandDetail).not.toHaveBeenCalled();
+
+    mockMan.mockResolvedValue({
+      name: 'git commit', description: 'Record changes', subcommands: [], flags: [], arguments: [],
+    });
+    expect((await enrichSubcommand(base, 'git commit', cache)).enrichment).toBe('full');
+  });
+
+  it('uses a cached detail without spawning anything', async () => {
+    const cache = fakeCache();
+    const cached = {
+      name: 'git commit', description: 'Record changes', enrichment: 'full',
+      subcommands: [], flags: [], arguments: [],
+    };
+    cache.readSubcommandDetail.mockReturnValue(cached);
+    const base = { bin: '/usr/bin/git', mtime: 1 };
+    expect(await enrichSubcommand(base, 'git commit', cache)).toBe(cached);
+    expect(cache.readSubcommandDetail).toHaveBeenCalledWith('git commit', base);
+    expect(mockMan).not.toHaveBeenCalled();
   });
 });

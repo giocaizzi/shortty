@@ -139,7 +139,7 @@ describe('CommandsEngine', () => {
     expect(enrichSubcommand).not.toHaveBeenCalled();
 
     await engine.getSubcommandDetail('git commit');
-    expect(enrichSubcommand).toHaveBeenCalledWith('/opt/homebrew/bin/git', 'git commit', expect.anything());
+    expect(enrichSubcommand).toHaveBeenCalledWith({ bin: '/opt/homebrew/bin/git', mtime: 1 }, 'git commit', expect.anything());
   });
 
   it('pauses enrichment while the launcher is visible, resuming on hide', async () => {

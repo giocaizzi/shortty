@@ -12,6 +12,16 @@ interface CacheMeta {
   enrichedCount: number;
 }
 
+/** The base binary a cached subcommand detail was produced from. */
+export interface BinaryIdentity {
+  bin: string;
+  mtime: number;
+}
+
+interface SubcommandCacheEntry extends BinaryIdentity {
+  detail: SubcommandDetail;
+}
+
 export class CommandCache {
   private cacheDir: string;
 
@@ -80,26 +90,34 @@ export class CommandCache {
     writeFileSync(join(this.cacheDir, 'details', `${name}.json`), JSON.stringify(detail));
   }
 
+  /** Injective file name: "a b__c" and "a b c" must not share an entry. */
   private subFilename(qualifiedName: string): string {
-    return qualifiedName.replace(/ /g, '__') + '.json';
+    return encodeURIComponent(qualifiedName) + '.json';
   }
 
-  readSubcommandDetail(qualifiedName: string): SubcommandDetail | null {
+  /**
+   * A subcommand detail, only if it was produced from the same base binary
+   * (path and mtime): an upgraded tool gets fresh details.
+   */
+  readSubcommandDetail(qualifiedName: string, source: BinaryIdentity): SubcommandDetail | null {
     try {
       const raw = readFileSync(
         join(this.cacheDir, 'details', 'sub', this.subFilename(qualifiedName)),
         'utf-8',
       );
-      return JSON.parse(raw);
+      const entry = JSON.parse(raw) as Partial<SubcommandCacheEntry>;
+      if (entry.bin !== source.bin || entry.mtime !== source.mtime || !entry.detail) return null;
+      return entry.detail;
     } catch {
       return null;
     }
   }
 
-  writeSubcommandDetail(qualifiedName: string, detail: SubcommandDetail): void {
+  writeSubcommandDetail(qualifiedName: string, source: BinaryIdentity, detail: SubcommandDetail): void {
+    const entry: SubcommandCacheEntry = { bin: source.bin, mtime: source.mtime, detail };
     writeFileSync(
       join(this.cacheDir, 'details', 'sub', this.subFilename(qualifiedName)),
-      JSON.stringify(detail),
+      JSON.stringify(entry),
     );
   }
 
