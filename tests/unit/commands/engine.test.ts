@@ -120,7 +120,7 @@ describe('CommandsEngine', () => {
     const first = new CommandsEngine(userData);
     await first.initialize();
     // a detail written for an older jq binary
-    const cacheDir = join(userData, 'cache', 'details');
+    const cacheDir = join(userData, 'commands-cache', 'details');
     const { writeFileSync } = await import('node:fs');
     writeFileSync(join(cacheDir, 'jq.json'), JSON.stringify({ ...first.getAll()[0], mtime: 0, enrichment: 'full' }));
 

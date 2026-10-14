@@ -397,9 +397,9 @@ The commands engine dynamically indexes every CLI command available on the user'
 │                                                          │
 │  PERSISTENT CACHE                                       │
 │  ┌────────────────────────────────────────────────────┐  │
-│  │ {userData}/cache/meta.json          PATH hash       │  │
-│  │ {userData}/cache/commands-index.json All commands    │  │
-│  │ {userData}/cache/details/{name}.json Per-command     │  │
+│  │ {userData}/commands-cache/meta.json PATH hash       │  │
+│  │ …/commands-cache/commands-index.json All commands   │  │
+│  │ …/commands-cache/details/{name}.json Per-command    │  │
 │  └────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -485,13 +485,14 @@ All persistent data at `app.getPath('userData')`:
 
 Structure:
 ├── config.json                  # electron-store (settings)
-├── cache/
+├── commands-cache/              # not cache/: that is Chromium's Cache on case-insensitive APFS
 │   ├── meta.json                # PATH hash, timestamps, enrichment stats
 │   ├── commands-index.json      # Tier 1 full inventory
 │   └── details/                 # Per-command enrichment
 │       ├── git.json
 │       ├── docker.json
-│       └── ...
+│       ├── ...
+│       └── sub/                 # Subcommand details, keyed by bin path + mtime
 ```
 
 ### 7.7 Platform Differences

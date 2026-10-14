@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, existsSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { CommandCache } from '../../../src/main/commands/cache';
@@ -19,8 +19,31 @@ describe('CommandCache', () => {
   });
 
   it('creates cache directories on construction', () => {
-    expect(existsSync(join(tempDir, 'cache'))).toBe(true);
-    expect(existsSync(join(tempDir, 'cache', 'details'))).toBe(true);
+    expect(existsSync(join(tempDir, 'commands-cache'))).toBe(true);
+    expect(existsSync(join(tempDir, 'commands-cache', 'details'))).toBe(true);
+  });
+
+  it('lives outside userData/cache (Chromium\'s Cache on case-insensitive APFS)', () => {
+    expect(existsSync(join(tempDir, 'cache'))).toBe(false);
+  });
+
+  it('removes only the files earlier versions wrote into userData/cache', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'shortty-cache-legacy-'));
+    const legacy = join(dir, 'cache');
+    mkdirSync(join(legacy, 'details', 'sub'), { recursive: true });
+    mkdirSync(join(legacy, 'Cache_Data'), { recursive: true });
+    writeFileSync(join(legacy, 'meta.json'), '{}');
+    writeFileSync(join(legacy, 'commands-index.json'), '[]');
+    writeFileSync(join(legacy, 'details', 'git.json'), '{}');
+    writeFileSync(join(legacy, 'Cache_Data', 'index'), 'chromium');
+
+    await new CommandCache(dir).legacyRemoved;
+
+    expect(existsSync(join(legacy, 'meta.json'))).toBe(false);
+    expect(existsSync(join(legacy, 'commands-index.json'))).toBe(false);
+    expect(existsSync(join(legacy, 'details'))).toBe(false);
+    expect(existsSync(join(legacy, 'Cache_Data', 'index'))).toBe(true);
+    rmSync(dir, { recursive: true, force: true });
   });
 
   it('writes and reads meta', () => {
@@ -117,7 +140,7 @@ describe('CommandCache', () => {
     });
 
     it('ignores entries in the old unversioned format', () => {
-      writeFileSync(join(tempDir, 'cache', 'details', 'sub', encodeURIComponent('git push') + '.json'), JSON.stringify(detail('git push')));
+      writeFileSync(join(tempDir, 'commands-cache', 'details', 'sub', encodeURIComponent('git push') + '.json'), JSON.stringify(detail('git push')));
       expect(cache.readSubcommandDetail('git push', git)).toBeNull();
     });
   });
