@@ -5,7 +5,9 @@ Use this when Shortty is unreachable, for example after turning off both
 shortcut (SPECS §9.1, visibility safety).
 
 1. Quit the running instance: `pkill -x Shortty` (macOS) or end the
-   `shortty` process.
+   `shortty` process. While it runs, `--reset-settings` refuses, logs
+   `Shortty is running; quit it first` and exits with code 1 (one instance
+   per user, enforced with Electron's single-instance lock).
 2. Run the binary with the flag:
 
    ```bash

@@ -9,6 +9,20 @@ const ROOT = path.resolve(__dirname, '../..');
 // In Node, the electron package exports the path of its binary.
 const ELECTRON_BIN = createRequire(__filename)('electron') as string;
 
+function runToExit(args: string[], env: NodeJS.ProcessEnv): Promise<number | null> {
+  const child = spawn(ELECTRON_BIN, [ROOT, ...args], { cwd: ROOT, env, stdio: 'ignore' });
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      reject(new Error(`${args.join(' ') || 'second launch'} did not quit within 20s`));
+    }, 20_000);
+    child.on('exit', (c) => {
+      clearTimeout(timer);
+      resolve(c);
+    });
+  });
+}
+
 test.describe('main-process lifecycle', () => {
   test('the first IPC calls after a cold start resolve with data', async () => {
     const hermetic = createHermeticEnv();
@@ -88,5 +102,16 @@ test.describe('main-process lifecycle', () => {
     } finally {
       rmSync(hermetic.dir, { recursive: true, force: true });
     }
+  });
+
+  test('a second launch shows the running panel and exits', async ({ shortty }) => {
+    await shortty.hide();
+    expect(await shortty.isVisible()).toBe(false);
+    expect(await runToExit([], shortty.hermetic.env)).toBe(0);
+    await expect.poll(() => shortty.isVisible()).toBe(true);
+  });
+
+  test('`--reset-settings` refuses to run while Shortty is running', async ({ shortty }) => {
+    expect(await runToExit(['--reset-settings'], shortty.hermetic.env)).toBe(1);
   });
 });

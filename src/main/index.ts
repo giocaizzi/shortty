@@ -37,12 +37,23 @@ import { importLoginShellPath } from './shell-env';
 // `shortty --reset-settings` (SPECS §9.1 escape hatch): restore defaults and quit.
 const resetRequested = process.argv.includes('--reset-settings');
 
+// One Shortty per user data dir: a second launch shows the running panel
+// instead of starting another tray, watcher set and commands engine.
+const isPrimaryInstance = !started && app.requestSingleInstanceLock();
+
 if (started) {
   app.quit();
 } else if (resetRequested) {
-  resetSettings();
-  log.info('Settings reset to defaults (--reset-settings)');
-  app.exit(0);
+  if (isPrimaryInstance) {
+    resetSettings();
+    log.info('Settings reset to defaults (--reset-settings)');
+    app.exit(0);
+  } else {
+    log.error('--reset-settings: Shortty is running; quit it first');
+    app.exit(1);
+  }
+} else if (!isPrimaryInstance) {
+  app.quit();
 }
 
 let mainWindow: BrowserWindow | null = null;
@@ -431,8 +442,12 @@ async function startup(): Promise<void> {
 }
 
 app.on('ready', () => {
-  if (started || resetRequested) return;
+  if (started || resetRequested || !isPrimaryInstance) return;
   void startup();
+});
+
+app.on('second-instance', () => {
+  if (mainWindow) showWindow();
 });
 
 app.on('will-quit', () => {
