@@ -1,211 +1,322 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import type { AppSettings } from '../../../shared/settings';
 import type { SourceStatus } from '../../../shared/types';
+import type { PathCheck } from '../../../preload/preload';
+import type { UpdateSetting } from '../hooks/useSettings';
+import { Badge, Message, PaneHeader, Section, Switch } from './controls';
 
 interface SourcesTabProps {
   settings: AppSettings;
-  onUpdate: <K extends keyof AppSettings>(
-    key: K,
-    value: AppSettings[K],
-  ) => Promise<{ success: boolean; error?: string }>;
+  onUpdate: UpdateSetting;
+}
+
+/** The registry re-parses asynchronously after a settings change; re-read its status after this delay too. */
+export const SOURCES_SETTLE_MS = 600;
+
+function overrideText(override: string | string[] | undefined): string {
+  if (override === undefined) return '';
+  return Array.isArray(override) ? override.join(', ') : override;
 }
 
 function StatusBadge({ source }: { source: SourceStatus }) {
-  if (!source.hasParser) {
-    return (
-      <span
-        className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-        style={{ background: 'rgba(0,122,255,0.15)', color: 'var(--accent)' }}
-      >
-        Cheatsheet Only
-      </span>
-    );
-  }
-  if (source.detected) {
-    return (
-      <span
-        className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-        style={{ background: 'rgba(52,199,89,0.15)', color: '#34c759' }}
-      >
-        Detected
-      </span>
-    );
-  }
+  if (!source.hasParser) return <Badge tone="info">Cheatsheet only</Badge>;
+  if (source.detected) return <Badge tone="ok">Detected</Badge>;
+  return <Badge tone="warn">Not detected</Badge>;
+}
+
+/** Path text that truncates at the start, so the file name stays visible. */
+function PathText({ path }: { path: string }) {
   return (
-    <span
-      className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-      style={{ background: 'rgba(255,204,0,0.15)', color: '#cc8800' }}
-    >
-      Not Detected
+    <span className="pf-path" title={path}>
+      <span dir="ltr">{path}</span>
     </span>
   );
 }
 
-function SourceRow({
-  source,
-  isEnabled,
-  pathOverride,
-  onToggle,
-  onPathOverride,
-  onResetPath,
-}: {
+function ExistsMark({ exists }: { exists: boolean | undefined }) {
+  if (exists === undefined) return <span className="pf-exists" aria-hidden="true" />;
+  return (
+    <span
+      className={`pf-exists ${exists ? 'pf-tone-ok' : 'pf-tone-error'}`}
+      role="img"
+      aria-label={exists ? 'Exists' : 'Missing'}
+    >
+      {exists ? '✓' : '✗'}
+    </span>
+  );
+}
+
+/** Resolve paths through the main process (expands ~ and env vars) and report existence. */
+function usePathChecks(paths: string[], delayMs = 0): Map<string, PathCheck> {
+  const [checks, setChecks] = useState<Map<string, PathCheck>>(new Map());
+  const key = paths.join('\n');
+
+  useEffect(() => {
+    const list = key === '' ? [] : key.split('\n');
+    if (list.length === 0) {
+      setChecks(new Map());
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      window.electronAPI
+        .checkPaths(list)
+        .then((result) => {
+          if (!cancelled) setChecks(new Map(result.map((c) => [c.path, c])));
+        })
+        .catch(() => undefined);
+    }, delayMs);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [key, delayMs]);
+
+  return checks;
+}
+
+interface SourceCardProps {
   source: SourceStatus;
-  isEnabled: boolean;
-  pathOverride: string | string[] | undefined;
-  onToggle: () => void;
-  onPathOverride: (path: string) => void;
-  onResetPath: () => void;
-}) {
-  const hasOverride = pathOverride !== undefined;
-  const overrideValue = Array.isArray(pathOverride)
-    ? pathOverride.join(', ')
-    : pathOverride ?? '';
-  const detectedPath = source.configPaths.length > 0
-    ? source.configPaths.join(', ')
-    : null;
+  enabled: boolean;
+  override: string | string[] | undefined;
+  onToggle: (enabled: boolean) => void;
+  onCommitOverride: (path: string) => void;
+}
+
+function SourceCard({ source, enabled, override, onToggle, onCommitOverride }: SourceCardProps) {
+  const current = overrideText(override);
+  const hasOverride = override !== undefined;
+  const [draft, setDraft] = useState(current);
+  const [editing, setEditing] = useState(false);
+  const cancelEdit = useRef(false);
+  const titleId = useId();
+  const inputId = useId();
+  const hintId = useId();
+
+  // Follow external changes (Reset, another window) unless the user is typing.
+  useEffect(() => {
+    if (!editing) setDraft(current);
+  }, [current, editing]);
+
+  const configChecks = usePathChecks(source.configPaths);
+  const trimmedDraft = draft.trim();
+  const draftChecks = usePathChecks(trimmedDraft ? [trimmedDraft] : [], 200);
+  const draftCheck = draftChecks.get(trimmedDraft);
+
+  const commit = (value: string) => {
+    const next = value.trim();
+    setDraft(next);
+    if (next !== current) onCommitOverride(next);
+  };
+
+  // Enter commits through the blur handler; Escape reverts and skips it.
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.currentTarget.blur();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      cancelEdit.current = true;
+      setDraft(current);
+      e.currentTarget.blur();
+    }
+  };
+
+  const handleBlur = () => {
+    setEditing(false);
+    if (cancelEdit.current) {
+      cancelEdit.current = false;
+      return;
+    }
+    commit(draft);
+  };
+
+  const browse = async () => {
+    const picked = await window.electronAPI.pickPath(trimmedDraft || source.configPaths[0]);
+    if (picked) commit(picked);
+  };
+
+  const reset = () => {
+    setDraft('');
+    setEditing(false);
+    onCommitOverride('');
+  };
+
+  const pathsLabel = hasOverride
+    ? 'Reading from'
+    : source.detected
+      ? 'Detected at'
+      : 'Expected at';
 
   return (
-    <div
-      className="p-3 rounded-lg space-y-2"
-      style={{ background: 'var(--bg-secondary)' }}
-    >
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <span className="text-lg">{source.icon}</span>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+    <div className="pf-source" data-testid="source-card">
+      <div className="pf-row pf-source-header">
+        <div className="pf-row-main">
+          <span className="pf-source-icon" aria-hidden="true">
+            {source.icon}
+          </span>
+          <div className="pf-row-text">
+            <div className="pf-source-title">
+              <span className="pf-row-label" id={titleId}>
                 {source.label}
               </span>
               <StatusBadge source={source} />
             </div>
             {source.shortcutCount > 0 && (
-              <div className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                {source.shortcutCount} shortcuts
+              <div className="pf-row-description">
+                {source.shortcutCount.toLocaleString()} built-in shortcuts
               </div>
             )}
           </div>
+          <div className="pf-row-control">
+            <Switch
+              checked={enabled}
+              onChange={onToggle}
+              label={`Use ${source.label}`}
+            />
+          </div>
         </div>
-        <input
-          type="checkbox"
-          checked={isEnabled}
-          onChange={onToggle}
-          className="h-4 w-4 accent-[var(--accent)]"
-        />
       </div>
 
-      {/* Path display */}
-      {source.hasParser && (
-        <div className="space-y-1.5 pl-8">
-          {hasOverride && detectedPath && (
-            <div className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-              Auto-detected: {detectedPath}
+      <div className={`pf-source-body${enabled ? '' : ' pf-group-dimmed'}`}>
+        {!source.hasParser ? (
+          <div className="pf-row">
+            <div className="pf-row-description">
+              Built-in cheatsheet, no config file to read.
             </div>
-          )}
-          <div className="flex items-center gap-1.5">
-            <input
-              type="text"
-              value={hasOverride ? overrideValue : (detectedPath ?? '')}
-              placeholder="Config path..."
-              onChange={(e) => onPathOverride(e.target.value)}
-              className="flex-1 px-2 py-1 text-xs rounded border focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
-              style={{
-                background: 'var(--bg-primary)',
-                borderColor: 'var(--border)',
-                color: hasOverride ? 'var(--text-primary)' : 'var(--text-secondary)',
-              }}
-            />
-            {hasOverride && (
-              <button
-                type="button"
-                onClick={onResetPath}
-                className="px-2 py-1 text-[10px] rounded border"
-                style={{
-                  background: 'var(--bg-primary)',
-                  borderColor: 'var(--border)',
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                Reset
-              </button>
+          </div>
+        ) : (
+          <>
+            {source.configPaths.length > 0 && (
+              <div className="pf-row pf-paths">
+                <div className="pf-paths-label">{pathsLabel}</div>
+                <ul className="pf-path-list">
+                  {source.configPaths.map((p) => (
+                    <li key={p} className="pf-path-item" data-testid="config-path">
+                      <ExistsMark exists={configChecks.get(p)?.exists} />
+                      <PathText path={p} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Cheatsheet-only: no config file */}
-      {!source.hasParser && (
-        <div className="pl-8">
-          <div className="text-xs italic" style={{ color: 'var(--text-secondary)' }}>
-            (no config file)
-          </div>
-        </div>
-      )}
+            <div className="pf-row">
+              <div className="pf-override">
+                <label className="pf-paths-label" htmlFor={inputId}>
+                  Custom path
+                </label>
+                <div className="pf-override-line">
+                  <input
+                    id={inputId}
+                    type="text"
+                    className="pf-text-field"
+                    value={draft}
+                    placeholder={source.configPaths[0] ?? '~/path/to/config'}
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    aria-describedby={hintId}
+                    onFocus={() => setEditing(true)}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onBlur={handleBlur}
+                    onKeyDown={handleKeyDown}
+                  />
+                  <button type="button" className="pf-button" onClick={() => void browse()}>
+                    Browse…
+                  </button>
+                  {hasOverride && (
+                    <button type="button" className="pf-button" onClick={reset}>
+                      Reset
+                    </button>
+                  )}
+                </div>
+                <div id={hintId}>
+                  {trimmedDraft !== '' && draftCheck && !draftCheck.exists ? (
+                    <Message tone="warn">
+                      Nothing exists at this path yet. Shortty saves it anyway and reads it once
+                      the file appears.
+                    </Message>
+                  ) : (
+                    <div className="pf-row-description">
+                      Leave empty to use the detected path. Supports ~, $HOME and
+                      $XDG_CONFIG_HOME.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
 
 export function SourcesTab({ settings, onUpdate }: SourcesTabProps) {
-  const [sources, setSources] = useState<SourceStatus[]>([]);
+  const [sources, setSources] = useState<SourceStatus[] | null>(null);
 
-  useEffect(() => {
-    window.electronAPI.getAllSources().then(setSources);
+  const refresh = useCallback(() => {
+    window.electronAPI
+      .getAllSources()
+      .then(setSources)
+      .catch(() => setSources((s) => s ?? []));
   }, []);
 
-  const toggleSource = (sourceId: string) => {
+  // Re-read detection status whenever the source settings change: once now,
+  // and once the registry has finished re-parsing.
+  const settingsKey = JSON.stringify([settings.disabledParsers, settings.sourcePathOverrides]);
+  useEffect(() => {
+    refresh();
+    const timer = setTimeout(refresh, SOURCES_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [settingsKey, refresh]);
+
+  const toggleSource = (sourceId: string, enabled: boolean) => {
     const disabled = new Set(settings.disabledParsers);
-    if (disabled.has(sourceId)) {
-      disabled.delete(sourceId);
-    } else {
-      disabled.add(sourceId);
-    }
-    onUpdate('disabledParsers', Array.from(disabled));
+    if (enabled) disabled.delete(sourceId);
+    else disabled.add(sourceId);
+    void onUpdate('disabledParsers', Array.from(disabled));
   };
 
-  const setPathOverride = (sourceId: string, path: string) => {
+  const commitOverride = (sourceId: string, path: string) => {
     const overrides = { ...settings.sourcePathOverrides };
-    if (path.trim() === '') {
-      delete overrides[sourceId];
-    } else {
-      overrides[sourceId] = path;
-    }
-    onUpdate('sourcePathOverrides', overrides);
-  };
-
-  const resetPathOverride = (sourceId: string) => {
-    const overrides = { ...settings.sourcePathOverrides };
-    delete overrides[sourceId];
-    onUpdate('sourcePathOverrides', overrides);
+    if (path === '') delete overrides[sourceId];
+    else overrides[sourceId] = path;
+    void onUpdate('sourcePathOverrides', overrides);
   };
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-        Sources
-      </h2>
-      <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-        Manage keybinding sources and their config paths
-      </div>
+    <div className="pf-pane">
+      <PaneHeader title="Sources" />
+      <p className="pf-pane-intro">
+        Choose which apps Shortty reads shortcuts from. Sources you don&apos;t have installed still
+        show their built-in cheatsheet.
+      </p>
 
-      <div className="space-y-2">
-        {sources.map((source) => (
-          <SourceRow
-            key={source.id}
-            source={source}
-            isEnabled={!settings.disabledParsers.includes(source.id)}
-            pathOverride={settings.sourcePathOverrides[source.id]}
-            onToggle={() => toggleSource(source.id)}
-            onPathOverride={(path) => setPathOverride(source.id, path)}
-            onResetPath={() => resetPathOverride(source.id)}
-          />
-        ))}
-        {sources.length === 0 && (
-          <div className="text-sm py-4 text-center" style={{ color: 'var(--text-secondary)' }}>
-            No sources detected
+      {sources === null ? null : sources.length === 0 ? (
+        <Section label="Sources">
+          <div className="pf-row">
+            <div className="pf-row-description">
+              No sources are available. Restart Shortty to scan again.
+            </div>
           </div>
-        )}
-      </div>
+        </Section>
+      ) : (
+        <div className="pf-source-list">
+          {sources.map((source) => (
+            <Section key={source.id} label={source.label}>
+              <SourceCard
+                source={source}
+                enabled={!settings.disabledParsers.includes(source.id)}
+                override={settings.sourcePathOverrides[source.id]}
+                onToggle={(enabled) => toggleSource(source.id, enabled)}
+                onCommitOverride={(path) => commitOverride(source.id, path)}
+              />
+            </Section>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
