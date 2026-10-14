@@ -1,0 +1,32 @@
+{
+  "label": "after-launcher",
+  "date": "2026-10-14T01:49:11.937Z",
+  "host": "darwin-arm64",
+  "counts": {
+    "sources": 10,
+    "shortcuts": 493,
+    "commands": 3
+  },
+  "startupMs": {
+    "runs": [
+      1806,
+      493,
+      300
+    ],
+    "median": 493
+  },
+  "startupToEnrichedMs": {
+    "runs": [
+      2766,
+      892,
+      683
+    ],
+    "median": 892
+  },
+  "showToFocusedMs": 27,
+  "searchRenderMs": {
+    "vs": 3.9,
+    "toggle": 3.4,
+    ">gizmo": 0.9
+  }
+}

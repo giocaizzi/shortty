@@ -111,3 +111,71 @@ screenshot cannot capture; the benchmark paints a dark backdrop
 | `>gizmo` prefix mode | ![](benchmark/baseline-05-command-prefix.png) | ![](benchmark/workaround-05-command-prefix.png) |
 | `gizmo` command detail | ![](benchmark/baseline-06-command-detail.png) | ![](benchmark/workaround-06-command-detail.png) |
 | Preferences window (renders the launcher, bug 6) | ![](benchmark/baseline-07-preferences.png) | ![](benchmark/workaround-07-preferences.png) |
+
+## After the launcher rework (WP-D search/navigation, WP-E visuals)
+
+Branch `feat/launcher-ux`, rebased on `e080dea` (main-process lifecycle).
+Run like the **workaround** column above (untracked `cheatsheets` symlink,
+493 shortcuts) so the screenshots show real data: `make e2e-benchmark
+LABEL=after-launcher`. Raw numbers: `benchmark/after-launcher-timings.json`.
+Startup numbers are not comparable (main-process changes, host load ~7 during
+the run); the renderer-only numbers are:
+
+| Metric | workaround (before) | after-launcher |
+|---|---|---|
+| `show()` to search input focused | 34 ms | 27 ms |
+| Query to first row rendered, `vs` | 1.7 ms | 3.9 ms |
+| Query to first row rendered, `toggle` | 3.1 ms | 3.4 ms |
+| Query to first row rendered, `>gizmo` | 0.4 ms | 0.9 ms |
+
+Search stays under the 5 ms target of SPECS §10.3, but `vs` (150 matches)
+doubled: rows carry more DOM (source tile, footer, section groups). Worth a
+profile against a real PATH before v1.
+
+What changed, by benchmark finding:
+
+- Prefix mode: a plain query no longer returns commands; `>` returns only
+  commands. Unified mode (the spec default) searches everything.
+- "Show all N" is a keyboard-selectable row; Enter expands the section.
+- Source names match fuzzily (`vsc`, `vscode`, `vs code` → VS Code).
+- A drilled source lists every entry grouped by category before typing,
+  without the Sources section, the 8-row cap or the source label.
+- Esc from a drilled source or command detail restores the previous query
+  and selection; the selection always scrolls into view; Tab never leaves
+  the search field.
+- `?` opens the help sheet (it used to close on the same keystroke), and a
+  `?` button sits in the search bar next to the activation hotkey.
+- Light and dark appearance through CSS tokens (no hard-coded white text);
+  the unlayered `*` reset that silently disabled every Tailwind padding
+  utility is gone, so paddings are consistent.
+- Section headers show a plain count ("1 sources" and the duplicated
+  "Show all 31 / 8 shortcuts" are gone); one 40 px row anatomy everywhere;
+  tinted source tiles instead of emoji; footer with the keys for the
+  selected row and a "Copied" confirmation; detail view ends with
+  "Source: --help" / "man page".
+- Shows and hides animate (exit through `onWindowWillHide`), with
+  reduced-motion fallbacks; the state resets when the window hides.
+- No refetch of all shortcuts and commands on every show.
+
+Still visible and owned elsewhere: mixed `Cmd+P` / `⌘P` key labels and
+Ghostty duplicates (shortcut engine), single-entry `--help` sections
+(commands engine).
+
+| State | before (workaround) | after-launcher |
+|---|---|---|
+| Empty panel | ![](benchmark/workaround-01-empty.png) | ![](benchmark/after-launcher-01-empty.png) |
+| Search `toggle` | ![](benchmark/workaround-02-search-toggle.png) | ![](benchmark/after-launcher-02-search-toggle.png) |
+| Search `vs` (source) | ![](benchmark/workaround-03-search-vs.png) | ![](benchmark/after-launcher-03-search-vs.png) |
+| Drilled into VS Code, `toggle` | ![](benchmark/workaround-04-drilled-vscode.png) | ![](benchmark/after-launcher-04-drilled-vscode.png) |
+| `>gizmo` prefix mode | ![](benchmark/workaround-05-command-prefix.png) | ![](benchmark/after-launcher-05-command-prefix.png) |
+| `gizmo` command detail | ![](benchmark/workaround-06-command-detail.png) | ![](benchmark/after-launcher-06-command-detail.png) |
+
+New states:
+
+| State | after-launcher |
+|---|---|
+| Drilled into VS Code, no query (categories) | ![](benchmark/after-launcher-08-drilled-all.png) |
+| Search `toggle`, light | ![](benchmark/after-launcher-09-search-toggle-light.png) |
+| Command detail, light | ![](benchmark/after-launcher-10-command-detail-light.png) |
+| No results | ![](benchmark/after-launcher-11-no-results.png) |
+| Help sheet, dark / light | ![](benchmark/after-launcher-12-help.png) ![](benchmark/after-launcher-13-help-light.png) |
