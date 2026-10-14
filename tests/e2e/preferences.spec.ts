@@ -1,6 +1,6 @@
 import path from 'node:path';
 import type { Page } from '@playwright/test';
-import { test, expect, knownBug, type Shortty } from './fixtures';
+import { test, expect, type Shortty } from './fixtures';
 
 
 async function openPrefs(shortty: Shortty): Promise<Page> {
@@ -104,7 +104,6 @@ test.describe('preferences window', () => {
   });
 
   test('Reset shows the detected path again', async ({ shortty }) => {
-    knownBug('registry keeps the override path after Reset until restart (gap-analysis bug 11, WP-B)');
     const prefs = await openPrefs(shortty);
     await prefs.getByRole('button', { name: 'Sources', exact: true }).click();
     const card = sourceCard(prefs, 'Ghostty');
@@ -133,9 +132,6 @@ test.describe('preferences window', () => {
   });
 
   test('marks detected config files as existing', async ({ shortty }) => {
-    knownBug(
-      'the built app does not find the cheatsheets (loader.ts resolves __dirname/../../cheatsheets/sources), so sources fall back to bare parsers with no config paths',
-    );
     const prefs = await openPrefs(shortty);
     await prefs.getByRole('button', { name: 'Sources', exact: true }).click();
     const card = sourceCard(prefs, 'VS Code');
