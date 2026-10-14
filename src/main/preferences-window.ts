@@ -30,13 +30,17 @@ export function openPreferencesWindow(): void {
     },
   });
 
+  // The preferences renderer is built from preferences.html
+  // (vite.preferences.config.mts), not the launcher's index.html.
   if (PREFERENCES_WINDOW_VITE_DEV_SERVER_URL) {
-    preferencesWindow.loadURL(PREFERENCES_WINDOW_VITE_DEV_SERVER_URL);
+    preferencesWindow.loadURL(
+      new URL('preferences.html', `${PREFERENCES_WINDOW_VITE_DEV_SERVER_URL}/`).toString(),
+    );
   } else {
     preferencesWindow.loadFile(
       path.join(
         __dirname,
-        `../renderer/${PREFERENCES_WINDOW_VITE_NAME}/index.html`,
+        `../renderer/${PREFERENCES_WINDOW_VITE_NAME}/preferences.html`,
       ),
     );
   }

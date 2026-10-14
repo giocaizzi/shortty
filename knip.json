@@ -7,6 +7,7 @@
     "vite.main.config.ts",
     "vite.preload.config.ts",
     "vite.renderer.config.mts",
+    "vite.preferences.config.mts",
     "tests/**/*.{test,spec}.{ts,tsx}"
   ],
   "ignoreDependencies": [

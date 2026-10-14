@@ -49,7 +49,7 @@ const config: ForgeConfig = {
         },
         {
           name: 'preferences_window',
-          config: 'vite.renderer.config.mts',
+          config: 'vite.preferences.config.mts',
         },
       ],
     }),
