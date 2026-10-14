@@ -48,7 +48,11 @@ export function installMockApi(
     onWindowWillHide: vi.fn(() => () => undefined),
     pickPath: vi.fn(async (): Promise<string | null> => null),
     checkPaths: vi.fn(async (paths: string[]) =>
-      paths.map((p) => ({ path: p, resolved: p, exists: !p.includes('missing') })),
+      paths.map((p) => ({
+        path: p,
+        resolved: p === '~/' ? '/home/me' : p,
+        exists: !p.includes('missing'),
+      })),
     ),
   } satisfies ElectronAPI;
 

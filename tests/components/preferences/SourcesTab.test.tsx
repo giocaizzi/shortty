@@ -55,6 +55,13 @@ describe('SourcesTab', () => {
     });
   });
 
+  it('shows paths under the home folder with ~', async () => {
+    setup();
+    const [path] = await screen.findAllByTestId('config-path');
+    await waitFor(() => expect(path).toHaveTextContent('~/.config/ghostty/config'));
+    expect(await customPathField()).toHaveAttribute('placeholder', '~/.config/ghostty/config');
+  });
+
   it('saves a typed path once, on blur', async () => {
     const { onUpdate } = setup();
     const field = await customPathField();

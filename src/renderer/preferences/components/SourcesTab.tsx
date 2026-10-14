@@ -13,6 +13,9 @@ interface SourcesTabProps {
 /** The registry re-parses asynchronously after a settings change; re-read its status after this delay too. */
 export const SOURCES_SETTLE_MS = 600;
 
+/** Resolving "~/" through the main process yields the home folder. */
+const HOME_PROBE = ['~/'];
+
 function overrideText(override: string | string[] | undefined): string {
   if (override === undefined) return '';
   return Array.isArray(override) ? override.join(', ') : override;
@@ -22,6 +25,13 @@ function StatusBadge({ source }: { source: SourceStatus }) {
   if (!source.hasParser) return <Badge tone="info">Cheatsheet only</Badge>;
   if (source.detected) return <Badge tone="ok">Detected</Badge>;
   return <Badge tone="warn">Not detected</Badge>;
+}
+
+/** Show paths under the home folder as ~/..., like Finder and the shell. */
+function tildify(path: string, home: string | undefined): string {
+  if (!home || home === '/') return path;
+  if (path === home) return '~';
+  return path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
 }
 
 /** Path text that truncates at the start, so the file name stays visible. */
@@ -99,6 +109,7 @@ function SourceCard({ source, enabled, override, onToggle, onCommitOverride }: S
   }, [current, editing]);
 
   const configChecks = usePathChecks(source.configPaths);
+  const home = usePathChecks(HOME_PROBE).get('~/')?.resolved;
   const trimmedDraft = draft.trim();
   const draftChecks = usePathChecks(trimmedDraft ? [trimmedDraft] : [], 200);
   const draftCheck = draftChecks.get(trimmedDraft);
@@ -195,7 +206,7 @@ function SourceCard({ source, enabled, override, onToggle, onCommitOverride }: S
                   {source.configPaths.map((p) => (
                     <li key={p} className="pf-path-item" data-testid="config-path">
                       <ExistsMark exists={configChecks.get(p)?.exists} />
-                      <PathText path={p} />
+                      <PathText path={tildify(p, home)} />
                     </li>
                   ))}
                 </ul>
@@ -212,7 +223,9 @@ function SourceCard({ source, enabled, override, onToggle, onCommitOverride }: S
                     type="text"
                     className="pf-text-field"
                     value={draft}
-                    placeholder={source.configPaths[0] ?? '~/path/to/config'}
+                    placeholder={
+                      source.configPaths[0] ? tildify(source.configPaths[0], home) : '~/path/to/config'
+                    }
                     spellCheck={false}
                     autoCorrect="off"
                     autoCapitalize="off"
