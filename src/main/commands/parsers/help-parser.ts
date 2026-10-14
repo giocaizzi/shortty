@@ -8,6 +8,8 @@ import {
   parseArgumentsFromSynopsis,
   extractFirstParagraph,
   extractUsageLine,
+  normalizeText,
+  deduplicateFlags,
 } from './parse-utils';
 
 const BLOCKLIST = new Set([
@@ -53,89 +55,246 @@ function execCommand(bin: string, args: string[], sandboxDir: string): Promise<s
   });
 }
 
-/** Extract description from help output (first paragraph after usage line). */
-function extractHelpDescription(output: string): string | undefined {
-  // Skip past the Usage line and any blank lines
-  const usageEnd = output.match(/^[Uu]sage:.*(?:\n[ \t]+.*)*/m);
-  if (!usageEnd) return undefined;
+type SectionKind = 'commands' | 'flags' | 'usage' | 'other';
 
-  const afterUsage = output.slice((usageEnd.index ?? 0) + usageEnd[0].length);
-  // Strip all leading blank lines
-  const trimmed = afterUsage.replace(/^[\s\n]+/, '');
-
-  // Take text before the first section header or options block
-  const sectionStart = trimmed.search(/^(?:[A-Z][\w ]*:|\s{2,}-\w)/m);
-  const descText = sectionStart === -1 ? trimmed : trimmed.slice(0, sectionStart);
-
-  if (!descText.trim()) return undefined;
-  return extractFirstParagraph(descText, 500);
+interface HelpSection {
+  title: string;
+  kind: SectionKind;
+  lines: string[];
 }
 
-/** Extract flags from help output, using section detection when possible. */
-function extractHelpFlags(output: string): FlagDetail[] {
-  // Try to find an Options/Flags section
-  const optionsMatch = output.match(
-    /^(?:(?:Global )?[Oo]ptions|[Ff]lags):?\s*\n([\s\S]*?)(?=\n[A-Za-z][\w ]*:\s*\n|\n\n\S|$)/m,
-  );
-  if (optionsMatch) {
-    return parseFlagsFromText(optionsMatch[1]);
+/** "Commands:", "Global options:", "Basic Commands (Beginner):" */
+const COLON_HEADER_RE = /^([A-Za-z][\w ()/,'.-]{0,60}?):\s*$/;
+/** "CORE COMMANDS", "FLAGS" (cobra/gh), "  SEARCH" (fzf) */
+const CAPS_HEADER_RE = /^\s{0,2}([A-Z][A-Z0-9 /&()-]{2,}?)\s*$/;
+/** "Usage: tool [OPTIONS]" — usage statement on the header line itself */
+const INLINE_USAGE_RE = /^\s{0,2}(?:[Uu]sage|USAGE):\s+\S/;
+
+function classifySection(title: string): SectionKind {
+  if (/^usage$/i.test(title)) return 'usage';
+  if (/help topics/i.test(title)) return 'other';
+  if (/\b(?:sub)?commands?\b/i.test(title)) return 'commands';
+  if (/\b(?:options?|flags)\b/i.test(title)) return 'flags';
+  return 'other';
+}
+
+/**
+ * Split help output into titled sections. Lines before the first header go
+ * into an untitled 'other' section. Column-0 lines that are not headers stay
+ * in the current section (git groups its command list under prose lines).
+ */
+function splitHelpSections(lines: string[]): HelpSection[] {
+  const sections: HelpSection[] = [{ title: '', kind: 'other', lines: [] }];
+  for (const line of lines) {
+    const header = line.match(COLON_HEADER_RE) ?? line.match(CAPS_HEADER_RE);
+    if (header) {
+      const title = header[1].trim();
+      sections.push({ title, kind: classifySection(title), lines: [] });
+      continue;
+    }
+    if (INLINE_USAGE_RE.test(line)) {
+      sections.push({ title: 'Usage', kind: 'usage', lines: [line] });
+      continue;
+    }
+    sections[sections.length - 1].lines.push(line);
   }
-
-  // Fallback: parse flags from the entire output
-  return parseFlagsFromText(output);
+  return sections;
 }
 
-function extractSubcommands(output: string, commandName: string): CommandDetail[] {
+/** "  run        Run a command", "  auth:   Authenticate", "  ai*   Docker AI", "  ls, list   List" */
+const ENTRY_RE = /^\s{1,8}([A-Za-z0-9][\w.+-]*)\*?((?:,\s*[\w.+-]+)*)(?::\s+|\s{2,})(\S.*)$/;
+/** clap long help: name alone on its line, description on the following, deeper-indented line */
+const BARE_ENTRY_RE = /^(\s{1,8})([a-z0-9][\w.+-]*)\s*$/;
+/** npm: "    access, adduser, audit, bugs," */
+const COMMA_LIST_RE = /^\s+[\w.-]+(?:,\s*[\w.-]+)+,?\s*$/;
+
+function isPlausibleSubcommand(name: string): boolean {
+  if (name.length > 40) return false;
+  // ALL-CAPS words are placeholders / env vars, not subcommands
+  if (name.length > 1 && name === name.toUpperCase() && /[A-Z]/.test(name)) return false;
+  return /^[A-Za-z0-9][\w.+-]*$/.test(name);
+}
+
+/** Column where entry descriptions start in a command table, if one is dominant. */
+function mostCommonDescColumn(lines: string[]): number | undefined {
+  const counts = new Map<number, number>();
+  for (const line of lines) {
+    const m = line.match(ENTRY_RE);
+    if (m) {
+      const col = line.length - m[3].length;
+      counts.set(col, (counts.get(col) ?? 0) + 1);
+    }
+  }
+  let best: number | undefined;
+  let bestCount = 1;
+  for (const [col, count] of counts) {
+    if (count > bestCount) {
+      best = col;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+function extractSubcommands(sections: HelpSection[], commandName: string): CommandDetail[] {
   const subcommands: CommandDetail[] = [];
   const seen = new Set<string>();
+  const add = (name: string, description: string) => {
+    if (!isPlausibleSubcommand(name) || seen.has(name)) return;
+    seen.add(name);
+    subcommands.push({ name: `${commandName} ${name}`, description });
+  };
 
-  // Find command sections (Common Commands, Management Commands, Commands, etc.)
-  const sectionRe = /^(?:[\w ]*[Cc]ommands?|[Ss]ubcommands?):?\s*\n([\s\S]*?)(?=\n[A-Za-z][\w ]*:\s*\n|\n\n\S|$)/gm;
-  let sectionMatch: RegExpExecArray | null;
-  while ((sectionMatch = sectionRe.exec(output)) !== null) {
-    const section = sectionMatch[1];
-    parseSubcommandSection(section, commandName, subcommands, seen);
-  }
+  for (const section of sections) {
+    if (section.kind !== 'commands') continue;
+    const { lines } = section;
+    const descColumn = mostCommonDescColumn(lines);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^\s*[-$#]/.test(line)) continue;
 
-  // If no sections found, try the whole output with the simpler pattern
-  if (subcommands.length === 0) {
-    parseSubcommandSection(output, commandName, subcommands, seen);
+      const entry = line.match(ENTRY_RE);
+      if (entry) {
+        add(entry[1], entry[3].trim());
+        continue;
+      }
+
+      // A name that fills its column leaves a single space before the
+      // description: "  edit-config-template Edit the configuration file template"
+      const tight = line.match(/^(\s{1,8})([A-Za-z0-9][\w.+-]*) (\S.*)$/);
+      if (tight && descColumn !== undefined && tight[1].length + tight[2].length + 1 === descColumn) {
+        add(tight[2], tight[3].trim());
+        continue;
+      }
+
+      if (COMMA_LIST_RE.test(line)) {
+        for (const name of line.split(',')) {
+          if (name.trim()) add(name.trim(), '');
+        }
+        continue;
+      }
+
+      const bare = line.match(BARE_ENTRY_RE);
+      if (bare) {
+        const next = lines[i + 1] ?? '';
+        const nextIndent = next.match(/^(\s*)/)?.[1].length ?? 0;
+        if (next.trim() && nextIndent > bare[1].length) {
+          add(bare[2], next.trim());
+          i++;
+        }
+      }
+    }
   }
 
   return subcommands;
 }
 
-function parseSubcommandSection(
-  text: string,
-  commandName: string,
-  subcommands: CommandDetail[],
-  seen: Set<string>,
-): void {
-  const regex = /^\s{2,}(\S+)\s{2,}(.+)$/gm;
-
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(text)) !== null) {
-    const raw = match[1];
-    if (raw.startsWith('-')) continue;
-    if (raw.length > 30) continue;
-    const name = raw.replace(/[^a-zA-Z0-9_-]+$/, '');
-    if (!name || !/^[\w][\w-]*$/.test(name)) continue;
-    if (seen.has(name)) continue;
-    seen.add(name);
-    subcommands.push({
-      name: `${commandName} ${name}`,
-      description: match[2].trim(),
-    });
+/** Extract flags from help output, using Options/Flags sections when present. */
+function extractHelpFlags(sections: HelpSection[], output: string): FlagDetail[] {
+  const flagSections = sections.filter(s => s.kind === 'flags');
+  if (flagSections.length === 0) {
+    // No Options/Flags header (curl, bsdtar, fzf): parse the entire output
+    return parseFlagsFromText(output);
   }
+
+  return deduplicateFlags(flagSections.flatMap(s => parseFlagsFromText(s.lines.join('\n'))));
 }
 
-export async function parseHelp(commandName: string, binPath: string): Promise<{
+/** "tmux: unknown option -- -", "ls: unrecognized option `--help'" */
+const ERROR_LINE_RE = /^\S+: (?:unknown|illegal|unrecognized|invalid) (?:option|flag|argument)/i;
+
+/**
+ * Description: the first prose paragraph before the first commands/flags
+ * section or flag line. Cobra/clap/kubectl put it before the usage line,
+ * docker after it. Usage blocks, error lines and command tables are skipped.
+ */
+function extractHelpDescription(sections: HelpSection[], commandName: string): string | undefined {
+  const program = commandName.split(' ')[0];
+  for (const section of sections) {
+    if (section.kind === 'commands' || section.kind === 'flags') return undefined;
+    let lines = section.lines;
+    if (section.kind === 'usage') {
+      // Skip the usage statement itself (up to the first blank line); flag
+      // lines right under it (curl) mean there is no description
+      const blank = lines.findIndex(l => l.trim() === '');
+      const statement = blank === -1 ? lines : lines.slice(0, blank);
+      if (statement.some(l => /^\s*-/.test(l))) return undefined;
+      if (blank === -1) continue;
+      lines = lines.slice(blank);
+    } else if (section.title) {
+      continue;
+    }
+    const desc = firstProseParagraph(lines, program);
+    if (desc !== null) return desc;
+  }
+  return undefined;
+}
+
+/**
+ * Returns the first prose paragraph, undefined if a flag line is hit first
+ * (stop searching), or null if the lines hold no prose (keep searching).
+ */
+function firstProseParagraph(lines: string[], program: string): string | undefined | null {
+  const paragraphs: string[][] = [[]];
+  for (const line of lines) {
+    if (line.trim()) paragraphs[paragraphs.length - 1].push(line);
+    else if (paragraphs[paragraphs.length - 1].length > 0) paragraphs.push([]);
+  }
+
+  for (const paragraph of paragraphs) {
+    if (paragraph.length === 0) continue;
+    const first = paragraph[0];
+    const trimmed = first.trim();
+    if (/^-/.test(trimmed)) return undefined;
+    if (ERROR_LINE_RE.test(trimmed)) continue;
+    // Usage-like lines: "npm <command>", "npm install   install all the dependencies"
+    if (trimmed === program) continue;
+    if (trimmed.startsWith(`${program} `) && (/^\S+\s+[<[]/.test(trimmed) || /\S\s{2,}\S/.test(trimmed))) continue;
+    // Indented tables / examples
+    if (/^\s{2,}/.test(first)) continue;
+    return extractFirstParagraph(paragraph.join('\n'), 500);
+  }
+  return null;
+}
+
+/** npm prints "npm <command>" as its first line instead of a "Usage:" line. */
+function firstLineUsage(text: string, commandName: string): string | undefined {
+  const first = text.split('\n').find(l => l.trim())?.trim();
+  if (!first) return undefined;
+  if (!first.startsWith(`${commandName} `) || /\S\s{2,}\S/.test(first)) return undefined;
+  return /[<[]/.test(first) ? first : undefined;
+}
+
+/** First sentence (or line) of a description, for one-line summaries. */
+function firstSentence(text: string | undefined): string {
+  if (!text) return '';
+  const match = text.match(/^(.+?[.!?])(?:\s|$)/);
+  return (match ? match[1] : text).trim();
+}
+
+export interface ParsedHelp {
   synopsis?: string;
   longDescription?: string;
   subcommands: CommandDetail[];
   flags: FlagDetail[];
   arguments: ArgumentDetail[];
-} | null> {
+}
+
+/** Parse captured `--help` output (pure; no process spawning). */
+export function parseHelpOutput(output: string, commandName: string): ParsedHelp | null {
+  const text = normalizeText(output);
+  const sections = splitHelpSections(text.split('\n'));
+  const synopsis = extractUsageLine(text) ?? firstLineUsage(text, commandName);
+  const longDescription = extractHelpDescription(sections, commandName);
+  const subcommands = extractSubcommands(sections, commandName);
+  const flags = extractHelpFlags(sections, text);
+  const args = synopsis ? parseArgumentsFromSynopsis(synopsis) : [];
+
+  if (subcommands.length === 0 && flags.length === 0 && args.length === 0) return null;
+  return { synopsis, longDescription, subcommands, flags, arguments: args };
+}
+
+export async function parseHelp(commandName: string, binPath: string): Promise<ParsedHelp | null> {
   if (isBlocklisted(commandName)) return null;
 
   try {
@@ -155,14 +314,7 @@ export async function parseHelp(commandName: string, binPath: string): Promise<{
     try { await rm(sandboxDir, { recursive: true, force: true }); } catch { /* ignore */ }
   }
 
-  const synopsis = extractUsageLine(output);
-  const longDescription = extractHelpDescription(output);
-  const subcommands = extractSubcommands(output, commandName);
-  const flags = extractHelpFlags(output);
-  const args = synopsis ? parseArgumentsFromSynopsis(synopsis) : [];
-
-  if (subcommands.length === 0 && flags.length === 0 && args.length === 0) return null;
-  return { synopsis, longDescription, subcommands, flags, arguments: args };
+  return parseHelpOutput(output, commandName);
 }
 
 export async function parseSubcommandHelp(
@@ -180,17 +332,8 @@ export async function parseSubcommandHelp(
     try { await rm(sandboxDir, { recursive: true, force: true }); } catch { /* ignore */ }
   }
 
-  const synopsis = extractUsageLine(output);
-  const longDescription = extractHelpDescription(output);
-  const subcommands = extractSubcommands(output, qualifiedName);
-  const flags = extractHelpFlags(output);
-  const args = synopsis ? parseArgumentsFromSynopsis(synopsis) : [];
+  const parsed = parseHelpOutput(output, qualifiedName);
+  if (!parsed) return null;
 
-  if (subcommands.length === 0 && flags.length === 0 && args.length === 0) return null;
-
-  // Extract description from first line that looks like "name - description"
-  const descMatch = output.match(/^\S.*?[-\u2013\u2014]\s+(.+)/m);
-  const description = descMatch?.[1]?.trim() ?? '';
-
-  return { name: qualifiedName, description, synopsis, longDescription, subcommands, flags, arguments: args };
+  return { name: qualifiedName, description: firstSentence(parsed.longDescription), ...parsed };
 }
