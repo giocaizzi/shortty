@@ -5,8 +5,8 @@
   "platforms": ["darwin", "linux"],
   "parser": "tmux",
   "defaultPaths": {
-    "darwin": ["~/.tmux.conf", "~/.config/tmux/tmux.conf"],
-    "linux": ["~/.tmux.conf", "~/.config/tmux/tmux.conf"]
+    "darwin": ["~/.tmux.conf", "$XDG_CONFIG_HOME/tmux/tmux.conf"],
+    "linux": ["~/.tmux.conf", "$XDG_CONFIG_HOME/tmux/tmux.conf"]
   },
   "shortcuts": []
 }

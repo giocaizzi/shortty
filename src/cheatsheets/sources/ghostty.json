@@ -4,10 +4,10 @@
   "icon": "👻",
   "platforms": ["darwin", "linux"],
   "parser": "ghostty",
-  "lastVerified": { "version": "1.1", "date": "2026-04-01" },
+  "lastVerified": { "version": "1.3.1", "date": "2026-10-14" },
   "defaultPaths": {
-    "darwin": ["~/Library/Application Support/com.mitchellh.ghostty/config"],
-    "linux": ["~/.config/ghostty/config"]
+    "darwin": ["$XDG_CONFIG_HOME/ghostty/config.ghostty", "$XDG_CONFIG_HOME/ghostty/config", "~/Library/Application Support/com.mitchellh.ghostty/config.ghostty", "~/Library/Application Support/com.mitchellh.ghostty/config"],
+    "linux": ["$XDG_CONFIG_HOME/ghostty/config.ghostty", "$XDG_CONFIG_HOME/ghostty/config"]
   },
   "shortcuts": [
     {
@@ -19,18 +19,24 @@
     {
       "command": "Close Surface",
       "rawCommand": "ghostty.close_surface",
-      "key": { "darwin": "Cmd+W", "linux": "Ctrl+Shift+W" },
+      "key": { "darwin": "Cmd+W" },
       "category": "Tab"
     },
     {
+      "command": "Close Tab",
+      "rawCommand": "ghostty.close_tab:this",
+      "key": { "darwin": "Cmd+Alt+W", "linux": "Ctrl+Shift+W" },
+      "category": "Tabs"
+    },
+    {
       "command": "Next Tab",
-      "rawCommand": "ghostty.goto_tab:next",
+      "rawCommand": "ghostty.next_tab",
       "key": { "darwin": "Cmd+Shift+]", "linux": "Ctrl+PageDown" },
       "category": "Tab"
     },
     {
       "command": "Previous Tab",
-      "rawCommand": "ghostty.goto_tab:previous",
+      "rawCommand": "ghostty.previous_tab",
       "key": { "darwin": "Cmd+Shift+[", "linux": "Ctrl+PageUp" },
       "category": "Tab"
     },
@@ -73,19 +79,19 @@
     {
       "command": "Toggle Fullscreen",
       "rawCommand": "ghostty.toggle_fullscreen",
-      "key": { "darwin": "Ctrl+Cmd+F", "linux": "F11" },
+      "key": { "darwin": "Ctrl+Cmd+F", "linux": "Ctrl+Enter" },
       "category": "Window"
     },
     {
       "command": "New Split Right",
       "rawCommand": "ghostty.new_split:right",
-      "key": { "darwin": "Cmd+D", "linux": "Ctrl+Shift+D" },
+      "key": { "darwin": "Cmd+D", "linux": "Ctrl+Shift+O" },
       "category": "Split"
     },
     {
       "command": "New Split Down",
       "rawCommand": "ghostty.new_split:down",
-      "key": { "darwin": "Cmd+Shift+D", "linux": "Ctrl+Shift+Down" },
+      "key": { "darwin": "Cmd+Shift+D", "linux": "Ctrl+Shift+E" },
       "category": "Split"
     },
     {
@@ -102,20 +108,20 @@
     },
     {
       "command": "Navigate Split Up",
-      "rawCommand": "ghostty.goto_split:top",
+      "rawCommand": "ghostty.goto_split:up",
       "key": { "darwin": "Cmd+Alt+Up", "linux": "Ctrl+Alt+Up" },
       "category": "Split"
     },
     {
       "command": "Navigate Split Down",
-      "rawCommand": "ghostty.goto_split:bottom",
+      "rawCommand": "ghostty.goto_split:down",
       "key": { "darwin": "Cmd+Alt+Down", "linux": "Ctrl+Alt+Down" },
       "category": "Split"
     },
     {
       "command": "Equalize Splits",
       "rawCommand": "ghostty.equalize_splits",
-      "key": { "darwin": "Cmd+Shift+=", "linux": "Ctrl+Shift+=" },
+      "key": { "darwin": "Cmd+Ctrl+=" },
       "category": "Split"
     },
     {
@@ -162,20 +168,20 @@
     },
     {
       "command": "Search",
-      "rawCommand": "ghostty.open_search",
+      "rawCommand": "ghostty.start_search",
       "key": { "darwin": "Cmd+F", "linux": "Ctrl+Shift+F" },
       "category": "Navigation"
     },
     {
       "command": "Scroll to Top",
       "rawCommand": "ghostty.scroll_to_top",
-      "key": { "darwin": "Cmd+Home", "linux": "Ctrl+Shift+Home" },
+      "key": { "darwin": "Cmd+Home", "linux": "Shift+Home" },
       "category": "Navigation"
     },
     {
       "command": "Scroll to Bottom",
       "rawCommand": "ghostty.scroll_to_bottom",
-      "key": { "darwin": "Cmd+End", "linux": "Ctrl+Shift+End" },
+      "key": { "darwin": "Cmd+End", "linux": "Shift+End" },
       "category": "Navigation"
     },
     {
@@ -188,6 +194,72 @@
       "command": "Scroll Page Down",
       "rawCommand": "ghostty.scroll_page_down",
       "key": { "darwin": "Cmd+PageDown", "linux": "Shift+PageDown" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Previous Split",
+      "rawCommand": "ghostty.goto_split:previous",
+      "key": { "darwin": "Cmd+[", "linux": "Ctrl+Super+[" },
+      "category": "Split"
+    },
+    {
+      "command": "Next Split",
+      "rawCommand": "ghostty.goto_split:next",
+      "key": { "darwin": "Cmd+]", "linux": "Ctrl+Super+]" },
+      "category": "Split"
+    },
+    {
+      "command": "Close Window",
+      "rawCommand": "ghostty.close_window",
+      "key": { "darwin": "Cmd+Shift+W", "linux": "Alt+F4" },
+      "category": "Window"
+    },
+    {
+      "command": "Quit",
+      "rawCommand": "ghostty.quit",
+      "key": { "darwin": "Cmd+Q", "linux": "Ctrl+Shift+Q" },
+      "category": "Window"
+    },
+    {
+      "command": "Command Palette",
+      "rawCommand": "ghostty.toggle_command_palette",
+      "key": { "darwin": "Cmd+Shift+P", "linux": "Ctrl+Shift+P" },
+      "category": "General"
+    },
+    {
+      "command": "Open Config",
+      "rawCommand": "ghostty.open_config",
+      "key": { "darwin": "Cmd+,", "linux": "Ctrl+," },
+      "category": "General"
+    },
+    {
+      "command": "Reload Config",
+      "rawCommand": "ghostty.reload_config",
+      "key": { "darwin": "Cmd+Shift+,", "linux": "Ctrl+Shift+," },
+      "category": "General"
+    },
+    {
+      "command": "Toggle Inspector",
+      "rawCommand": "ghostty.inspector:toggle",
+      "key": { "darwin": "Cmd+Alt+I", "linux": "Ctrl+Shift+I" },
+      "category": "General"
+    },
+    {
+      "command": "Jump to Previous Prompt",
+      "rawCommand": "ghostty.jump_to_prompt:-1",
+      "key": { "darwin": "Cmd+Up", "linux": "Ctrl+Shift+PageUp" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Jump to Next Prompt",
+      "rawCommand": "ghostty.jump_to_prompt:1",
+      "key": { "darwin": "Cmd+Down", "linux": "Ctrl+Shift+PageDown" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Clear Screen",
+      "rawCommand": "ghostty.clear_screen",
+      "key": { "darwin": "Cmd+K" },
       "category": "Navigation"
     }
   ]

@@ -5,7 +5,7 @@
   "platforms": ["darwin"],
   "parser": "macos-system",
   "defaultPaths": {
-    "darwin": ["~/Library/Preferences/com.apple.symbolichotkeys.plist"]
+    "darwin": ["~/Library/Preferences/com.apple.symbolichotkeys.plist", "~/Library/Preferences/.GlobalPreferences.plist"]
   },
   "shortcuts": []
 }

@@ -8,7 +8,7 @@
   "defaultPaths": {
     "darwin": ["~/Library/Application Support/Code/User/keybindings.json"],
     "win32": ["%APPDATA%/Code/User/keybindings.json"],
-    "linux": ["~/.config/Code/User/keybindings.json"]
+    "linux": ["$XDG_CONFIG_HOME/Code/User/keybindings.json"]
   },
   "shortcuts": [
     {
@@ -54,12 +54,6 @@
       "category": "General"
     },
     {
-      "command": "Open User Settings JSON",
-      "rawCommand": "workbench.action.openSettingsJson",
-      "key": { "darwin": "Cmd+Shift+J", "win32": "Ctrl+Shift+J", "linux": "Ctrl+Shift+J" },
-      "category": "General"
-    },
-    {
       "command": "Toggle Full Screen",
       "rawCommand": "workbench.action.toggleFullScreen",
       "key": { "darwin": "Ctrl+Cmd+F", "win32": "F11", "linux": "F11" },
@@ -93,12 +87,6 @@
       "command": "Save As",
       "rawCommand": "workbench.action.files.saveAs",
       "key": { "darwin": "Cmd+Shift+S", "win32": "Ctrl+Shift+S", "linux": "Ctrl+Shift+S" },
-      "category": "General"
-    },
-    {
-      "command": "Revert File",
-      "rawCommand": "workbench.action.files.revert",
-      "key": { "darwin": "Cmd+Alt+U", "win32": "Ctrl+Alt+U", "linux": "Ctrl+Alt+U" },
       "category": "General"
     },
     {
@@ -195,14 +183,14 @@
     {
       "command": "Copy Line Up",
       "rawCommand": "editor.action.copyLinesUpAction",
-      "key": { "darwin": "Shift+Alt+Up", "win32": "Shift+Alt+Up", "linux": "Shift+Alt+Up" },
+      "key": { "darwin": "Shift+Alt+Up", "win32": "Shift+Alt+Up", "linux": "Ctrl+Shift+Alt+Up" },
       "category": "Editing",
       "context": "editorTextFocus"
     },
     {
       "command": "Copy Line Down",
       "rawCommand": "editor.action.copyLinesDownAction",
-      "key": { "darwin": "Shift+Alt+Down", "win32": "Shift+Alt+Down", "linux": "Shift+Alt+Down" },
+      "key": { "darwin": "Shift+Alt+Down", "win32": "Shift+Alt+Down", "linux": "Ctrl+Shift+Alt+Down" },
       "category": "Editing",
       "context": "editorTextFocus"
     },
@@ -237,7 +225,7 @@
     {
       "command": "Toggle Block Comment",
       "rawCommand": "editor.action.blockComment",
-      "key": { "darwin": "Shift+Alt+A", "win32": "Shift+Alt+A", "linux": "Shift+Alt+A" },
+      "key": { "darwin": "Shift+Alt+A", "win32": "Shift+Alt+A", "linux": "Ctrl+Shift+A" },
       "category": "Editing",
       "context": "editorTextFocus"
     },
@@ -258,7 +246,7 @@
     {
       "command": "Format Document",
       "rawCommand": "editor.action.formatDocument",
-      "key": { "darwin": "Shift+Alt+F", "win32": "Shift+Alt+F", "linux": "Shift+Alt+F" },
+      "key": { "darwin": "Shift+Alt+F", "win32": "Shift+Alt+F", "linux": "Ctrl+Shift+I" },
       "category": "Editing",
       "context": "editorTextFocus"
     },
@@ -298,30 +286,16 @@
       "context": "editorTextFocus"
     },
     {
-      "command": "Transform to Uppercase",
-      "rawCommand": "editor.action.transformToUppercase",
-      "key": { "darwin": "Cmd+K Cmd+U", "win32": "Ctrl+K Ctrl+U", "linux": "Ctrl+K Ctrl+U" },
-      "category": "Editing",
-      "context": "editorTextFocus"
-    },
-    {
-      "command": "Transform to Lowercase",
-      "rawCommand": "editor.action.transformToLowercase",
-      "key": { "darwin": "Cmd+K Cmd+L", "win32": "Ctrl+K Ctrl+L", "linux": "Ctrl+K Ctrl+L" },
-      "category": "Editing",
-      "context": "editorTextFocus"
-    },
-    {
       "command": "Add Cursor Above",
       "rawCommand": "editor.action.insertCursorAbove",
-      "key": { "darwin": "Cmd+Alt+Up", "win32": "Ctrl+Alt+Up", "linux": "Ctrl+Alt+Up" },
+      "key": { "darwin": "Cmd+Alt+Up", "win32": "Ctrl+Alt+Up", "linux": "Shift+Alt+Up" },
       "category": "Editing",
       "context": "editorTextFocus"
     },
     {
       "command": "Add Cursor Below",
       "rawCommand": "editor.action.insertCursorBelow",
-      "key": { "darwin": "Cmd+Alt+Down", "win32": "Ctrl+Alt+Down", "linux": "Ctrl+Alt+Down" },
+      "key": { "darwin": "Cmd+Alt+Down", "win32": "Ctrl+Alt+Down", "linux": "Shift+Alt+Down" },
       "category": "Editing",
       "context": "editorTextFocus"
     },
@@ -335,14 +309,14 @@
     {
       "command": "Join Lines",
       "rawCommand": "editor.action.joinLines",
-      "key": { "darwin": "Ctrl+J", "win32": "Ctrl+J", "linux": "Ctrl+J" },
+      "key": { "darwin": "Ctrl+J" },
       "category": "Editing",
       "context": "editorTextFocus"
     },
     {
       "command": "Transpose Letters",
-      "rawCommand": "editor.action.transpose",
-      "key": { "darwin": "Ctrl+T", "win32": "Ctrl+T", "linux": "Ctrl+T" },
+      "rawCommand": "editor.action.transposeLetters",
+      "key": { "darwin": "Ctrl+T" },
       "category": "Editing",
       "context": "editorTextFocus"
     },
@@ -381,14 +355,7 @@
     {
       "command": "Peek Definition",
       "rawCommand": "editor.action.peekDefinition",
-      "key": { "darwin": "Alt+F12", "win32": "Alt+F12", "linux": "Alt+F12" },
-      "category": "Navigation",
-      "context": "editorTextFocus"
-    },
-    {
-      "command": "Go to Type Definition",
-      "rawCommand": "editor.action.goToTypeDefinition",
-      "key": { "darwin": "Cmd+F12", "win32": "Ctrl+F12", "linux": "Ctrl+F12" },
+      "key": { "darwin": "Alt+F12", "win32": "Alt+F12", "linux": "Ctrl+Shift+F10" },
       "category": "Navigation",
       "context": "editorTextFocus"
     },
@@ -409,13 +376,13 @@
     {
       "command": "Navigate Back",
       "rawCommand": "workbench.action.navigateBack",
-      "key": { "darwin": "Ctrl+-", "win32": "Alt+Left", "linux": "Alt+Left" },
+      "key": { "darwin": "Ctrl+-", "win32": "Alt+Left", "linux": "Ctrl+Alt+-" },
       "category": "Navigation"
     },
     {
       "command": "Navigate Forward",
       "rawCommand": "workbench.action.navigateForward",
-      "key": { "darwin": "Ctrl+Shift+-", "win32": "Alt+Right", "linux": "Alt+Right" },
+      "key": { "darwin": "Ctrl+Shift+-", "win32": "Alt+Right", "linux": "Ctrl+Shift+-" },
       "category": "Navigation"
     },
     {
@@ -441,12 +408,6 @@
       "command": "Previous Editor",
       "rawCommand": "workbench.action.previousEditor",
       "key": { "darwin": "Cmd+Shift+[", "win32": "Ctrl+PageUp", "linux": "Ctrl+PageUp" },
-      "category": "Navigation"
-    },
-    {
-      "command": "Go to File",
-      "rawCommand": "workbench.action.quickOpen",
-      "key": { "darwin": "Cmd+P", "win32": "Ctrl+P", "linux": "Ctrl+P" },
       "category": "Navigation"
     },
     {
@@ -504,14 +465,14 @@
     {
       "command": "Column (Box) Selection Down",
       "rawCommand": "cursorColumnSelectDown",
-      "key": { "darwin": "Shift+Alt+Down", "win32": "Shift+Alt+Down", "linux": "Shift+Alt+Down" },
+      "key": { "darwin": "Cmd+Shift+Alt+Down", "win32": "Ctrl+Shift+Alt+Down", "linux": "Ctrl+Shift+Alt+Down" },
       "category": "Selection",
       "context": "editorTextFocus"
     },
     {
       "command": "Column (Box) Selection Up",
       "rawCommand": "cursorColumnSelectUp",
-      "key": { "darwin": "Shift+Alt+Up", "win32": "Shift+Alt+Up", "linux": "Shift+Alt+Up" },
+      "key": { "darwin": "Cmd+Shift+Alt+Up", "win32": "Ctrl+Shift+Alt+Up", "linux": "Ctrl+Shift+Alt+Up" },
       "category": "Selection",
       "context": "editorTextFocus"
     },
@@ -580,7 +541,7 @@
     {
       "command": "Show Output",
       "rawCommand": "workbench.action.output.toggleOutput",
-      "key": { "darwin": "Cmd+Shift+U", "win32": "Ctrl+Shift+U", "linux": "Ctrl+Shift+U" },
+      "key": { "darwin": "Cmd+Shift+U", "win32": "Ctrl+Shift+U", "linux": "Ctrl+K Ctrl+H" },
       "category": "View"
     },
     {
@@ -599,30 +560,6 @@
       "command": "Reset Zoom",
       "rawCommand": "workbench.action.zoomReset",
       "key": { "darwin": "Cmd+Numpad0", "win32": "Ctrl+Numpad0", "linux": "Ctrl+Numpad0" },
-      "category": "View"
-    },
-    {
-      "command": "Toggle Minimap",
-      "rawCommand": "editor.action.toggleMinimap",
-      "key": { "darwin": "Cmd+K Cmd+M", "win32": "Ctrl+K Ctrl+M", "linux": "Ctrl+K Ctrl+M" },
-      "category": "View"
-    },
-    {
-      "command": "Toggle Activity Bar",
-      "rawCommand": "workbench.action.toggleActivityBarVisibility",
-      "key": { "darwin": "Cmd+K Cmd+B", "win32": "Ctrl+K Ctrl+B", "linux": "Ctrl+K Ctrl+B" },
-      "category": "View"
-    },
-    {
-      "command": "Toggle Status Bar",
-      "rawCommand": "workbench.action.toggleStatusbarVisibility",
-      "key": { "darwin": "Cmd+K Cmd+S", "win32": "Ctrl+K Ctrl+S", "linux": "Ctrl+K Ctrl+S" },
-      "category": "View"
-    },
-    {
-      "command": "Toggle Tab Visibility",
-      "rawCommand": "workbench.action.toggleTabsVisibility",
-      "key": { "darwin": "Cmd+K Cmd+W", "win32": "Ctrl+K Ctrl+W", "linux": "Ctrl+K Ctrl+W" },
       "category": "View"
     },
     {
@@ -727,30 +664,23 @@
       "context": "terminalFocus"
     },
     {
-      "command": "Kill Terminal",
-      "rawCommand": "workbench.action.terminal.kill",
-      "key": { "darwin": "Cmd+Backspace", "win32": "Ctrl+Delete", "linux": "Ctrl+Delete" },
-      "category": "Terminal",
-      "context": "terminalFocus"
-    },
-    {
       "command": "Clear Terminal",
       "rawCommand": "workbench.action.terminal.clear",
-      "key": { "darwin": "Cmd+K", "win32": "Ctrl+K", "linux": "Ctrl+K" },
+      "key": { "darwin": "Cmd+K" },
       "category": "Terminal",
       "context": "terminalFocus"
     },
     {
       "command": "Scroll Up in Terminal",
       "rawCommand": "workbench.action.terminal.scrollUp",
-      "key": { "darwin": "Cmd+Up", "win32": "Ctrl+Up", "linux": "Ctrl+Up" },
+      "key": { "darwin": "Alt+Cmd+PageUp", "win32": "Ctrl+Alt+PageUp", "linux": "Ctrl+Shift+Up" },
       "category": "Terminal",
       "context": "terminalFocus"
     },
     {
       "command": "Scroll Down in Terminal",
       "rawCommand": "workbench.action.terminal.scrollDown",
-      "key": { "darwin": "Cmd+Down", "win32": "Ctrl+Down", "linux": "Ctrl+Down" },
+      "key": { "darwin": "Alt+Cmd+PageDown", "win32": "Ctrl+Alt+PageDown", "linux": "Ctrl+Shift+Down" },
       "category": "Terminal",
       "context": "terminalFocus"
     },
@@ -785,27 +715,15 @@
       "category": "Search"
     },
     {
-      "command": "Open Changes",
-      "rawCommand": "git.openChange",
-      "key": { "darwin": "Cmd+K Cmd+D", "win32": "Ctrl+K Ctrl+D", "linux": "Ctrl+K Ctrl+D" },
-      "category": "Git"
-    },
-    {
       "command": "Stage Changes",
-      "rawCommand": "git.stage",
+      "rawCommand": "git.stageSelectedRanges",
       "key": { "darwin": "Cmd+K Cmd+Alt+S", "win32": "Ctrl+K Ctrl+Alt+S", "linux": "Ctrl+K Ctrl+Alt+S" },
       "category": "Git"
     },
     {
       "command": "Unstage Changes",
-      "rawCommand": "git.unstage",
+      "rawCommand": "git.unstageSelectedRanges",
       "key": { "darwin": "Cmd+K Cmd+N", "win32": "Ctrl+K Ctrl+N", "linux": "Ctrl+K Ctrl+N" },
-      "category": "Git"
-    },
-    {
-      "command": "Toggle Inline Blame",
-      "rawCommand": "git.toggleLineBlame",
-      "key": { "darwin": "Cmd+K Cmd+G", "win32": "Ctrl+K Ctrl+G", "linux": "Ctrl+K Ctrl+G" },
       "category": "Git"
     },
     {
@@ -881,13 +799,19 @@
     {
       "command": "Open File",
       "rawCommand": "workbench.action.files.openFile",
-      "key": { "darwin": "Cmd+O", "win32": "Ctrl+O", "linux": "Ctrl+O" },
+      "key": { "win32": "Ctrl+O", "linux": "Ctrl+O" },
       "category": "General"
     },
     {
       "command": "Open Folder",
       "rawCommand": "workbench.action.files.openFolder",
-      "key": { "darwin": "Cmd+O", "win32": "Ctrl+K Ctrl+O", "linux": "Ctrl+K Ctrl+O" },
+      "key": { "win32": "Ctrl+K Ctrl+O", "linux": "Ctrl+K Ctrl+O" },
+      "category": "General"
+    },
+    {
+      "command": "Open...",
+      "rawCommand": "workbench.action.files.openFileFolder",
+      "key": { "darwin": "Cmd+O" },
       "category": "General"
     },
     {
@@ -906,13 +830,6 @@
       "command": "Emmet: Expand Abbreviation",
       "rawCommand": "editor.emmet.action.expandAbbreviation",
       "key": { "darwin": "Tab", "win32": "Tab", "linux": "Tab" },
-      "category": "Editing",
-      "context": "editorTextFocus"
-    },
-    {
-      "command": "Emmet: Wrap with Abbreviation",
-      "rawCommand": "editor.emmet.action.wrapWithAbbreviation",
-      "key": { "darwin": "Ctrl+Shift+A", "win32": "Ctrl+Shift+A", "linux": "Ctrl+Shift+A" },
       "category": "Editing",
       "context": "editorTextFocus"
     },
@@ -961,14 +878,14 @@
     {
       "command": "Scroll Line Up",
       "rawCommand": "scrollLineUp",
-      "key": { "darwin": "Ctrl+Up", "win32": "Ctrl+Up", "linux": "Ctrl+Up" },
+      "key": { "darwin": "Ctrl+PageUp", "win32": "Ctrl+Up", "linux": "Ctrl+Up" },
       "category": "Navigation",
       "context": "editorTextFocus"
     },
     {
       "command": "Scroll Line Down",
       "rawCommand": "scrollLineDown",
-      "key": { "darwin": "Ctrl+Down", "win32": "Ctrl+Down", "linux": "Ctrl+Down" },
+      "key": { "darwin": "Ctrl+PageDown", "win32": "Ctrl+Down", "linux": "Ctrl+Down" },
       "category": "Navigation",
       "context": "editorTextFocus"
     },

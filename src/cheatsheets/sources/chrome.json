@@ -8,7 +8,7 @@
   "defaultPaths": {
     "darwin": ["~/Library/Application Support/Google/Chrome/Default/Preferences"],
     "win32": ["%LOCALAPPDATA%/Google/Chrome/User Data/Default/Preferences"],
-    "linux": ["~/.config/google-chrome/Default/Preferences"]
+    "linux": ["$XDG_CONFIG_HOME/google-chrome/Default/Preferences"]
   },
   "shortcuts": [
     {
@@ -105,18 +105,6 @@
       "command": "Move Tab Left",
       "rawCommand": "chrome.tabs.moveTabLeft",
       "key": { "darwin": "Ctrl+Shift+PageUp", "win32": "Ctrl+Shift+PageUp", "linux": "Ctrl+Shift+PageUp" },
-      "category": "Tabs"
-    },
-    {
-      "command": "Pin/Unpin Tab",
-      "rawCommand": "chrome.tabs.pinTab",
-      "key": { "darwin": "Cmd+Shift+P", "win32": "Ctrl+Shift+P", "linux": "Ctrl+Shift+P" },
-      "category": "Tabs"
-    },
-    {
-      "command": "Mute/Unmute Tab",
-      "rawCommand": "chrome.tabs.muteTab",
-      "key": { "darwin": "Cmd+Shift+M", "win32": "Ctrl+Shift+M", "linux": "Ctrl+Shift+M" },
       "category": "Tabs"
     },
     {
@@ -344,13 +332,13 @@
     {
       "command": "Clear Browsing Data",
       "rawCommand": "chrome.window.clearData",
-      "key": { "darwin": "Cmd+Shift+Delete", "win32": "Ctrl+Shift+Delete", "linux": "Ctrl+Shift+Delete" },
+      "key": { "darwin": "Cmd+Shift+Backspace", "win32": "Ctrl+Shift+Delete", "linux": "Ctrl+Shift+Delete" },
       "category": "Window"
     },
     {
       "command": "Open Task Manager",
       "rawCommand": "chrome.window.taskManager",
-      "key": { "darwin": "Shift+Escape", "win32": "Shift+Escape", "linux": "Shift+Escape" },
+      "key": { "win32": "Shift+Escape", "linux": "Shift+Escape" },
       "category": "Window"
     }
   ]

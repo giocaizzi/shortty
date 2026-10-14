@@ -105,19 +105,19 @@
     {
       "command": "Make Alias",
       "rawCommand": "finder.makeAlias",
-      "key": { "darwin": "Cmd+L" },
+      "key": { "darwin": "Ctrl+Cmd+A" },
       "category": "File"
     },
     {
       "command": "Move to Trash",
       "rawCommand": "finder.moveToTrash",
-      "key": { "darwin": "Cmd+Delete" },
+      "key": { "darwin": "Cmd+Backspace" },
       "category": "File"
     },
     {
       "command": "Empty Trash",
       "rawCommand": "finder.emptyTrash",
-      "key": { "darwin": "Cmd+Shift+Delete" },
+      "key": { "darwin": "Cmd+Shift+Backspace" },
       "category": "File"
     },
     {
@@ -135,7 +135,7 @@
     {
       "command": "Rename",
       "rawCommand": "finder.rename",
-      "key": { "darwin": "Enter" },
+      "key": { "darwin": "Return" },
       "category": "File"
     },
     {
