@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { pathDirectories } from './path-scanner';
 import type { Command, SubcommandDetail } from '../../shared/types';
 
 interface CacheMeta {
@@ -22,7 +23,7 @@ export class CommandCache {
   }
 
   async computePathHash(): Promise<string> {
-    const pathDirs = (process.env.PATH ?? '').split(':').filter(Boolean);
+    const pathDirs = pathDirectories();
     const parts: string[] = [process.env.PATH ?? ''];
 
     const stats = await Promise.all(
