@@ -32,4 +32,16 @@ describe('ShortcutRow', () => {
     );
     expect(screen.queryByText('VS Code')).not.toBeInTheDocument();
   });
+
+  it('shows "unbound" instead of the key for an unbound shortcut', () => {
+    render(
+      <ShortcutRow
+        shortcut={makeShortcut({ key: '⌘S', isUnbound: true })}
+        selected={false}
+        dataIndex={0}
+      />,
+    );
+    expect(screen.getByText('unbound')).toBeInTheDocument();
+    expect(screen.queryByText('⌘S')).not.toBeInTheDocument();
+  });
 });

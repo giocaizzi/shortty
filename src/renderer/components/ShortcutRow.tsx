@@ -1,10 +1,13 @@
 import type { Shortcut } from '../../shared/types';
 import { KeyCombo } from './KeyCombo';
+import { Row } from './Row';
+import { SourceIcon } from './SourceIcon';
 
 interface ShortcutRowProps {
   shortcut: Shortcut;
   selected: boolean;
   dataIndex: number;
+  /** Source icon and label; hidden when drilled into the source (SCREENS §8.2). */
   showSource?: boolean;
   copyFlash?: boolean;
 }
@@ -17,44 +20,26 @@ export function ShortcutRow({
   copyFlash,
 }: ShortcutRowProps) {
   return (
-    <div
-      data-index={dataIndex}
-      data-testid="shortcut-row"
-      role="option"
-      aria-selected={selected}
-      style={{ padding: '12px 28px' }}
-      className={`
-        flex items-center gap-5
-        rounded-xl
-        transition-colors
-        ${copyFlash ? 'copy-flash' : ''}
-        ${selected ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'}
-      `}
-    >
-      {/* Left: stacked content */}
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <div className="flex items-center gap-3">
-          <span className="truncate text-[15px] font-semibold text-white/90">{shortcut.command}</span>
-          {shortcut.context && (
-            <span className="shrink-0 rounded-md bg-white/[0.06] px-2 py-0.5 text-[11px] text-white/30">
-              {shortcut.context}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="max-w-[300px] truncate rounded bg-white/[0.06] px-2 py-0.5 font-mono text-[11px] text-white/35">
-            {shortcut.rawCommand}
-          </span>
-          {showSource && (
-            <span className="text-[11px] text-white/20">
-              {shortcut.sourceLabel}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Right: key combo */}
-      <KeyCombo keys={shortcut.key} strokes={shortcut.strokes} />
-    </div>
+    <Row dataIndex={dataIndex} selected={selected} copyFlash={copyFlash} testId="shortcut-row">
+      {showSource && <SourceIcon id={shortcut.source} label={shortcut.sourceLabel} />}
+      <span className="max-w-[60%] shrink-0 truncate text-[14px] font-medium text-fg">
+        {shortcut.command}
+      </span>
+      <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-fg-4">
+        {shortcut.rawCommand !== shortcut.command ? shortcut.rawCommand : ''}
+      </span>
+      {shortcut.context && (
+        <span className="max-w-[140px] shrink-0 truncate rounded-[5px] bg-fill-quiet px-1.5 py-px text-[11px] text-fg-3">
+          {shortcut.context}
+        </span>
+      )}
+      {showSource && <span className="shrink-0 text-[12px] text-fg-3">{shortcut.sourceLabel}</span>}
+      <span className="keys shrink-0">
+        <KeyCombo
+          keys={shortcut.isUnbound ? '' : shortcut.key}
+          strokes={shortcut.isUnbound ? undefined : shortcut.strokes}
+        />
+      </span>
+    </Row>
   );
 }

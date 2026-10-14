@@ -258,4 +258,16 @@ describe('isSubcommandAtIndex', () => {
   it('returns false for flag index with no arguments', () => {
     expect(isSubcommandAtIndex(mockCommand, '', 2)).toBe(false);
   });
+
+  it('names where the details came from', () => {
+    render(
+      <CommandDetailView
+        data={{ ...mockCommand, enrichedFrom: 'man' }}
+        filterQuery=""
+        selectedIndex={0}
+        copyFlashIndex={null}
+      />,
+    );
+    expect(screen.getByText('Source: man page')).toBeInTheDocument();
+  });
 });

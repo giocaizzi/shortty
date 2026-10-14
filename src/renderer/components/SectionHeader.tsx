@@ -1,36 +1,19 @@
 interface SectionHeaderProps {
   title: string;
-  count: number;
-  totalCount?: number;
-  showAll?: boolean;
-  onToggleShowAll?: () => void;
+  /** Number of matches in the section, shown on the right. */
+  count?: number;
 }
 
-export function SectionHeader({
-  title,
-  count,
-  totalCount,
-  showAll,
-  onToggleShowAll,
-}: SectionHeaderProps) {
-  const hasMore = totalCount !== undefined && totalCount > count && !showAll;
-
+export function SectionHeader({ title, count }: SectionHeaderProps) {
   return (
-    <div role="presentation" style={{ padding: '2px 28px 8px' }} className="flex items-center justify-between">
-      <span className="text-[12px] font-medium tracking-wider text-white/25">
-        {title}
-      </span>
-      <div className="flex items-center gap-3">
-        {hasMore && onToggleShowAll && (
-          <button
-            onClick={onToggleShowAll}
-            className="text-[12px] text-white/20 transition-colors hover:text-white/40"
-          >
-            Show all {totalCount}
-          </button>
-        )}
-        <span className="text-[12px] text-white/15">{count} {title.toLowerCase()}</span>
-      </div>
+    <div
+      role="presentation"
+      className="flex items-baseline justify-between px-2.5 pb-1.5 pt-3 text-[11px] font-semibold text-fg-3"
+    >
+      <span>{title}</span>
+      {count !== undefined && (
+        <span className="font-medium tabular-nums text-fg-4">{count}</span>
+      )}
     </div>
   );
 }

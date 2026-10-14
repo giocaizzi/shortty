@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, fireEvent } from '@testing-library/react';
 import type { ElectronAPI } from '../../src/preload/preload';
-import { SearchInput } from '../../src/renderer/components/SearchInput';
+import { SearchInput, formatAccelerator } from '../../src/renderer/components/SearchInput';
 
 const defaultProps = {
   query: '',
@@ -71,5 +71,24 @@ describe('SearchInput', () => {
     render(<SearchInput {...defaultProps} />);
     const input = screen.getByRole('searchbox');
     expect(input).toHaveAttribute('aria-label', 'Search shortcuts');
+  });
+
+  it('has a ? button that toggles the keyboard help', () => {
+    const onHelpToggle = vi.fn();
+    render(<SearchInput {...defaultProps} onHelpToggle={onHelpToggle} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Keyboard shortcuts' }));
+    expect(onHelpToggle).toHaveBeenCalledOnce();
+  });
+
+  it('shows the activation hotkey as key caps', () => {
+    render(<SearchInput {...defaultProps} hotkey="CommandOrControl+Shift+Space" />);
+    expect(screen.getByText('⌘')).toBeInTheDocument();
+    expect(screen.getByText('⇧')).toBeInTheDocument();
+    expect(screen.getByText('Space')).toBeInTheDocument();
+  });
+
+  it('formats Electron accelerators with macOS glyphs', () => {
+    expect(formatAccelerator('Control+Alt+K')).toEqual(['⌃', '⌥', 'K']);
+    expect(formatAccelerator('Cmd+Shift+Space')).toEqual(['⌘', '⇧', 'Space']);
   });
 });

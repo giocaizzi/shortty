@@ -1,36 +1,23 @@
+import { ChevronRight } from 'lucide-react';
+import { Row } from './Row';
+import { SourceIcon } from './SourceIcon';
+import { plural } from './result-rows';
+
 interface SourceRowProps {
-  icon: string;
+  sourceId: string;
   label: string;
   count: number;
   selected: boolean;
   dataIndex: number;
 }
 
-export function SourceRow({
-  icon,
-  label,
-  count,
-  selected,
-  dataIndex,
-}: SourceRowProps) {
+export function SourceRow({ sourceId, label, count, selected, dataIndex }: SourceRowProps) {
   return (
-    <div
-      data-index={dataIndex}
-      data-testid="source-row"
-      role="option"
-      aria-selected={selected}
-      style={{ padding: '12px 28px' }}
-      className={`
-        flex items-center gap-4
-        rounded-xl
-        transition-colors
-        ${selected ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'}
-      `}
-    >
-      <span className="text-lg">{icon}</span>
-      <span className="truncate text-[15px] font-semibold text-white/90">{label}</span>
-      <span className="ml-auto text-[12px] text-white/20">{count} shortcuts</span>
-      <span className="text-[12px] text-white/15">{'>'}</span>
-    </div>
+    <Row dataIndex={dataIndex} selected={selected} testId="source-row">
+      <SourceIcon id={sourceId} label={label} />
+      <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-fg">{label}</span>
+      <span className="shrink-0 text-[12px] tabular-nums text-fg-3">{plural(count, 'shortcut')}</span>
+      <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-fg-4" />
+    </Row>
   );
 }

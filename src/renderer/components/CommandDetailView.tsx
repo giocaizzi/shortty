@@ -1,12 +1,16 @@
 import { useMemo } from 'react';
 import { ChevronRight } from 'lucide-react';
 import type { Command, SubcommandDetail, CommandDetail, FlagDetail, ArgumentDetail } from '../../shared/types';
+import { Row } from './Row';
+import { SectionHeader } from './SectionHeader';
 
 type DetailData = Pick<
   Command | SubcommandDetail,
   'description' | 'subcommands' | 'flags'
 > & {
+  name?: string;
   enrichment: string;
+  enrichedFrom?: Command['enrichedFrom'];
   synopsis?: string;
   longDescription?: string;
   arguments?: ArgumentDetail[];
@@ -18,6 +22,21 @@ interface CommandDetailViewProps {
   selectedIndex: number;
   copyFlashIndex: number | null;
   loading?: boolean;
+}
+
+const ENRICHMENT_SOURCES: Record<NonNullable<Command['enrichedFrom']>, string> = {
+  man: 'man page',
+  help: '--help',
+  'zsh-completion': 'zsh completion',
+  'bash-completion': 'bash completion',
+};
+
+function Placeholder({ children }: { children: string }) {
+  return (
+    <div className="flex flex-1 items-center justify-center pb-10 text-[13px] text-fg-3">
+      {children}
+    </div>
+  );
 }
 
 export function CommandDetailView({
@@ -47,207 +66,133 @@ export function CommandDetailView({
   const argsOffset = 0;
   const subcommandsOffset = filteredArguments.length;
   const flagsOffset = filteredArguments.length + filteredSubcommands.length;
+  const itemCount = flagsOffset + filteredFlags.length;
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <span className="text-[12px] text-white/20 italic">Loading...</span>
-      </div>
-    );
-  }
+  if (loading) return <Placeholder>Loading...</Placeholder>;
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      {/* Description + status bar */}
-      {(data.description || isEnriching) && (
-        <div style={{ padding: '8px 28px' }} className="text-[12px] text-white/35">
-          {data.description}
-          {isEnriching && (
-            <span className="ml-2 text-[11px] text-white/20 italic">— Enriching...</span>
-          )}
-        </div>
-      )}
-
-      {/* Synopsis */}
-      {data.synopsis && (
-        <div style={{ padding: '0 28px 8px' }}>
-          <pre className="overflow-x-auto rounded-lg bg-white/[0.03] px-3 py-2 font-mono text-[11px] leading-relaxed text-white/40">
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Header: what this command is */}
+      <div className="shrink-0 space-y-2 px-[18px] pb-2 pt-1">
+        {(data.description || isEnriching) && (
+          <p className="text-[13px] leading-snug text-fg-2">
+            {data.description}
+            {isEnriching && itemCount > 0 && <span className="ml-2 text-[12px] text-fg-4">— Enriching...</span>}
+          </p>
+        )}
+        {data.synopsis && (
+          <pre className="overflow-x-auto rounded-[8px] bg-fill-quiet px-3 py-2 font-mono text-[12px] leading-relaxed text-fg-2">
             {data.synopsis}
           </pre>
-        </div>
-      )}
+        )}
+        {data.longDescription && (
+          <p className="line-clamp-2 text-[12px] leading-relaxed text-fg-3">{data.longDescription}</p>
+        )}
+      </div>
 
-      {/* Long description */}
-      {data.longDescription && (
-        <div style={{ padding: '0 28px 8px' }} className="line-clamp-3 text-[11px] leading-relaxed text-white/25">
-          {data.longDescription}
-        </div>
-      )}
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto" style={{ padding: '8px 12px' }}>
-        {/* Arguments */}
+      <div data-scroll className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {filteredArguments.length > 0 && (
-          <div>
-            <div className="sticky top-0 z-10 flex items-center justify-between bg-black/30 px-5 py-2 text-[11px] font-semibold uppercase tracking-widest text-white/30 backdrop-blur-md">
-              <span>Arguments</span>
-              <span className="font-normal text-white/20">
-                {filteredArguments.length} {filteredArguments.length === 1 ? 'argument' : 'arguments'}
-              </span>
-            </div>
+          <div role="group" aria-label="Arguments">
+            <SectionHeader title="Arguments" count={filteredArguments.length} />
             {filteredArguments.map((arg, i) => {
               const idx = argsOffset + i;
               return (
-                <div
+                <Row
                   key={arg.name}
-                  data-index={idx}
-                  role="option"
-                  aria-selected={idx === selectedIndex}
-                  className={`
-                    mx-2 flex items-center gap-4
-                    rounded-lg px-3.5 py-2.5 text-[13px]
-                    transition-colors
-                    ${copyFlashIndex === idx ? 'copy-flash' : ''}
-                    ${idx === selectedIndex ? 'bg-white/[0.07] ring-1 ring-inset ring-white/[0.06]' : 'hover:bg-white/[0.04]'}
-                  `}
+                  dataIndex={idx}
+                  selected={idx === selectedIndex}
+                  copyFlash={copyFlashIndex === idx}
+                  testId="argument-row"
                 >
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="flex items-center gap-1.5">
-                      <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11px] text-white/70">
-                        {'<'}{arg.name}{'>'}
-                      </span>
-                      {arg.variadic && (
-                        <span className="text-[10px] text-white/25">...</span>
-                      )}
-                      <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider ${
-                        arg.required
-                          ? 'bg-amber-500/15 text-amber-400/60'
-                          : 'bg-white/[0.04] text-white/25'
-                      }`}>
-                        {arg.required ? 'required' : 'optional'}
-                      </span>
-                    </span>
-                    {arg.description && (
-                      <span className="truncate text-[12px] text-white/40">
-                        {arg.description}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                  <span className="shrink-0 font-mono text-[13px] font-medium text-fg">
+                    {'<'}{arg.name}{'>'}
+                  </span>
+                  {arg.variadic && <span className="shrink-0 font-mono text-[12px] text-fg-3">...</span>}
+                  <span
+                    className={`shrink-0 rounded-[5px] px-1.5 py-px text-[11px] font-medium ${
+                      arg.required ? 'bg-warning-fill text-warning' : 'bg-fill-quiet text-fg-3'
+                    }`}
+                  >
+                    {arg.required ? 'required' : 'optional'}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-fg-3">{arg.description}</span>
+                </Row>
               );
             })}
           </div>
         )}
 
-        {/* Subcommands */}
         {filteredSubcommands.length > 0 && (
-          <div>
-            <div className="sticky top-0 z-10 flex items-center justify-between bg-black/30 px-5 py-2 text-[11px] font-semibold uppercase tracking-widest text-white/30 backdrop-blur-md">
-              <span>Subcommands</span>
-              <span className="font-normal text-white/20">
-                {filteredSubcommands.length} subcommands
-              </span>
-            </div>
+          <div role="group" aria-label="Subcommands">
+            <SectionHeader title="Subcommands" count={filteredSubcommands.length} />
             {filteredSubcommands.map((sc, i) => {
               const idx = subcommandsOffset + i;
               return (
-                <div
+                <Row
                   key={sc.name}
-                  data-index={idx}
-                  data-testid="subcommand-row"
-                  role="option"
-                  aria-selected={idx === selectedIndex}
-                  style={{ padding: '12px 28px' }}
-                  className={`
-                    flex items-center gap-5
-                    rounded-xl text-[13px]
-                    transition-colors
-                    ${copyFlashIndex === idx ? 'copy-flash' : ''}
-                    ${idx === selectedIndex ? 'bg-white/[0.07] ring-1 ring-inset ring-white/[0.06]' : 'hover:bg-white/[0.04]'}
-                  `}
+                  dataIndex={idx}
+                  selected={idx === selectedIndex}
+                  copyFlash={copyFlashIndex === idx}
+                  testId="subcommand-row"
                 >
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="font-mono text-[12px] font-medium text-white/85">
-                      {sc.name}
-                    </span>
-                    <span className="truncate text-[12px] text-white/40">
-                      {sc.description}
-                    </span>
-                  </div>
-                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-white/15" />
-                </div>
+                  <span className="shrink-0 font-mono text-[13px] font-medium text-fg">{sc.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-fg-3">{sc.description}</span>
+                  <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-fg-4" />
+                </Row>
               );
             })}
           </div>
         )}
 
-        {/* Flags */}
         {filteredFlags.length > 0 && (
-          <div>
-            <div className="sticky top-0 z-10 flex items-center justify-between bg-black/30 px-5 py-2 text-[11px] font-semibold uppercase tracking-widest text-white/30 backdrop-blur-md">
-              <span>Flags</span>
-              <span className="font-normal text-white/20">
-                {filteredFlags.length} flags
-              </span>
-            </div>
+          <div role="group" aria-label="Flags">
+            <SectionHeader title="Flags" count={filteredFlags.length} />
             {filteredFlags.map((flag, i) => {
               const idx = flagsOffset + i;
               const flagName = flag.long ?? flag.short ?? '';
               return (
-                <div
-                  key={flagName}
-                  data-index={idx}
-                  data-testid="flag-row"
-                  role="option"
-                  aria-selected={idx === selectedIndex}
-                  className={`
-                    mx-2 flex items-center gap-4
-                    rounded-lg px-3.5 py-2.5 text-[13px]
-                    transition-colors
-                    ${copyFlashIndex === idx ? 'copy-flash' : ''}
-                    ${idx === selectedIndex ? 'bg-white/[0.07] ring-1 ring-inset ring-white/[0.06]' : 'hover:bg-white/[0.04]'}
-                  `}
+                <Row
+                  key={`${flagName}:${idx}`}
+                  dataIndex={idx}
+                  selected={idx === selectedIndex}
+                  copyFlash={copyFlashIndex === idx}
+                  testId="flag-row"
                 >
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="flex items-center gap-1.5">
-                      {flag.short && (
-                        <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11px] text-white/70">
-                          {flag.short}
-                        </span>
-                      )}
-                      {flag.long && (
-                        <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11px] text-white/70">
-                          {flag.long}
-                        </span>
-                      )}
-                      {flag.arg && (
-                        <span className="text-[11px] text-white/25 italic">
-                          {flag.arg}
-                        </span>
-                      )}
-                    </span>
-                    <span className="truncate text-[12px] text-white/40">
-                      {flag.description}
-                    </span>
-                  </div>
-                </div>
+                  <span className="flex shrink-0 items-baseline gap-1 font-mono text-[13px] font-medium text-fg">
+                    {flag.short && <span>{flag.short}</span>}
+                    {flag.short && flag.long && <span className="-ml-1 text-fg-4">,</span>}
+                    {flag.long && <span>{flag.long}</span>}
+                    {flag.arg && <span className="font-normal italic text-fg-3">{flag.arg}</span>}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-fg-3">{flag.description}</span>
+                </Row>
               );
             })}
           </div>
         )}
 
-        {filteredArguments.length === 0 &&
-          filteredSubcommands.length === 0 &&
-          filteredFlags.length === 0 &&
-          filterQuery && (
-            <div className="flex items-center justify-center py-8 text-[12px] text-white/20">
-              No matches for &ldquo;{filterQuery}&rdquo;
-            </div>
-          )}
+        {itemCount === 0 && filterQuery && (
+          <div className="flex items-center justify-center py-8 text-[13px] text-fg-3">
+            No matches for &ldquo;{filterQuery}&rdquo;
+          </div>
+        )}
+
+        {itemCount === 0 && !filterQuery && (
+          <div className="flex items-center justify-center py-8 text-[13px] text-fg-3">
+            {isEnriching ? 'Enriching...' : 'No subcommands or flags documented'}
+          </div>
+        )}
+
+        {data.enrichedFrom && (
+          <p data-testid="detail-source" className="px-2.5 pt-3 text-[11px] text-fg-4">
+            Source: {ENRICHMENT_SOURCES[data.enrichedFrom]}
+          </p>
+        )}
       </div>
     </div>
   );
 }
+
 
 function filterArguments(args: ArgumentDetail[], query: string): ArgumentDetail[] {
   if (!query) return args;
