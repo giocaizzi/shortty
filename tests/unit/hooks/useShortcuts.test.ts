@@ -121,4 +121,37 @@ describe('useShortcuts', () => {
     expect(unsubUpdate).toHaveBeenCalledOnce();
     expect(unsubShown).toHaveBeenCalledOnce();
   });
+
+  it('does not refetch shortcuts on show unless the source list changed', async () => {
+    const api = window.electronAPI;
+    let shown: () => void = () => undefined;
+    api.onWindowShown.mockImplementation((cb: () => void) => {
+      shown = cb;
+      return vi.fn();
+    });
+    const { result } = renderHook(() => useShortcuts());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => shown());
+    expect(api.getSources).toHaveBeenCalledTimes(2);
+    expect(api.getAllKeybindings).toHaveBeenCalledOnce();
+
+    api.getSources.mockResolvedValue([
+      ...mockSources,
+      { id: 'tmux', label: 'tmux', icon: '', platforms: ['darwin'] },
+    ]);
+    await act(async () => shown());
+    await waitFor(() => expect(api.getAllKeybindings).toHaveBeenCalledTimes(2));
+  });
+
+  it('retries the first load when the main process is not ready yet', async () => {
+    const api = window.electronAPI;
+    api.getSources
+      .mockRejectedValueOnce(new Error('No handler registered'))
+      .mockResolvedValue(mockSources);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { result } = renderHook(() => useShortcuts());
+    await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 2000 });
+    expect(result.current.shortcuts).toEqual(mockShortcuts);
+  });
 });
