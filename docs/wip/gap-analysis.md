@@ -1,5 +1,7 @@
 # Shortty v1 gap analysis
 
+> Pre-fix snapshot: this audit predates the fixes merged on `feat/finish-v1`. Current status: [v1-status.md](v1-status.md).
+
 Audit of branch `feat/finish-v1` (base `2c04f49`) against `SPECS.md`, `SCREENS.md`, `PRD.md`. PRD checkboxes were ignored; every status below comes from reading the code.
 Baseline checks: `make lint` passes, `make typecheck` passes, `make test` passes (31 files, 262 tests), `make knip` **fails** (`@playwright/test` unused devDependency, `package.json:38`). The fail was already there before this audit, and it breaks `make precommit`.
 
