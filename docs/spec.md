@@ -455,7 +455,27 @@ The index holds one entry per executable. Subcommand names are a search key of t
 - Bash completion locations: `pkg-config --variable=completionsdir bash-completion` or fallback to `/usr/share/bash-completion/completions`
 - Both zsh and bash completions supported; zsh checked first (richer format), deduplicated by command name
 
-**`--help` blocklist (hardcoded):**
+**`--help` probing policy** (`isTrustedBinary`, `isBlocklisted` in `src/main/commands/parsers/help-parser.ts`). Running `--help` executes the program, so a command (or `command sub …` for subcommand details) is probed only if all of these hold:
+
+1. Shortty is not running as root.
+2. Neither the command name nor the basename of its resolved path (symlinks followed) is on the blocklist below.
+3. The resolved file is owned by root or the current user, and is not writable by group or others (`mode & 022 == 0`).
+4. The resolved file is either a **native executable** (Mach-O, Mach-O universal or ELF magic), anywhere, or a **`#!` script under a trusted install prefix**:
+
+   | Prefix | Why |
+   |--------|-----|
+   | `/usr/`, `/bin/`, `/sbin/`, `/System/`, `/Library/Apple/` | OS-shipped tools (includes `/usr/local/`) |
+   | `/opt/homebrew/`, `/opt/local/` | Homebrew (Apple silicon), MacPorts |
+   | `/nix/store/` | Nix (profiles resolve into the store) |
+   | `~/.cargo/bin/`, `~/.rustup/toolchains/` | Cargo / rustup |
+   | `~/.local/share/uv/tools/` | `uv tool install` (its `~/.local/bin` links resolve here) |
+   | `~/.local/pipx/venvs/` | pipx |
+
+Anything else, notably the user's own scripts in `~/bin`, `~/.local/bin` or a project directory, is never executed: such a script may act on any argument (`deploy.sh --help` may deploy). Those commands are enriched from their man page and the whatis database only. In e2e mode (`SHORTTY_E2E=1`) `$SHORTTY_E2E_DIR/bin/` is also trusted, so the suite's fake `#!` CLIs can be probed ([runbook](runbooks/run-e2e-tests.md)).
+
+Other rules: dotfile/hidden commands (names starting with `.` or `_`) are skipped; at most one probe runs at a time; 2 second timeout, hard kill (SIGKILL to the whole process group).
+
+**`--help` blocklist (hardcoded, `BLOCKLIST`):**
 
 System/destructive: `shutdown`, `reboot`, `halt`, `poweroff`, `init`, `rm`, `mkfs`, `fdisk`, `dd`, `kill`, `killall`, `pkill`
 
@@ -463,13 +483,11 @@ Daemons: `httpd`, `nginx`, `postgres`, `mysqld`, `mongod`, `redis-server`, `dock
 
 Interactive: `ssh`, `telnet`, `ftp`, `sftp`, `nc`, `ncat`, `python`, `python3`, `node`, `ruby`, `irb`, `lua`, `perl`, `bash`, `zsh`, `sh`, `fish`, `tcsh`, `csh`
 
-Additional rules:
-- Skip dotfile/hidden commands (names starting with `.` or `_`)
-- Never spawn as root
-- 2 second timeout, hard kill (SIGKILL to the whole process group)
-- Skip binaries not owned by root or current user
+macOS security/signing tools (Keychain or admin prompts) and GUI apps: `security`, `codesign`, `xcrun`, `sudo`, `su`, `passwd`, `electron`, … (full list in the source)
 
-**`--help` sandbox** (`src/main/commands/sandbox-exec.ts`): every probe runs in a throwaway temp cwd with stdin closed and output capped at 1 MB. The environment is an allowlist (`PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, `TMPDIR`, `LANG`, `MANPATH`, `LC_*`), so tokens and keys in the user's environment never reach an arbitrary binary; pagers are `cat`, editors are `true`, colours and Homebrew auto-update are off.
+Wrappers that execute their arguments, where an implementation without a `--help` flag would run `--help` (or the subcommand words) as a command: `env`, `xargs`, `nohup`, `nice`, `renice`, `caffeinate`, `watch`, `doas`, `time`, `timeout`, `exec`, `chroot`, `sandbox-exec`, `stdbuf`, `script`, `setsid`, `flock`, `taskset`, `pkexec`, `runuser`, `arch`, `parallel`, `entr`, …
+
+**`--help` sandbox** (`src/main/commands/sandbox-exec.ts`): every probe runs in a throwaway temp cwd with stdin closed and output capped at 1 MB. The environment is an allowlist (`PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, `TMPDIR`, `LANG`, `MANPATH`, `LC_*`), so tokens and keys in the user's environment never reach an arbitrary binary; pagers are `cat`, editors are `true`, colours and Homebrew auto-update are off. `man` lookups use the same environment in their own process group (man starts groff and friends), killed after 5 seconds. The startup login-shell PATH import (`src/main/shell-env.ts`) kills the shell's process group on timeout or when it prints more than 1 MB.
 
 **Whatis fallback:**
 If whatis database doesn't exist, Tier 1 index has names with no descriptions. Enrichment naturally fills descriptions from man page NAME sections. No special handling needed.

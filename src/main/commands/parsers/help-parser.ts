@@ -44,7 +44,7 @@ export function isBlocklisted(name: string): boolean {
 
 /**
  * Install prefixes whose `#!` scripts may be probed with `--help` (see
- * docs/commands-safety.md): system directories and package managers, whose
+ * docs/spec.md §7.5): system directories and package managers, whose
  * scripts are packaged CLIs that implement --help. Scripts anywhere else
  * (~/bin, ~/.local/bin, project dirs) are the user's own and may act on any
  * argument, so they get man-page/whatis data only. Matched against the
@@ -87,7 +87,7 @@ async function readMagic(path: string): Promise<Buffer | null> {
 }
 
 /**
- * Whether `binPath --help` may be run (SPECS §7.5, docs/commands-safety.md):
+ * Whether `binPath --help` may be run (docs/spec.md §7.5):
  * never as root; only files owned by root or the current user and not
  * writable by group or others; native executables anywhere, `#!` scripts
  * only under trusted install prefixes; never a blocklisted program reached

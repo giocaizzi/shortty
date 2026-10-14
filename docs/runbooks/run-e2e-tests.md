@@ -58,7 +58,7 @@ and the app is launched with only these environment variables:
 | `SHORTTY_E2E` | `1` | Turns on the test hook in `src/main/e2e.ts` |
 | `SHORTTY_E2E_DIR` | temp dir | Electron `userData`, `sessionData` and `logs` go under it: settings (`config.json`), commands cache |
 | `HOME` | `<dir>/home` | All `~/...` config paths resolve into a fake home seeded from `fixtures/`; electron-log writes there too |
-| `PATH` | `<dir>/bin` | The commands engine only sees three fake executables (`gizmo`, `gizmo-lite`, `widgetctl`) whose `--help` output is fixed; they are `#!` scripts, which are only probed because e2e mode trusts `<dir>/bin` ([commands-safety.md](commands-safety.md)) |
+| `PATH` | `<dir>/bin` | The commands engine only sees three fake executables (`gizmo`, `gizmo-lite`, `widgetctl`) whose `--help` output is fixed; they are `#!` scripts, which are only probed because e2e mode trusts `<dir>/bin` ([spec §7.5](../spec.md)) |
 | `TMPDIR` | `<dir>/tmp` | Sandbox dirs of the `--help` enricher stay inside the run |
 
 The fake home gets the fixtures at the macOS default paths the cheatsheets
