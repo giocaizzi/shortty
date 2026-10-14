@@ -1,0 +1,190 @@
+GH(1)                          GitHub CLI manual                         GH(1)
+
+
+
+NAME
+       gh - GitHub CLI
+
+
+
+SYNOPSIS
+       gh <command> <subcommand> [flags]
+
+
+
+DESCRIPTION
+       Work seamlessly with GitHub from the command line.
+
+
+
+CORE COMMANDS
+       gh-auth(1)
+              Authenticate gh and git with GitHub
+
+
+       gh-browse(1)
+              Open repositories, issues, pull requests, and more in the
+              browser
+
+
+       gh-codespace(1)
+              Connect to and manage codespaces
+
+
+       gh-discussion(1)
+              Work with GitHub Discussions (preview)
+
+
+       gh-gist(1)
+              Manage gists
+
+
+       gh-issue(1)
+              Manage issues
+
+
+       gh-org(1)
+              Manage organizations
+
+
+       gh-pr(1)
+              Manage pull requests
+
+
+       gh-project(1)
+              Work with GitHub Projects.
+
+
+       gh-release(1)
+              Manage releases
+
+
+       gh-repo(1)
+              Manage repositories
+
+
+       gh-skill(1)
+              Install and manage agent skills (preview)
+
+
+
+GITHUB ACTIONS COMMANDS
+       gh-cache(1)
+              Manage GitHub Actions caches
+
+
+       gh-run(1)
+              View details about workflow runs
+
+
+       gh-workflow(1)
+              View details about GitHub Actions workflows
+
+
+
+ADDITIONAL COMMANDS
+       gh-agent-task(1)
+              Work with agent tasks (preview)
+
+
+       gh-alias(1)
+              Create command shortcuts
+
+
+       gh-api(1)
+              Make an authenticated GitHub API request
+
+
+       gh-attestation(1)
+              Work with artifact attestations
+
+
+       gh-completion(1)
+              Generate shell completion scripts
+
+
+       gh-config(1)
+              Manage configuration for gh
+
+
+       gh-copilot(1)
+              Run the GitHub Copilot CLI (preview)
+
+
+       gh-extension(1)
+              Manage gh extensions
+
+
+       gh-gpg-key(1)
+              Manage GPG keys
+
+
+       gh-label(1)
+              Manage labels
+
+
+       gh-licenses(1)
+              View third-party license information
+
+
+       gh-preview(1)
+              Execute previews for gh features
+
+
+       gh-ruleset(1)
+              View info about repo rulesets
+
+
+       gh-search(1)
+              Search for repositories, issues, and pull requests
+
+
+       gh-secret(1)
+              Manage GitHub secrets
+
+
+       gh-ssh-key(1)
+              Manage SSH keys
+
+
+       gh-status(1)
+              Print information about relevant issues, pull requests, and
+              notifications across repositories
+
+
+       gh-variable(1)
+              Manage GitHub Actions variables
+
+
+
+OPTIONS
+       --version
+              Show gh version
+
+
+
+EXIT CODES
+       0: Successful execution
+
+
+       1: Error
+
+
+       2: Command canceled
+
+
+       4: Authentication required
+
+
+       NOTE: Specific commands may have additional exit codes. Refer to the
+       command's help for more information.
+
+
+
+EXAMPLE
+       $ gh issue create
+       $ gh repo clone cli/cli
+       $ gh pr checkout 321
+
+
+GitHub CLI 2.102.0                 Sep 2026                              GH(1)
