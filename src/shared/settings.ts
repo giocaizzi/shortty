@@ -28,7 +28,7 @@ export interface AppSettings {
   commandsEnabled: boolean;
 }
 
-/** Defaults from SPECS §9.1. */
+/** Defaults from docs/spec.md §9.1. */
 export const DEFAULT_SETTINGS: AppSettings = {
   launchAtLogin: false,
   showDockIcon: false,

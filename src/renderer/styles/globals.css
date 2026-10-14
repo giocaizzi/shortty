@@ -200,7 +200,7 @@ kbd.kbd-sm {
   text-decoration-color: var(--fg-4);
 }
 
-/* Panel show/hide (SPECS §10.9). App re-applies .panel-enter on every
+/* Panel show/hide (docs/spec.md §10.9). App re-applies .panel-enter on every
    window:shown and .panel-exit before a dismiss it starts itself. */
 @keyframes panel-show {
   from {

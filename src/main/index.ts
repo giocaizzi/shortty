@@ -34,7 +34,7 @@ import {
 import { WindowHider } from './window-hider';
 import { importLoginShellPath } from './shell-env';
 
-// `shortty --reset-settings` (SPECS §9.1 escape hatch): restore defaults and quit.
+// `shortty --reset-settings` (docs/spec.md §9.1 escape hatch): restore defaults and quit.
 const resetRequested = process.argv.includes('--reset-settings');
 
 // One Shortty per user data dir: a second launch shows the running panel
@@ -62,7 +62,7 @@ const parserRegistry = new ParserRegistry();
 
 const isDev = !!MAIN_WINDOW_VITE_DEV_SERVER_URL;
 
-/** Upper bound for the renderer's exit animation (80ms, SPECS §10.9) plus IPC. */
+/** Upper bound for the renderer's exit animation (80ms, docs/spec.md §10.9) plus IPC. */
 const HIDE_ANIMATION_TIMEOUT_MS = 120;
 
 const trayCallbacks = {

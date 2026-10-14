@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
-// End-to-end tests drive the real built Electron app (see docs/e2e.md).
+// End-to-end tests drive the real built Electron app (see docs/runbooks/run-e2e-tests.md).
 // Run through `make e2e`, which builds first.
 export default defineConfig({
   testDir: 'tests/e2e',

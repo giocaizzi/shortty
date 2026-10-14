@@ -6,7 +6,7 @@ import type { CommandCache } from './cache';
 
 type EnrichmentCallback = (updated: Command[]) => void;
 
-/** Man pages are read 3 at a time; `--help` processes run one at a time (SPECS §7.5). */
+/** Man pages are read 3 at a time; `--help` processes run one at a time (docs/spec.md §7.5). */
 const MAN_CONCURRENCY = 3;
 const BATCH_SIZE = 50;
 

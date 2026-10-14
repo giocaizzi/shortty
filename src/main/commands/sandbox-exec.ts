@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-/** Hard limit for a `--help` invocation (SPECS §7.5: 2 seconds, hard kill). */
+/** Hard limit for a `--help` invocation (docs/spec.md §7.5: 2 seconds, hard kill). */
 const HELP_TIMEOUT_MS = 2000;
 /** Output cap per invocation; output beyond this is discarded and the process killed. */
 const HELP_MAX_BYTES = 1024 * 1024;

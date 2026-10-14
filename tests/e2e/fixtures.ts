@@ -1,6 +1,6 @@
 /**
  * Playwright fixtures that launch the real, built Shortty app in hermetic
- * e2e mode. See docs/e2e.md for how the isolation works.
+ * e2e mode. See docs/runbooks/run-e2e-tests.md for how the isolation works.
  */
 import {
   test as base,
@@ -117,7 +117,7 @@ export function createHermeticEnv(settings: Record<string, unknown> = {}): Herme
   // Seed electron-store so nothing is registered with the OS on first run.
   writeFileSync(
     path.join(userData, 'config.json'),
-    // The specs exercise the ">" command prefix; the app default is off (SPECS §9.1).
+    // The specs exercise the ">" command prefix; the app default is off (docs/spec.md §9.1).
     JSON.stringify(
       { launchAtLogin: false, showDockIcon: false, commandPrefixMode: true, ...settings },
       null,
@@ -310,7 +310,7 @@ export async function pressLayoutKey(
 /**
  * Mark the running test as a known bug (reported as "fixme", not run to the
  * end). Set SHORTTY_E2E_FIXME=1 to run these anyway and check a fix.
- * Kept while no test needs it: it is the documented convention (docs/e2e.md).
+ * Kept while no test needs it: it is the documented convention (docs/runbooks/run-e2e-tests.md).
  * @public
  */
 export function knownBug(reason: string): void {

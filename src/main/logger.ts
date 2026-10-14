@@ -3,7 +3,7 @@ import log from 'electron-log/main';
 import { existsSync, renameSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
-/** SPECS §12.2: 3 files (the live one + 2 archives), 5MB each. */
+/** docs/spec.md §12.2: 3 files (the live one + 2 archives), 5MB each. */
 const LOG_FILES = 3;
 
 /**

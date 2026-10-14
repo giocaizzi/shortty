@@ -2,7 +2,7 @@ import { app } from 'electron';
 import path from 'node:path';
 
 /**
- * Test-only hook for the Playwright end-to-end suite (see docs/e2e.md).
+ * Test-only hook for the Playwright end-to-end suite (see docs/runbooks/run-e2e-tests.md).
  *
  * Inactive unless SHORTTY_E2E=1. When active, all Electron storage (settings,
  * commands cache, logs, Chromium session data) is redirected into

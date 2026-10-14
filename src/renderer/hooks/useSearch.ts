@@ -20,7 +20,7 @@ export interface SearchResults {
 
 const EMPTY_RESULTS: SearchResults = { sources: [], shortcuts: [], commands: [] };
 
-/** Command search weights (SPECS §8.3): name, description, subcommand names. */
+/** Command search weights (docs/spec.md §8.3): name, description, subcommand names. */
 export const COMMAND_FUSE_OPTIONS: IFuseOptions<Command> = {
   keys: [
     { name: 'name', weight: 0.5 },

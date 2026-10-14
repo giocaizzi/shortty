@@ -14,7 +14,7 @@ const KEYS: { keys: string[]; description: string }[] = [
 ];
 
 /**
- * Keyboard help sheet (SCREENS §3). Any key closes it; the panel's keydown
+ * Keyboard help sheet (docs/screens.md §3). Any key closes it; the panel's keydown
  * handler does that, so the "?" that opened it can't also close it.
  */
 export function KeyboardHelp({ onDismiss, hotkey }: KeyboardHelpProps) {

@@ -9,7 +9,7 @@ import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 // Signing and notarization are opt-in via env vars only; unset means an
-// unsigned build (see docs/release.md).
+// unsigned build (see docs/runbooks/release-macos.md).
 const signingIdentity = process.env.APPLE_SIGNING_IDENTITY;
 const { APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID } = process.env;
 const canNotarize = Boolean(

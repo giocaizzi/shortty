@@ -157,7 +157,7 @@ export function App() {
     timers.current.push(setTimeout(fn, ms));
   }, []);
 
-  // Full reset (SPECS §10.1). Done when the window hides, so the old query
+  // Full reset (docs/spec.md §10.1). Done when the window hides, so the old query
   // never flashes on the next show, and again on show for safety.
   const resetAll = useCallback(() => {
     clearTimers();

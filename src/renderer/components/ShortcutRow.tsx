@@ -7,7 +7,7 @@ interface ShortcutRowProps {
   shortcut: Shortcut;
   selected: boolean;
   dataIndex: number;
-  /** Source icon and label; hidden when drilled into the source (SCREENS §8.2). */
+  /** Source icon and label; hidden when drilled into the source (docs/screens.md §8.2). */
   showSource?: boolean;
   copyFlash?: boolean;
 }

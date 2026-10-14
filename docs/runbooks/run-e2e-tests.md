@@ -1,11 +1,19 @@
-# End-to-end tests (runbook)
+# Run e2e tests
+
+**When:** before merging a change to the launcher, Preferences, lifecycle or
+any parser/commands behaviour visible in the UI; to check a fix of a
+behaviour marked `knownBug`; to refresh the benchmark screenshots. Not part of
+`make check` / `make precommit` / CI.
+**Preconditions:** macOS with a logged-in desktop session (the window must be
+able to take focus), `make install` done, nobody using the machine during the
+run (the launcher hides on blur).
 
 The e2e suite launches the **real built app** with Playwright's `_electron`
 API and drives it with the keyboard, the way a user does. Specs live in
 `tests/e2e/`, config in `playwright.config.ts`. Vitest never picks them up
 (`vitest.config.ts` excludes `tests/e2e/**`).
 
-## Run
+## Steps
 
 ```bash
 make e2e                          # build, then run every spec (~40 s on Apple silicon)
@@ -89,7 +97,7 @@ saves it before a test and restores it after.
   is not registered in e2e mode).
 - Prefer roles and the row test ids: `source-row`, `shortcut-row`,
   `command-row`, `subcommand-row`, `flag-row`.
-- Behaviour that is broken or diverges from `SPECS.md`/`SCREENS.md`: write the
+- Behaviour that is broken or diverges from [spec.md](../spec.md)/[screens.md](../screens.md): write the
   test for the expected behaviour and start it with
   `knownBug('<one-line reason>')` (a `test.fixme`). Remove the call when fixed;
   `SHORTTY_E2E_FIXME=1 make e2e` shows which ones pass already.
@@ -105,3 +113,18 @@ saves it before a test and restores it after.
   on blur). Re-run without touching the machine.
 - Logs of a failed run: `SHORTTY_E2E_KEEP=1`, then read
   `$TMPDIR/shortty-e2e-*/home/Library/Logs/Shortty/main.log`.
+
+## Verify
+
+`make e2e` ends with Playwright's `list` summary and exits 0: every test
+passed, none failed (skipped/fixme only for tests marked `knownBug`).
+Artifacts of failed tests are in `test-results/e2e/`.
+
+## Rollback
+
+Nothing to undo: each test's temp dir is removed afterwards (unless
+`SHORTTY_E2E_KEEP=1`) and the clipboard is restored. If a run was killed,
+remove leftover `$TMPDIR/shortty-e2e-*` directories; a stale lock file at
+`/tmp/shortty-e2e.lock` is harmless (`lockf` locks, it does not test existence).
+
+**Last verified:** 2026-10-14 by the feat/finish-v1 docs pass (procedure read against the Makefile, `playwright.config.ts` and `tests/e2e/fixtures.ts`; suite not re-run)

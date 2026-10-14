@@ -35,7 +35,7 @@ export function isBlocklisted(name: string): boolean {
 
 /** Help output is only trusted from binaries owned by root or the current user. */
 async function isTrustedBinary(binPath: string): Promise<boolean> {
-  // Never run help as root (SPECS §7.5)
+  // Never run help as root (docs/spec.md §7.5)
   if (process.getuid?.() === 0) return false;
   try {
     const s = await stat(binPath);

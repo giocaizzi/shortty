@@ -6,7 +6,7 @@ function commandIdentity(s: Shortcut): string {
 }
 
 /**
- * Merge cheatsheet defaults with parser overrides (SPECS §6.2).
+ * Merge cheatsheet defaults with parser overrides (docs/spec.md §6.2).
  *
  * - Overrides match defaults by source + rawCommand. The first override for
  *   a command replaces the default's key (isDefault: false, origin

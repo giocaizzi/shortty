@@ -1,6 +1,6 @@
 # Baseline benchmark (2026-10-14)
 
-How the app behaves today, measured by the e2e harness (`docs/e2e.md`) on
+How the app behaves today, measured by the e2e harness (`docs/runbooks/run-e2e-tests.md`) on
 `feat/finish-v1` (base `2c04f49`), macOS arm64, Electron 44.7.0. Hermetic run:
 fixture configs in a fake `HOME`, three fake executables on `PATH`.
 

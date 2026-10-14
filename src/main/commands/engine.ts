@@ -122,7 +122,7 @@ export class CommandsEngine {
   }
 
   /**
-   * Launcher shown: re-check PATH (SPECS §11.3) and hold enrichment so it does
+   * Launcher shown: re-check PATH (docs/spec.md §11.3) and hold enrichment so it does
    * not compete with the UI; it resumes on hide or after 5s.
    */
   onWindowShown(): void {
@@ -183,7 +183,7 @@ export class CommandsEngine {
       if (!detailNames.has(cmd.name)) continue;
 
       const detail = this.cache.readDetail(cmd.name);
-      // Per-command details are only valid for the same binary (SPECS §7.3)
+      // Per-command details are only valid for the same binary (docs/spec.md §7.3)
       if (detail && detail.enrichment !== 'basic' && detail.bin === cmd.bin && detail.mtime === cmd.mtime) {
         this.commands[i] = { ...cmd, ...detail };
         reconciled++;

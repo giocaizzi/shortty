@@ -159,7 +159,7 @@ test.describe('commands from the fixture PATH', () => {
     expect(await shortty.isVisible()).toBe(true);
   });
 
-  test('Esc from the detail view restores the previous results (SPECS §10.7)', async ({ shortty }) => {
+  test('Esc from the detail view restores the previous results (docs/spec.md §10.7)', async ({ shortty }) => {
     await shortty.win.keyboard.type('>gizmo');
     await shortty.win.keyboard.press('Tab');
     await shortty.win.keyboard.press('Escape');

@@ -1,6 +1,6 @@
 /**
  * Two-phase hide for the launcher so the renderer can play its exit animation
- * (SPECS §10.9): `hide()` asks the renderer to animate out (`requestExit`),
+ * (docs/spec.md §10.9): `hide()` asks the renderer to animate out (`requestExit`),
  * then really hides once the renderer acknowledges or `timeoutMs` elapses,
  * whichever comes first. `cancel()` aborts a pending hide (the window is being
  * shown again). Acks for an older request are ignored.

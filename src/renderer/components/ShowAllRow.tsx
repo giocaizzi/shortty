@@ -15,7 +15,7 @@ interface ShowAllRowProps {
   dataIndex: number;
 }
 
-/** Selectable "Show all N" row closing a truncated section (SCREENS §8.5). */
+/** Selectable "Show all N" row closing a truncated section (docs/screens.md §8.5). */
 export function ShowAllRow({ section, total, selected, dataIndex }: ShowAllRowProps) {
   return (
     <Row dataIndex={dataIndex} selected={selected} testId="show-all-row">

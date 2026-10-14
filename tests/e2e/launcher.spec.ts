@@ -109,7 +109,7 @@ test.describe('keyboard help', () => {
     await expect(shortty.help).toHaveCount(0);
   });
 
-  test('a ? icon in the search bar opens the overlay (SCREENS §3)', async ({ shortty }) => {
+  test('a ? icon in the search bar opens the overlay (docs/screens.md §3)', async ({ shortty }) => {
     await shortty.show();
     await shortty.win.getByRole('button', { name: /keyboard shortcuts|help/i }).click({ timeout: 5_000 });
     await expect(shortty.help).toBeVisible();

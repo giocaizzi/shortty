@@ -80,7 +80,7 @@ test.describe('drill into a source', () => {
     await expect(shortty.win.getByTestId('source-row')).toContainText(/[1-9]\d* shortcuts/);
   });
 
-  test('drilled source lists all its entries before typing (SCREENS §2.1)', async ({ shortty }) => {
+  test('drilled source lists all its entries before typing (docs/screens.md §2.1)', async ({ shortty }) => {
     await shortty.show();
     await shortty.search.fill('obsidian');
     await shortty.win.keyboard.press('Enter');
@@ -114,7 +114,7 @@ test.describe('drill into a source', () => {
     }
   });
 
-  test('Esc from a drilled source restores the previous query (SCREENS §2.1)', async ({ shortty }) => {
+  test('Esc from a drilled source restores the previous query (docs/screens.md §2.1)', async ({ shortty }) => {
     await shortty.show();
     await shortty.search.fill('VS');
     await shortty.win.keyboard.press('Enter');
