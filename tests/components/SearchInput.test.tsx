@@ -22,6 +22,22 @@ describe('SearchInput', () => {
     window.electronAPI = undefined as unknown as ElectronAPI;
   });
 
+  it('Backspace on an empty ">" field leaves command mode', () => {
+    const onChange = vi.fn();
+    render(<SearchInput {...defaultProps} query=">" commandPrefixActive onChange={onChange} />);
+    fireEvent.keyDown(screen.getByRole('searchbox'), { key: 'Backspace' });
+    expect(onChange).toHaveBeenCalledWith('');
+  });
+
+  it('Backspace inside an IME composition stays with the IME', () => {
+    const onChange = vi.fn();
+    render(<SearchInput {...defaultProps} query=">" commandPrefixActive onChange={onChange} />);
+    const input = screen.getByRole('searchbox');
+    expect(fireEvent.keyDown(input, { key: 'Backspace', isComposing: true })).toBe(true);
+    expect(fireEvent.keyDown(input, { key: 'Backspace', keyCode: 229 })).toBe(true);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('renders input with correct placeholder for flat mode', () => {
     render(<SearchInput {...defaultProps} />);
     expect(

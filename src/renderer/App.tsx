@@ -5,6 +5,7 @@ import { useShortcuts } from './hooks/useShortcuts';
 import { useCommands } from './hooks/useCommands';
 import { useSearch } from './hooks/useSearch';
 import { useSubcommandDetail } from './hooks/useSubcommandDetail';
+import { isImeComposing } from './lib/ime';
 import { useAppSettings } from './context/SettingsContext';
 import { resolveStrokes, useKeyboardLayout, type KeyboardLayout } from './lib/keyboard-layout';
 import { LauncherPanel } from './components/LauncherPanel';
@@ -345,6 +346,9 @@ export function App() {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Keys typed into an IME composition belong to the IME.
+      if (isImeComposing(e)) return;
+
       if (showHelp) {
         // Any key closes the help sheet, and does nothing else.
         if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(e.key)) return;

@@ -4,6 +4,7 @@ import type { SourceStatus } from '../../../shared/types';
 import type { PathCheck } from '../../../preload/preload';
 import type { UpdateSetting } from '../hooks/useSettings';
 import { Badge, Message, PaneHeader, Section, Switch } from './controls';
+import { isImeComposing } from '../../lib/ime';
 
 interface SourcesTabProps {
   settings: AppSettings;
@@ -122,6 +123,7 @@ function SourceCard({ source, enabled, override, onToggle, onCommitOverride }: S
 
   // Enter commits through the blur handler; Escape reverts and skips it.
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (isImeComposing(e)) return;
     if (e.key === 'Enter') {
       e.preventDefault();
       e.currentTarget.blur();

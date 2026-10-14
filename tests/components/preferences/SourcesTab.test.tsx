@@ -86,6 +86,17 @@ describe('SourcesTab', () => {
     expect(onUpdate).toHaveBeenCalledWith('sourcePathOverrides', { ghostty: '/etc/ghostty' });
   });
 
+  it('Enter that commits an IME composition does not save', async () => {
+    const { onUpdate } = setup();
+    const field = await customPathField();
+    field.focus();
+    fireEvent.change(field, { target: { value: '/Users/me/設定' } });
+    fireEvent.keyDown(field, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(field, { key: 'Enter', keyCode: 229 });
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(field).toHaveFocus();
+  });
+
   it('discards the edit on Escape', async () => {
     const { onUpdate } = setup();
     const field = await customPathField();

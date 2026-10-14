@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react';
 import type { AppSettings, SearchSettings, ResultLimits } from '../../../shared/settings';
 import type { UpdateSetting } from '../hooks/useSettings';
 import { PaneHeader, Row, Section, SwitchRow } from './controls';
+import { isImeComposing } from '../../lib/ime';
 
 interface SearchTabProps {
   settings: AppSettings;
@@ -90,7 +91,7 @@ function NumberRow({
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') e.currentTarget.blur();
+            if (e.key === 'Enter' && !isImeComposing(e)) e.currentTarget.blur();
           }}
         />
       }

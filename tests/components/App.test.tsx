@@ -299,6 +299,25 @@ describe('App help, copy and dismiss', () => {
     expect(writeText).toHaveBeenCalledWith('⌘Ò');
   });
 
+  it('leaves keys to an IME composition: no copy, dismiss or selection move', async () => {
+    const input = setup({ dismissAfterCopy: true });
+    await type(input, 'toggle');
+    await screen.findAllByTestId('shortcut-row');
+    const selected = selectedRow();
+
+    // Arrows pick a candidate and Enter / Esc commit or cancel the composition.
+    for (const key of ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab']) {
+      expect(fireEvent.keyDown(input, { key, isComposing: true })).toBe(true);
+    }
+    // Safari/older Chromium report the committing keydown as keyCode 229.
+    expect(fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 })).toBe(true);
+
+    expect(writeText).not.toHaveBeenCalled();
+    expect(api.hideWindow).not.toHaveBeenCalled();
+    expect(selectedRow()).toBe(selected);
+    expect(input).toHaveValue('toggle');
+  });
+
   it('dismisses after the copy flash when "dismiss after copy" is on', async () => {
     const input = setup({ dismissAfterCopy: true });
     await type(input, 'cut line');

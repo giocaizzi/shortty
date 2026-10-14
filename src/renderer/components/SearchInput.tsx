@@ -1,6 +1,7 @@
 import { useRef, useEffect, type RefObject } from 'react';
 import { ChevronRight, CircleHelp, Search } from 'lucide-react';
 import { SourceIcon } from './SourceIcon';
+import { isImeComposing } from '../lib/ime';
 
 type NavMode = 'flat' | 'drilled-source' | 'command-detail';
 
@@ -129,6 +130,7 @@ export function SearchInput({
           onChange(commandPrefixActive ? '>' + val : val);
         }}
         onKeyDown={(e) => {
+          if (isImeComposing(e)) return;
           // Backspace on empty input with prefix active → deactivate prefix
           if (commandPrefixActive && e.key === 'Backspace' && query === '>') {
             e.preventDefault();
