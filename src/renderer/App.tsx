@@ -64,7 +64,8 @@ export function App() {
 
   // Get the detail data for the current level (if in a detail view)
   const detailData = (() => {
-    if (currentLevel.kind === 'command') return currentLevel.command;
+    // Look the command up again: the level holds a snapshot taken before enrichment finished
+    if (currentLevel.kind === 'command') return commands.find(c => c.name === currentLevel.command.name) ?? currentLevel.command;
     if (currentLevel.kind === 'subcommand' && subcommandDetail) return subcommandDetail;
     return null;
   })();
