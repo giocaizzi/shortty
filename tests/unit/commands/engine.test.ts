@@ -17,11 +17,13 @@ vi.mock('../../../src/main/commands/whatis-reader', () => ({
 const workerStart = vi.fn();
 const workerPause = vi.fn();
 const workerResume = vi.fn();
+const workerEnrichNow = vi.fn();
 vi.mock('../../../src/main/commands/enrichment-worker', () => ({
   EnrichmentWorker: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
     this.start = workerStart;
     this.pause = workerPause;
     this.resume = workerResume;
+    this.enrichNow = workerEnrichNow;
     this.stop = vi.fn();
     this.isRunning = false;
   }),
@@ -141,6 +143,29 @@ describe('CommandsEngine', () => {
 
     await engine.getSubcommandDetail('git commit');
     expect(enrichSubcommand).toHaveBeenCalledWith({ bin: '/opt/homebrew/bin/git', mtime: 1 }, 'git commit', expect.anything());
+  });
+
+  it('enriches a drilled-in command on demand and pushes it to the renderer', async () => {
+    mockScan.mockResolvedValue([
+      { name: 'jq', bin: '/opt/homebrew/bin/jq', mtime: 1 },
+      { name: 'fd', bin: '/opt/homebrew/bin/fd', mtime: 1 },
+    ]);
+    const engine = new CommandsEngine(userData);
+    await engine.initialize();
+    const pushed: Command[][] = [];
+    engine.onUpdate(c => pushed.push(c));
+    workerEnrichNow.mockImplementation(async (c: Command) => ({ ...c, enrichment: 'full', enrichedFrom: 'man' }));
+
+    const detail = await engine.enrichNow('jq');
+    expect(workerEnrichNow).toHaveBeenCalledWith(expect.objectContaining({ name: 'jq', enrichment: 'basic' }));
+    expect(detail).toMatchObject({ name: 'jq', enrichment: 'full', enrichedFrom: 'man' });
+    expect(engine.getDetail('jq')?.enrichment).toBe('full');
+    expect(pushed).toEqual([[expect.objectContaining({ name: 'jq', enrichment: 'full' })]]);
+
+    // already enriched or unknown: no new work
+    await engine.enrichNow('jq');
+    expect(await engine.enrichNow('nope')).toBeNull();
+    expect(workerEnrichNow).toHaveBeenCalledTimes(1);
   });
 
   it('pauses enrichment while the launcher is visible, resuming on hide', async () => {

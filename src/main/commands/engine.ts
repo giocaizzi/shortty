@@ -152,6 +152,18 @@ export class CommandsEngine {
     return this.commands.find(c => c.name === name) ?? null;
   }
 
+  /**
+   * The command's details, enriching it now if the background worker has not
+   * reached it yet (drill-in). The result is also pushed through onUpdate.
+   */
+  async enrichNow(name: string): Promise<Command | null> {
+    const cmd = this.getDetail(name);
+    if (!cmd || cmd.enrichment !== 'basic') return cmd;
+    const enriched = await this.worker.enrichNow(cmd);
+    this.handleEnrichmentBatch([enriched]);
+    return this.getDetail(name);
+  }
+
   onUpdate(callback: CommandsUpdateCallback): void {
     this.updateCallback = callback;
   }

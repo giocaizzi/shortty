@@ -93,4 +93,57 @@ describe('EnrichmentWorker', () => {
     expect(names.filter(n => n.startsWith('old')).length).toBeLessThan(30);
     expect(worker.isRunning).toBe(false);
   });
+
+  describe('enrichNow (drill-in)', () => {
+    it('enriches a command while the background loop is paused and caches it', async () => {
+      mockMan.mockResolvedValue({ subcommands: [], flags: [{ short: '-x', description: '' }], arguments: [] });
+      const batches: Command[][] = [];
+      const worker = new EnrichmentWorker(cache, b => batches.push(b));
+      worker.pause();
+      const run = worker.start([cmd('a'), cmd('b'), cmd('c'), cmd('d')]);
+
+      const enriched = await worker.enrichNow(cmd('d'));
+      expect(enriched).toMatchObject({ name: 'd', enrichment: 'full', enrichedFrom: 'man' });
+      expect(cache.writeDetail).toHaveBeenCalledWith('d', enriched);
+      expect(mockMan.mock.calls.map(c => c[0])).toEqual(['d']);
+
+      // the background loop does not enrich it a second time
+      worker.resume();
+      await run;
+      expect(batches.flat().map(c => c.name)).toEqual(['a', 'b', 'c']);
+      expect(mockMan).toHaveBeenCalledTimes(4);
+    });
+
+    it('shares an enrichment the background loop already started', async () => {
+      let release!: () => void;
+      mockMan.mockImplementation(() => new Promise((resolve) => {
+        release = () => resolve({ subcommands: [], flags: [{ short: '-x', description: '' }], arguments: [] });
+      }));
+      const worker = new EnrichmentWorker(cache, () => undefined);
+      const run = worker.start([cmd('a')]);
+      await sleep(5);
+      const now = worker.enrichNow(cmd('a'));
+      release();
+      await Promise.all([run, now]);
+      expect(mockMan).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps --help one at a time alongside the background loop', async () => {
+      mockMan.mockResolvedValue(null);
+      let active = 0;
+      let maxActive = 0;
+      mockHelp.mockImplementation(async () => {
+        active++;
+        maxActive = Math.max(maxActive, active);
+        await sleep(5);
+        active--;
+        return { subcommands: [], flags: [{ long: '--x', description: '' }], arguments: [] };
+      });
+      const worker = new EnrichmentWorker(cache, () => undefined);
+      const run = worker.start(['a', 'b', 'c'].map(cmd));
+      await Promise.all([run, worker.enrichNow(cmd('z'))]);
+      expect(maxActive).toBe(1);
+      expect(mockHelp).toHaveBeenCalledWith('z', '/bin/z');
+    });
+  });
 });

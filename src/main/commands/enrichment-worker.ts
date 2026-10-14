@@ -10,6 +10,11 @@ type EnrichmentCallback = (updated: Command[]) => void;
 const MAN_CONCURRENCY = 3;
 const BATCH_SIZE = 50;
 
+/** A command's identity for enrichment: the same binary at the same mtime. */
+function binaryKey(cmd: Command): string {
+  return `${cmd.bin}\0${cmd.mtime}`;
+}
+
 export class EnrichmentWorker {
   private running = false;
   private paused = false;
@@ -17,6 +22,10 @@ export class EnrichmentWorker {
   private generation = 0;
   private resumeWaiters: (() => void)[] = [];
   private helpQueue: Promise<unknown> = Promise.resolve();
+  /** Enrichments in progress, shared by the background loop and on-demand requests. */
+  private inFlight = new Map<string, Promise<Command>>();
+  /** Binaries already enriched on demand, skipped by the background loop. */
+  private enrichedOnDemand = new Set<string>();
 
   constructor(
     private cache: CommandCache,
@@ -41,8 +50,10 @@ export class EnrichmentWorker {
       await this.waitWhilePaused();
       if (!isCurrent()) break;
 
-      const chunk = unenriched.slice(i, i + MAN_CONCURRENCY);
-      const results = await Promise.all(chunk.map(cmd => this.enrichCommand(cmd)));
+      const chunk = unenriched
+        .slice(i, i + MAN_CONCURRENCY)
+        .filter(cmd => !this.enrichedOnDemand.has(binaryKey(cmd)));
+      const results = await Promise.all(chunk.map(cmd => this.enrichShared(cmd)));
       if (!isCurrent()) break;
 
       for (const enriched of results) {
@@ -62,6 +73,28 @@ export class EnrichmentWorker {
 
     log.info(`Enrichment ${isCurrent() ? 'complete' : 'superseded'}: ${enrichedCount}/${unenriched.length} commands processed`);
     if (isCurrent()) this.running = false;
+  }
+
+  /**
+   * Enrich one command now (the user drilled into it), ahead of the background
+   * loop and even while it is paused. `--help` still waits its turn, so at most
+   * one help process runs at a time.
+   */
+  async enrichNow(cmd: Command): Promise<Command> {
+    const enriched = await this.enrichShared(cmd);
+    this.enrichedOnDemand.add(binaryKey(cmd));
+    this.cache.writeDetail(enriched.name, enriched);
+    return enriched;
+  }
+
+  private enrichShared(cmd: Command): Promise<Command> {
+    const key = binaryKey(cmd);
+    let pending = this.inFlight.get(key);
+    if (!pending) {
+      pending = this.enrichCommand(cmd).finally(() => this.inFlight.delete(key));
+      this.inFlight.set(key, pending);
+    }
+    return pending;
   }
 
   /** Serialize `--help` spawns: at most one help process at a time. */

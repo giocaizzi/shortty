@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react';
+import type { ElectronAPI } from '../../src/preload/preload';
 import {
   CommandDetailView,
   getDetailItemCount,
@@ -76,17 +77,49 @@ describe('CommandDetailView', () => {
     expect(screen.queryByText('git push')).not.toBeInTheDocument();
   });
 
-  it('shows enriching message when basic enrichment', () => {
-    const partialCommand: Command = { ...mockCommand, enrichment: 'basic' };
-    render(
-      <CommandDetailView
-        data={partialCommand}
-        filterQuery=""
-        selectedIndex={0}
-        copyFlashIndex={null}
-      />,
-    );
-    expect(screen.getByText('— Enriching...')).toBeInTheDocument();
+  describe('unenriched command', () => {
+    let getCommandDetail: ReturnType<typeof vi.fn>;
+    beforeEach(() => {
+      getCommandDetail = vi.fn().mockResolvedValue(null);
+      window.electronAPI = { getCommandDetail } as unknown as ElectronAPI;
+    });
+    afterEach(() => {
+      window.electronAPI = undefined as unknown as ElectronAPI;
+    });
+
+    it('shows enriching message and requests on-demand enrichment', () => {
+      const partialCommand: Command = { ...mockCommand, enrichment: 'basic' };
+      render(
+        <CommandDetailView
+          data={partialCommand}
+          filterQuery=""
+          selectedIndex={0}
+          copyFlashIndex={null}
+        />,
+      );
+      expect(screen.getByText('— Enriching...')).toBeInTheDocument();
+      expect(getCommandDetail).toHaveBeenCalledWith(mockCommand.name);
+    });
+
+    it('shows a loading status while a command without items enriches', () => {
+      render(
+        <CommandDetailView
+          data={{ ...mockCommand, enrichment: 'basic', subcommands: [], flags: [] }}
+          filterQuery=""
+          selectedIndex={0}
+          copyFlashIndex={null}
+        />,
+      );
+      expect(screen.getByTestId('detail-enriching')).toHaveTextContent('Enriching...');
+      expect(screen.getByRole('status')).toBeInTheDocument();
+    });
+
+    it('does not request enrichment for an enriched command', () => {
+      render(
+        <CommandDetailView data={mockCommand} filterQuery="" selectedIndex={0} copyFlashIndex={null} />,
+      );
+      expect(getCommandDetail).not.toHaveBeenCalled();
+    });
   });
 
   it('shows loading state', () => {

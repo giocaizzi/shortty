@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import type { Command, SubcommandDetail, CommandDetail, FlagDetail, ArgumentDetail } from '../../shared/types';
 import { Row } from './Row';
 import { SectionHeader } from './SectionHeader';
+import { useCommandEnrichment } from '../hooks/useCommandEnrichment';
 
 type DetailData = Pick<
   Command | SubcommandDetail,
@@ -62,6 +63,8 @@ export function CommandDetailView({
   );
 
   const isEnriching = data.enrichment === 'basic' || data.enrichment === 'none';
+  // Drilled into a command the background worker has not reached: enrich it now
+  useCommandEnrichment(data.enrichment === 'basic' && data.name ? data.name : null);
 
   const argsOffset = 0;
   const subcommandsOffset = filteredArguments.length;
@@ -178,7 +181,11 @@ export function CommandDetailView({
         )}
 
         {itemCount === 0 && !filterQuery && (
-          <div className="flex items-center justify-center py-8 text-[13px] text-fg-3">
+          <div
+            data-testid={isEnriching ? 'detail-enriching' : undefined}
+            role={isEnriching ? 'status' : undefined}
+            className="flex items-center justify-center py-8 text-[13px] text-fg-3"
+          >
             {isEnriching ? 'Enriching...' : 'No subcommands or flags documented'}
           </div>
         )}

@@ -1,4 +1,5 @@
-import { test, expect, waitForEnrichment, FAKE_COMMANDS } from './fixtures';
+import { rmSync } from 'node:fs';
+import { test, expect, waitForEnrichment, launchShortty, FAKE_COMMANDS } from './fixtures';
 
 test.describe('commands from the fixture PATH', () => {
   test.beforeEach(async ({ shortty }) => {
@@ -164,5 +165,39 @@ test.describe('commands from the fixture PATH', () => {
     await shortty.win.keyboard.press('Tab');
     await shortty.win.keyboard.press('Escape');
     await expect(shortty.win.getByTestId('command-row')).toHaveCount(2);
+  });
+});
+
+test.describe('drill-in before background enrichment', () => {
+  test('drilling in right after launch enriches that command on demand', async () => {
+    // Slow commands sorted before "gizmo": the background worker spends
+    // ~1s on each --help, one at a time, so it reaches gizmo last.
+    const slow = Object.fromEntries(
+      Array.from({ length: 12 }, (_, i) => [
+        `aaa-slow-${String(i).padStart(2, '0')}`,
+        'sleep 1\necho "Usage: slow [options]"\necho "  -x, --extra  Extra"',
+      ]),
+    );
+    const shortty = await launchShortty({ dismissAfterCopy: false }, slow);
+    try {
+      await expect
+        .poll(() => shortty.win.evaluate(async () =>
+          (await window.electronAPI.getAllCommands()).some((c) => c.name === 'gizmo' && c.enrichment === 'basic')))
+        .toBe(true);
+      await shortty.show();
+      await shortty.win.keyboard.type('>gizmo');
+      await shortty.selectRow(/^gizmo\b(?!-)/);
+      await shortty.win.keyboard.press('Tab');
+
+      await expect(shortty.win.getByTestId('subcommand-row').filter({ hasText: 'gizmo build' }))
+        .toBeVisible({ timeout: 8_000 });
+      await expect(shortty.win.getByTestId('detail-source')).toHaveText('Source: --help');
+      // The background worker is still far from done: the details came on demand.
+      const stats = await shortty.win.evaluate(() => window.electronAPI.getCommandsStats());
+      expect(stats.enriched).toBeLessThan(stats.total);
+    } finally {
+      await shortty.app.close();
+      rmSync(shortty.hermetic.dir, { recursive: true, force: true });
+    }
   });
 });

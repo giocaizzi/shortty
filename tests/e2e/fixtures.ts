@@ -95,8 +95,14 @@ export interface HermeticEnv {
   env: Record<string, string>;
 }
 
-/** Build a throwaway HOME, PATH and e2e data dir for one app launch. */
-export function createHermeticEnv(settings: Record<string, unknown> = {}): HermeticEnv {
+/**
+ * Build a throwaway HOME, PATH and e2e data dir for one app launch.
+ * `extraBins` adds executables (name → shell script body) to the fake PATH.
+ */
+export function createHermeticEnv(
+  settings: Record<string, unknown> = {},
+  extraBins: Record<string, string> = {},
+): HermeticEnv {
   // realpath: macOS tmpdir() is a /var -> /private/var symlink
   const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'shortty-e2e-')));
   const home = path.join(dir, 'home');
@@ -113,6 +119,10 @@ export function createHermeticEnv(settings: Record<string, unknown> = {}): Herme
   }
 
   for (const [name, help] of Object.entries(FAKE_BINS)) writeFakeBin(bin, name, help);
+  for (const [name, body] of Object.entries(extraBins)) {
+    writeFileSync(path.join(bin, name), `#!/bin/sh\nPATH=/usr/bin:/bin\n${body}\n`);
+    chmodSync(path.join(bin, name), 0o755);
+  }
 
   // Seed electron-store so nothing is registered with the OS on first run.
   writeFileSync(
@@ -249,11 +259,14 @@ export class Shortty {
 }
 
 /** Launch the built app against a fresh hermetic environment. */
-export async function launchShortty(settings: Record<string, unknown> = {}): Promise<Shortty> {
+export async function launchShortty(
+  settings: Record<string, unknown> = {},
+  extraBins: Record<string, string> = {},
+): Promise<Shortty> {
   if (!existsSync(MAIN_ENTRY)) {
     throw new Error(`${MAIN_ENTRY} missing: run \`make e2e\` (it builds first)`);
   }
-  const hermetic = createHermeticEnv(settings);
+  const hermetic = createHermeticEnv(settings, extraBins);
   const launchedAt = Date.now();
   const app = await electron.launch({ args: [ROOT], cwd: ROOT, env: hermetic.env });
   const win = await app.firstWindow();

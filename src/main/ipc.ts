@@ -120,7 +120,7 @@ export function registerIpcHandlers(
 
   ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_DETAIL, async (_event, name: string) => {
     await ready.commands;
-    return getCommandsEngine()?.getDetail(name) ?? null;
+    return (await getCommandsEngine()?.enrichNow(name)) ?? null;
   });
 
   ipcMain.handle(IPC_CHANNELS.COMMANDS_REFRESH, async () => {
