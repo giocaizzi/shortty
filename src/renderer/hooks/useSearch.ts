@@ -7,23 +7,18 @@ import { layoutSearchText, useKeyboardLayout } from '../lib/keyboard-layout';
 /** Shortcut plus the key text as it reads on the user's keyboard layout. */
 type IndexedShortcut = Shortcut & { layoutKey: string };
 
+/**
+ * Untruncated search results. Section limits and "Show all" are applied by
+ * the row model (components/result-rows.ts), so expanding a section never
+ * needs another search.
+ */
 export interface SearchResults {
   sources: { meta: ParserMeta; count: number }[];
   shortcuts: Shortcut[];
   commands: Command[];
-  totalSources: number;
-  totalShortcuts: number;
-  totalCommands: number;
 }
 
-const EMPTY_RESULTS: SearchResults = {
-  sources: [],
-  shortcuts: [],
-  commands: [],
-  totalSources: 0,
-  totalShortcuts: 0,
-  totalCommands: 0,
-};
+const EMPTY_RESULTS: SearchResults = { sources: [], shortcuts: [], commands: [] };
 
 /** Command search weights (SPECS §8.3): name, description, subcommand names. */
 export const COMMAND_FUSE_OPTIONS: IFuseOptions<Command> = {
@@ -58,24 +53,43 @@ export function searchCommands(fuse: Fuse<Command>, term: string): Command[] {
     .map((r) => r.item);
 }
 
+interface UseSearchOptions {
+  /**
+   * Drilled into a source: `shortcuts` is already that source's list. An empty
+   * query lists every entry in order, and sources/commands are never searched.
+   */
+  scoped?: boolean;
+}
+
 interface UseSearchReturn {
   query: string;
   setQuery: (q: string) => void;
   results: SearchResults;
 }
 
+/** Lowercase and drop everything but letters and digits: "VS Code" -> "vscode". */
+function compact(text: string): string {
+  return text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+}
+
+/**
+ * Source names match space- and punctuation-insensitively against the label
+ * and the id, so "vsc", "vscode" and "vs code" all find VS Code.
+ */
+function matchesSource(meta: ParserMeta, term: string): boolean {
+  const q = compact(term);
+  if (!q) return false;
+  return compact(meta.label).includes(q) || compact(meta.id).includes(q);
+}
+
 export function useSearch(
   shortcuts: Shortcut[],
   commands: Command[],
   sources: ParserMeta[],
+  { scoped = false }: UseSearchOptions = {},
 ): UseSearchReturn {
   const [query, setQuery] = useState('');
-  const {
-    search: searchSettings,
-    commandPrefixMode,
-    resultLimits,
-  } = useAppSettings();
-
+  const { search: searchSettings, commandPrefixMode } = useAppSettings();
   const layout = useKeyboardLayout();
 
   const shortcutFuseOptions = useMemo(
@@ -91,16 +105,13 @@ export function useSearch(
       ],
       threshold: searchSettings.threshold,
       ignoreLocation: true,
-      includeScore: true,
     }),
     [searchSettings],
   );
 
   const indexedShortcuts = useMemo(
-    (): IndexedShortcut[] => shortcuts.map((s) => ({
-      ...s,
-      layoutKey: layoutSearchText(s.strokes, layout),
-    })),
+    (): IndexedShortcut[] =>
+      shortcuts.map((s) => ({ ...s, layoutKey: layoutSearchText(s.strokes, layout) })),
     [shortcuts, layout],
   );
 
@@ -109,64 +120,55 @@ export function useSearch(
     [indexedShortcuts, shortcutFuseOptions],
   );
 
-  const commandFuse = useMemo(
-    () => new Fuse(commands, COMMAND_FUSE_OPTIONS),
-    [commands],
-  );
+  const commandFuse = useMemo(() => new Fuse(commands, COMMAND_FUSE_OPTIONS), [commands]);
+
+  const countsBySource = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of shortcuts) counts.set(s.source, (counts.get(s.source) ?? 0) + 1);
+    return counts;
+  }, [shortcuts]);
 
   const results = useMemo((): SearchResults => {
     const trimmed = query.trim();
-    if (!trimmed) return EMPTY_RESULTS;
 
-    const isCommandOnly = commandPrefixMode && trimmed.startsWith('>');
-    const searchTerm = isCommandOnly ? trimmed.slice(1).trim() : trimmed;
-
-    if (!searchTerm) return EMPTY_RESULTS;
-
-    // Search commands
-    const allCommandResults = searchCommands(commandFuse, searchTerm);
-
-    if (isCommandOnly) {
+    if (scoped) {
+      if (!trimmed) return { sources: [], shortcuts, commands: [] };
       return {
         sources: [],
-        shortcuts: [],
-        commands: allCommandResults.slice(0, resultLimits.commands),
-        totalSources: 0,
-        totalShortcuts: 0,
-        totalCommands: allCommandResults.length,
+        shortcuts: shortcutFuse.search(trimmed).map((r) => r.item),
+        commands: [],
       };
     }
 
-    // Search shortcuts
-    const allShortcutResults = shortcutFuse
-      .search(searchTerm)
-      .map((r) => r.item);
+    if (!trimmed) return EMPTY_RESULTS;
 
-    // Match sources by label
-    const lowerSearch = searchTerm.toLowerCase();
-    const matchedSources = sources
-      .filter((s) => s.label.toLowerCase().includes(lowerSearch))
-      .map((meta) => ({
-        meta,
-        count: shortcuts.filter((s) => s.source === meta.id).length,
-      }));
+    // Prefix mode: ">" searches commands only, anything else shortcuts only.
+    // Unified mode: one query searches everything.
+    const prefixed = commandPrefixMode && trimmed.startsWith('>');
+    const searchTerm = prefixed ? trimmed.slice(1).trim() : trimmed;
+    if (!searchTerm) return EMPTY_RESULTS;
+
+    const includeCommands = !commandPrefixMode || prefixed;
+    const includeShortcuts = !prefixed;
 
     return {
-      sources: matchedSources.slice(0, resultLimits.sources),
-      shortcuts: allShortcutResults.slice(0, resultLimits.shortcuts),
-      commands: allCommandResults.slice(0, resultLimits.commands),
-      totalSources: matchedSources.length,
-      totalShortcuts: allShortcutResults.length,
-      totalCommands: allCommandResults.length,
+      sources: includeShortcuts
+        ? sources
+            .filter((meta) => matchesSource(meta, searchTerm))
+            .map((meta) => ({ meta, count: countsBySource.get(meta.id) ?? 0 }))
+        : [],
+      shortcuts: includeShortcuts ? shortcutFuse.search(searchTerm).map((r) => r.item) : [],
+      commands: includeCommands ? searchCommands(commandFuse, searchTerm) : [],
     };
   }, [
     query,
+    scoped,
     commandPrefixMode,
-    resultLimits,
     shortcutFuse,
     commandFuse,
     sources,
     shortcuts,
+    countsBySource,
   ]);
 
   return { query, setQuery, results };
