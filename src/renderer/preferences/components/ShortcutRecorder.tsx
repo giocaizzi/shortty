@@ -1,5 +1,7 @@
 import { useState, type KeyboardEvent } from 'react';
+import type { KeyboardLayout } from '../../lib/keyboard-layout';
 import {
+  acceleratorHint,
   acceleratorToGlyphs,
   sameAccelerator,
   heldModifierGlyphs,
@@ -13,6 +15,8 @@ interface ShortcutRecorderProps {
   value: string;
   defaultValue: string;
   mac: boolean;
+  /** The user's keyboard layout, to label the recorded key as printed on it. */
+  layout: KeyboardLayout;
   /** Persist the accelerator; resolves to an error message, or null on success. */
   onSave: SaveShortcut;
   labelledBy?: string;
@@ -28,6 +32,7 @@ export function ShortcutRecorder({
   value,
   defaultValue,
   mac,
+  layout,
   onSave,
   labelledBy,
 }: ShortcutRecorderProps) {
@@ -78,6 +83,7 @@ export function ShortcutRecorder({
     if (recording) setHeld(heldModifierGlyphs(e, mac));
   };
 
+  const hint = acceleratorHint(value, mac, layout);
   const isDefault =
     sameAccelerator(value, defaultValue, mac);
 
@@ -107,7 +113,7 @@ export function ShortcutRecorder({
               <span className="pf-recorder-placeholder">Type shortcut</span>
             )
           ) : (
-            <Keycaps keys={acceleratorToGlyphs(value, mac)} />
+            <Keycaps keys={acceleratorToGlyphs(value, mac, layout)} />
           )}
         </button>
         {!isDefault && !recording && (
@@ -126,7 +132,12 @@ export function ShortcutRecorder({
           Press the new shortcut, or Esc to cancel.
         </div>
       )}
-      {feedback && <Message tone={feedback.tone}>{feedback.text}</Message>}
+      {feedback ? (
+        <Message tone={feedback.tone}>{feedback.text}</Message>
+      ) : (
+        !recording &&
+        hint && <div className="pf-recorder-hint">{hint}</div>
+      )}
     </div>
   );
 }

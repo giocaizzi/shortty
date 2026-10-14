@@ -1,4 +1,7 @@
+import { makeLayout } from '../../../src/renderer/lib/keyboard-layout';
+import { layoutMapOf } from '../../../src/renderer/lib/keyboard-layouts.data';
 import {
+  acceleratorHint,
   acceleratorToGlyphs,
   canonicalAccelerator,
   keyFromCode,
@@ -125,6 +128,27 @@ describe('acceleratorToGlyphs', () => {
 
   it('draws named keys as glyphs', () => {
     expect(acceleratorToGlyphs('Alt+Return', true)).toEqual(['⌥', '↩']);
+  });
+});
+
+describe('keycaps on the user\'s layout', () => {
+  const italian = makeLayout(layoutMapOf('it'));
+
+  it('labels a punctuation key as printed on an Italian keyboard', () => {
+    // Electron's "-" is the US Minus position, which is the "'" key on Italian.
+    expect(acceleratorToGlyphs('Control+Alt+-', true, italian)).toEqual(['⌃', '⌥', "'"]);
+    expect(acceleratorHint('Control+Alt+-', true, italian)).toMatch(/Physical key/);
+  });
+
+  it('keeps letters, digits and named keys unchanged', () => {
+    expect(acceleratorToGlyphs('Alt+Shift+K', true, italian)).toEqual(['⌥', '⇧', 'K']);
+    expect(acceleratorToGlyphs('Control+Shift+3', true, italian)).toEqual(['⌃', '⇧', '3']);
+    expect(acceleratorToGlyphs('Shift+Command+Space', true, italian)).toEqual(['⇧', '⌘', 'Space']);
+    expect(acceleratorHint('Alt+Shift+K', true, italian)).toBeUndefined();
+  });
+
+  it('uses the US labels by default', () => {
+    expect(acceleratorToGlyphs('Control+Alt+-', true)).toEqual(['⌃', '⌥', '-']);
   });
 });
 

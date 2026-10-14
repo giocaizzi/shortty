@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import type { AppSettings } from '../../../shared/settings';
 import { DEFAULT_SETTINGS } from '../../../shared/settings';
+import { useKeyboardLayout } from '../../lib/keyboard-layout';
 import { acceleratorToGlyphs } from '../lib/accelerator';
 import { isMacPlatform } from '../lib/platform';
 import type { UpdateSetting } from '../hooks/useSettings';
@@ -28,6 +29,7 @@ type VisibilityKey = 'showDockIcon' | 'showMenuBar';
 
 export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
   const mac = isMacPlatform();
+  const layout = useKeyboardLayout();
   const [pendingHide, setPendingHide] = useState<VisibilityKey | null>(null);
   const shortcutLabelId = useId();
 
@@ -52,8 +54,8 @@ export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
   const saveShortcut = async (accelerator: string): Promise<string | null> => {
     const result = await onUpdate('globalShortcut', accelerator);
     if (result.success) return null;
-    const wanted = acceleratorToGlyphs(accelerator, mac).join('');
-    const kept = acceleratorToGlyphs(settings.globalShortcut, mac).join('');
+    const wanted = acceleratorToGlyphs(accelerator, mac, layout).join('');
+    const kept = acceleratorToGlyphs(settings.globalShortcut, mac, layout).join('');
     return `Couldn't register ${wanted}. Another app or a system shortcut already uses it. Shortty kept ${kept}.`;
   };
 
@@ -100,6 +102,7 @@ export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
               value={settings.globalShortcut}
               defaultValue={DEFAULT_SETTINGS.globalShortcut}
               mac={mac}
+              layout={layout}
               onSave={saveShortcut}
               labelledBy={shortcutLabelId}
             />
@@ -150,7 +153,7 @@ export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
             aria-describedby="pf-hide-body"
           >
             <div className="pf-sheet-icon" aria-hidden="true">
-              <Keycaps keys={acceleratorToGlyphs(settings.globalShortcut, mac)} />
+              <Keycaps keys={acceleratorToGlyphs(settings.globalShortcut, mac, layout)} />
             </div>
             <h2 id="pf-hide-title" className="pf-sheet-title">
               Hide Shortty everywhere?

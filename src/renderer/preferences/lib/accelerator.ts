@@ -1,3 +1,6 @@
+import { usCodeForChar } from '../../../shared/keys';
+import { resolveStroke, US_KEYBOARD, type KeyboardLayout } from '../../lib/keyboard-layout';
+
 /**
  * Electron accelerator helpers for the global-shortcut recorder.
  *
@@ -242,25 +245,58 @@ const KEY_GLYPHS: Record<string, string> = {
   Plus: '+',
 };
 
-function keyLabel(key: string): string {
+/**
+ * A character key of an accelerator names a US key position (Electron
+ * registers by position). Label it with what that key prints on the user's
+ * layout: Italian "-" (US Minus) is the "'" key.
+ */
+function physicalKey(key: string, layout: KeyboardLayout): { text: string; hint?: string } | null {
+  if ([...key].length !== 1) return null;
+  const code = usCodeForChar(key);
+  if (!code) return null;
+  return resolveStroke({ mods: [], key: key.toUpperCase(), code }, layout);
+}
+
+function keyLabel(key: string, layout: KeyboardLayout): string {
   const glyph = KEY_GLYPHS[key];
   if (glyph) return glyph;
   const numpad = /^num(\d)$/.exec(key);
   if (numpad) return `Num ${numpad[1]}`;
+  const physical = physicalKey(key, layout);
+  if (physical) return physical.text;
   return key.length === 1 ? key.toUpperCase() : key;
 }
 
+function acceleratorKey(accelerator: string, mac: boolean): string | undefined {
+  return splitAccelerator(accelerator).find((part) => !modifierFromToken(part, mac));
+}
+
 /**
- * Keycap labels for an accelerator, modifiers first in platform order:
+ * Keycap labels for an accelerator, modifiers first in platform order, the
+ * key as printed on the user's layout:
  * "CommandOrControl+Shift+Space" -> ["⇧", "⌘", "Space"] on macOS.
  */
-export function acceleratorToGlyphs(accelerator: string, mac: boolean): string[] {
+export function acceleratorToGlyphs(
+  accelerator: string,
+  mac: boolean,
+  layout: KeyboardLayout = US_KEYBOARD,
+): string[] {
   const canonical = splitAccelerator(canonicalAccelerator(accelerator, mac));
   const labels = mac ? MAC_MODIFIER_GLYPHS : OTHER_MODIFIER_LABELS;
   return canonical.map((part) => {
     const mod = modifierFromToken(part, mac);
-    return mod ? labels[mod] : keyLabel(part);
+    return mod ? labels[mod] : keyLabel(part, layout);
   });
+}
+
+/** Explains a key whose label on the user's layout differs from the US one. */
+export function acceleratorHint(
+  accelerator: string,
+  mac: boolean,
+  layout: KeyboardLayout,
+): string | undefined {
+  const key = acceleratorKey(accelerator, mac);
+  return key ? physicalKey(key, layout)?.hint : undefined;
 }
 
 /** Keycap labels for the modifiers currently held while recording. */
