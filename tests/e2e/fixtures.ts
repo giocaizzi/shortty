@@ -96,7 +96,7 @@ export interface HermeticEnv {
 }
 
 /** Build a throwaway HOME, PATH and e2e data dir for one app launch. */
-function createHermeticEnv(settings: Record<string, unknown> = {}): HermeticEnv {
+export function createHermeticEnv(settings: Record<string, unknown> = {}): HermeticEnv {
   // realpath: macOS tmpdir() is a /var -> /private/var symlink
   const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'shortty-e2e-')));
   const home = path.join(dir, 'home');
@@ -146,6 +146,7 @@ interface E2EControls {
   hide: () => void;
   toggle: () => void;
   openPreferences: () => void;
+  isTrayVisible: () => boolean;
 }
 type E2EGlobal = typeof globalThis & { __shorttyE2E?: E2EControls };
 

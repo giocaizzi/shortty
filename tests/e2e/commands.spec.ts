@@ -64,7 +64,6 @@ test.describe('commands from the fixture PATH', () => {
   });
 
   test('Enter copies and then dismisses when "dismiss after copy" is on', async ({ shortty }) => {
-    knownBug('dismiss-after-copy calls window.blur() in the renderer, which does not hide the panel');
     await shortty.setSetting('dismissAfterCopy', true);
     await shortty.win.keyboard.type('>widget');
     await shortty.win.keyboard.press('Enter');

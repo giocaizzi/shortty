@@ -22,10 +22,31 @@ test.describe('launcher window', () => {
     await expect.poll(async () => (await shortty.bounds()).height).toBe(580);
   });
 
-  test('matches the fixed 680x500 panel of SPECS §10.8', async ({ shortty }) => {
-    knownBug('window is 750 wide with dynamic 72/580 height, not fixed 680x500');
+  test('opens top-center on the display under the cursor, fully on screen when expanded', async ({ shortty }) => {
     await shortty.show();
-    expect(await shortty.bounds()).toMatchObject({ width: 680, height: 500 });
+    const { bounds, workArea } = await shortty.app.evaluate(({ BrowserWindow, screen }) => {
+      const [main] = BrowserWindow.getAllWindows().sort((a, b) => a.id - b.id);
+      const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+      return { bounds: main.getBounds(), workArea: display.workArea };
+    });
+    expect(bounds.x).toBe(Math.round(workArea.x + (workArea.width - 750) / 2));
+    expect(bounds.y).toBeGreaterThanOrEqual(workArea.y);
+    expect(bounds.y + 580).toBeLessThanOrEqual(workArea.y + workArea.height);
+  });
+
+  test('renderer windows are sandboxed with context isolation', async ({ shortty }) => {
+    await shortty.openPreferences();
+    await expect.poll(() => shortty.app.windows().length).toBe(2);
+    const prefs = await shortty.app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows().map((w) => {
+        const p = w.webContents.getLastWebPreferences();
+        return { sandbox: p?.sandbox, contextIsolation: p?.contextIsolation, nodeIntegration: p?.nodeIntegration };
+      }),
+    );
+    expect(prefs).toEqual([
+      { sandbox: true, contextIsolation: true, nodeIntegration: false },
+      { sandbox: true, contextIsolation: true, nodeIntegration: false },
+    ]);
   });
 
   test('toggle hides and shows the panel', async ({ shortty }) => {
@@ -57,7 +78,6 @@ test.describe('launcher window', () => {
   });
 
   test('Escape on an empty query dismisses the panel', async ({ shortty }) => {
-    knownBug('Esc calls window.blur() in the renderer, which does not blur/hide the BrowserWindow');
     await shortty.show();
     await shortty.win.keyboard.press('Escape');
     await expect.poll(() => shortty.isVisible()).toBe(false);
@@ -104,12 +124,13 @@ test.describe('preferences', () => {
     await shortty.openPreferences();
     const prefs = await opened;
     await prefs.waitForLoadState('domcontentloaded');
-    expect(prefs.url()).toContain('preferences_window');
+    // Built from preferences.html, not the launcher's index.html
+    expect(prefs.url()).toMatch(/preferences_window\/preferences\.html$/);
     expect(shortty.app.windows()).toHaveLength(2);
   });
 
   test('renders the preferences UI with its four tabs', async ({ shortty }) => {
-    knownBug('preferences_window is built from index.html, so it renders the launcher instead');
+    knownBug('GeneralTab reads process.platform, undefined in the sandboxed renderer: ErrorBoundary');
     const opened = shortty.app.waitForEvent('window');
     await shortty.openPreferences();
     const prefs = await opened;

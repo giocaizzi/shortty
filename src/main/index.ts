@@ -14,15 +14,34 @@ import log from './logger';
 import { registerIpcHandlers } from './ipc';
 import { ParserRegistry } from './parsers/registry';
 import { startWatching, stopWatching, restartWatching } from './watcher';
-import { getSettings, getSetting, setSetting, onSettingsChange } from './settings-store';
-import { createTray, destroyTray } from './tray';
+import {
+  getSettings,
+  getSetting,
+  onSettingsChange,
+  resetSettings,
+} from './settings-store';
+import { syncTray, destroyTray, isTrayVisible } from './tray';
 import { openPreferencesWindow } from './preferences-window';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import type { AppSettings } from '../shared/settings';
 import { CommandsEngine } from './commands/engine';
+import {
+  WINDOW_WIDTH,
+  SEARCH_BAR_HEIGHT,
+  computeWindowPosition,
+  resizeBounds,
+} from './window-geometry';
+import { WindowHider } from './window-hider';
+
+// `shortty --reset-settings` (SPECS §9.1 escape hatch): restore defaults and quit.
+const resetRequested = process.argv.includes('--reset-settings');
 
 if (started) {
   app.quit();
+} else if (resetRequested) {
+  resetSettings();
+  log.info('Settings reset to defaults (--reset-settings)');
+  app.exit(0);
 }
 
 let mainWindow: BrowserWindow | null = null;
@@ -31,52 +50,40 @@ const parserRegistry = new ParserRegistry();
 
 const isDev = !!MAIN_WINDOW_VITE_DEV_SERVER_URL;
 
-const WINDOW_WIDTH = 750;
-const SEARCH_BAR_HEIGHT = 72;
-const MAX_WINDOW_HEIGHT = 580;
+/** Upper bound for the renderer's exit animation (80ms, SPECS §10.9) plus IPC. */
+const HIDE_ANIMATION_TIMEOUT_MS = 120;
 
-function getWindowPosition(
-  windowWidth: number,
-  windowHeight: number,
-): { x: number; y: number } {
-  const position = getSetting('windowPosition');
+const trayCallbacks = {
+  onToggle: () => toggleWindow(),
+  onPreferences: () => openPreferences(),
+};
 
-  if (position === 'mouse') {
-    const cursor = screen.getCursorScreenPoint();
-    const display = screen.getDisplayNearestPoint(cursor);
-    const { x: dx, y: dy, width: dw, height: dh } = display.workArea;
+function launcherAlive(): BrowserWindow | null {
+  return mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+}
 
-    return {
-      x: Math.min(
-        Math.max(cursor.x - windowWidth / 2, dx),
-        dx + dw - windowWidth,
-      ),
-      y: Math.min(
-        Math.max(cursor.y - windowHeight / 2, dy),
-        dy + dh - windowHeight,
-      ),
-    };
-  }
+const hider = new WindowHider({
+  timeoutMs: HIDE_ANIMATION_TIMEOUT_MS,
+  requestExit: (id) => {
+    launcherAlive()?.webContents.send(IPC_CHANNELS.WINDOW_WILL_HIDE, id);
+  },
+  hide: () => {
+    const win = launcherAlive();
+    if (!win) return;
+    win.hide();
+    win.webContents.send(IPC_CHANNELS.WINDOW_HIDDEN);
+  },
+});
 
-  const { width: screenWidth, height: screenHeight } =
-    screen.getPrimaryDisplay().workAreaSize;
-
-  if (position === 'center') {
-    return {
-      x: Math.round((screenWidth - windowWidth) / 2),
-      y: Math.round((screenHeight - windowHeight) / 2),
-    };
-  }
-
-  // top-center (default)
-  return {
-    x: Math.round((screenWidth - windowWidth) / 2),
-    y: Math.round(screenHeight * 0.2),
-  };
+/** Launcher position on the display under the cursor, per the windowPosition setting. */
+function getWindowPosition(): { x: number; y: number } {
+  const cursor = screen.getCursorScreenPoint();
+  const display = screen.getDisplayNearestPoint(cursor);
+  return computeWindowPosition(getSetting('windowPosition'), cursor, display.workArea);
 }
 
 function createWindow(): BrowserWindow {
-  const { x, y } = getWindowPosition(WINDOW_WIDTH, MAX_WINDOW_HEIGHT);
+  const { x, y } = getWindowPosition();
 
   const win = new BrowserWindow({
     width: WINDOW_WIDTH,
@@ -99,7 +106,7 @@ function createWindow(): BrowserWindow {
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -142,28 +149,33 @@ function createWindow(): BrowserWindow {
 }
 
 function showWindow(): void {
-  if (!mainWindow) return;
+  const win = launcherAlive();
+  if (!win) return;
+  // Showing again during the exit animation aborts the pending hide.
+  hider.cancel();
 
-  // Reposition and reset to compact search bar height
-  const { x, y } = getWindowPosition(WINDOW_WIDTH, MAX_WINDOW_HEIGHT);
-  mainWindow.setBounds({ x, y, width: WINDOW_WIDTH, height: SEARCH_BAR_HEIGHT });
+  // Reposition on the display under the cursor and reset to the compact bar
+  const { x, y } = getWindowPosition();
+  win.setBounds({ x, y, width: WINDOW_WIDTH, height: SEARCH_BAR_HEIGHT });
 
-  mainWindow.show();
+  win.show();
   app.focus({ steal: true });
-  mainWindow.focus();
-  mainWindow.webContents.focus();
-  mainWindow.webContents.send('window:shown');
+  win.focus();
+  win.webContents.focus();
+  win.webContents.send(IPC_CHANNELS.WINDOW_SHOWN);
 }
 
+/** Dismiss the launcher: the renderer plays its exit animation, then it hides. */
 function hideWindow(): void {
-  if (!mainWindow) return;
-  mainWindow.hide();
-  mainWindow.webContents.send('window:hidden');
+  const win = launcherAlive();
+  if (!win || !win.isVisible()) return;
+  hider.hide();
 }
 
 function toggleWindow(): void {
-  if (!mainWindow) return;
-  if (mainWindow.isVisible()) {
+  const win = launcherAlive();
+  if (!win) return;
+  if (win.isVisible() && !hider.hiding) {
     hideWindow();
   } else {
     showWindow();
@@ -171,13 +183,34 @@ function toggleWindow(): void {
 }
 
 function registerGlobalShortcut(accelerator: string): boolean {
-  const registered = globalShortcut.register(accelerator, toggleWindow);
+  let registered = false;
+  try {
+    registered = globalShortcut.register(accelerator, toggleWindow);
+  } catch (err) {
+    // Malformed accelerators throw instead of returning false
+    log.warn(`Invalid global shortcut: ${accelerator}`, err);
+  }
   if (registered) {
     log.info(`Global shortcut registered: ${accelerator}`);
   } else {
     log.warn(`Failed to register global shortcut: ${accelerator}`);
   }
   return registered;
+}
+
+/**
+ * Swap the global shortcut before the new value is saved (SETTINGS_SET).
+ * On failure the previous shortcut is re-registered and an error returned.
+ */
+function changeGlobalShortcut(accelerator: string): string | null {
+  const current = getSetting('globalShortcut');
+  if (accelerator === current || isE2E) return null;
+  log.info(`Global shortcut changing: ${current} -> ${accelerator}`);
+  globalShortcut.unregister(current);
+  if (registerGlobalShortcut(accelerator)) return null;
+  log.warn(`Keeping previous shortcut: ${current}`);
+  registerGlobalShortcut(current);
+  return `${accelerator} is already in use or is not a valid shortcut`;
 }
 
 function broadcastSettingsChange(settings: AppSettings): void {
@@ -202,6 +235,9 @@ function applyInitialSettings(): void {
       app.dock.hide();
     }
   }
+
+  // Menu bar icon
+  syncTray(settings.showMenuBar, trayCallbacks);
 
   // e2e runs must not register login items or grab the developer's hotkey
   if (isE2E) {
@@ -239,37 +275,28 @@ function setupSettingsChangeListener(): void {
       }
     }
 
-    // Launch at login
-    if (newSettings.launchAtLogin !== oldSettings.launchAtLogin) {
+    // Menu bar icon
+    if (newSettings.showMenuBar !== oldSettings.showMenuBar) {
+      syncTray(newSettings.showMenuBar, trayCallbacks);
+    }
+
+    // Launch at login (never registered by e2e runs)
+    if (newSettings.launchAtLogin !== oldSettings.launchAtLogin && !isE2E) {
       app.setLoginItemSettings({
         openAtLogin: newSettings.launchAtLogin,
       });
     }
 
-    // Global shortcut
-    if (newSettings.globalShortcut !== oldSettings.globalShortcut) {
-      log.info(`Global shortcut changing: ${oldSettings.globalShortcut} -> ${newSettings.globalShortcut}`);
-      globalShortcut.unregister(oldSettings.globalShortcut);
-      const registered = registerGlobalShortcut(newSettings.globalShortcut);
-      if (!registered) {
-        // Revert to old shortcut if new one fails
-        log.warn(`Reverting to previous shortcut: ${oldSettings.globalShortcut}`);
-        registerGlobalShortcut(oldSettings.globalShortcut);
-        setSetting('globalShortcut', oldSettings.globalShortcut);
-      }
-    }
+    // The global shortcut is applied by changeGlobalShortcut() before saving.
 
     // Commands engine toggle
     if (newSettings.commandsEnabled !== oldSettings.commandsEnabled) {
       log.info(`Commands engine ${newSettings.commandsEnabled ? 'enabled' : 'disabled'}`);
       if (newSettings.commandsEnabled && !commandsEngine) {
-        commandsEngine = new CommandsEngine(app.getPath('userData'));
-        commandsEngine.onUpdate((updated) => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send(IPC_CHANNELS.COMMANDS_ON_UPDATE, updated);
-          }
+        commandsEngine = createCommandsEngine();
+        commandsEngine.initialize().catch((err) => {
+          log.error('Commands engine failed to initialize', err);
         });
-        commandsEngine.initialize();
       } else if (!newSettings.commandsEnabled && commandsEngine) {
         commandsEngine.stop();
         commandsEngine = null;
@@ -286,10 +313,10 @@ function setupSettingsChangeListener(): void {
       parserRegistry
         .updateActiveParsers(newSettings.disabledParsers, newSettings.sourcePathOverrides)
         .then(() => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            restartWatching(parserRegistry, mainWindow);
-          }
-        });
+          const win = launcherAlive();
+          if (win) restartWatching(parserRegistry, win);
+        })
+        .catch((err) => log.error('Failed to update active parsers', err));
     }
 
     // Broadcast to all renderer windows
@@ -301,67 +328,107 @@ function openPreferences(): void {
   openPreferencesWindow();
 }
 
-ipcMain.on(IPC_CHANNELS.SET_WINDOW_HEIGHT, (_event, height: number) => {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  const clamped = Math.min(Math.max(height, SEARCH_BAR_HEIGHT), MAX_WINDOW_HEIGHT);
-  const [x, y] = mainWindow.getPosition();
-  mainWindow.setBounds({ x, y, width: WINDOW_WIDTH, height: clamped }, true);
+// --- Launcher window IPC (renderer -> main) ---
+
+function fromLauncher(event: Electron.IpcMainEvent): BrowserWindow | null {
+  const win = launcherAlive();
+  return win && event.sender === win.webContents ? win : null;
+}
+
+ipcMain.on(IPC_CHANNELS.SET_WINDOW_HEIGHT, (event, height: unknown) => {
+  const win = fromLauncher(event);
+  if (!win) return;
+  const current = win.getBounds();
+  const next = resizeBounds(current, height, screen.getDisplayMatching(current).workArea);
+  if (!next) return;
+  // Animate only a visible window (macOS); a hidden one just snaps.
+  win.setBounds(next, win.isVisible());
 });
 
-app.on('ready', async () => {
-  log.info('App starting');
-  mainWindow = createWindow();
+ipcMain.on(IPC_CHANNELS.WINDOW_HIDE, (event) => {
+  if (fromLauncher(event)) hideWindow();
+});
 
-  // Apply initial settings (shortcut, dock, theme, login items)
-  applyInitialSettings();
+ipcMain.on(IPC_CHANNELS.WINDOW_HIDE_READY, (event, id: unknown) => {
+  if (fromLauncher(event) && typeof id === 'number') hider.ack(id);
+});
 
-  // Listen for settings changes
-  setupSettingsChangeListener();
-
-  // System tray
-  createTray({
-    onToggle: toggleWindow,
-    onPreferences: openPreferences,
+function createCommandsEngine(): CommandsEngine {
+  const engine = new CommandsEngine(app.getPath('userData'));
+  engine.onUpdate((updated) => {
+    launcherAlive()?.webContents.send(IPC_CHANNELS.COMMANDS_ON_UPDATE, updated);
   });
+  return engine;
+}
 
-  // Initialize commands engine if enabled
-  if (getSetting('commandsEnabled')) {
-    try {
-      commandsEngine = new CommandsEngine(app.getPath('userData'));
-      commandsEngine.onUpdate((updated) => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send(IPC_CHANNELS.COMMANDS_ON_UPDATE, updated);
-        }
-      });
-      await commandsEngine.initialize();
-      log.info(`Commands engine initialized with ${commandsEngine.getAll().length} commands`);
-    } catch (err) {
-      log.error('Commands engine failed to initialize', err);
-      commandsEngine = null;
-    }
-  }
-
-  // Register IPC handlers
-  registerIpcHandlers(parserRegistry, { openPreferences }, () => commandsEngine);
-
-  // Initialize parsers (respecting disabled list and path overrides) and start file watching
-  const disabledParsers = getSetting('disabledParsers');
-  const pathOverrides = getSetting('sourcePathOverrides');
+/** Load parsers (respecting disabled list and path overrides), then watch their files. */
+async function initShortcuts(): Promise<void> {
   try {
-    await parserRegistry.initialize(disabledParsers, pathOverrides);
+    await parserRegistry.initialize(
+      getSetting('disabledParsers'),
+      getSetting('sourcePathOverrides'),
+    );
   } catch (err) {
     log.error('Parser registry initialization failed', err);
   }
-  startWatching(parserRegistry, mainWindow);
+  const win = launcherAlive();
+  if (win) startWatching(parserRegistry, win);
+}
+
+async function initCommands(): Promise<void> {
+  if (!getSetting('commandsEnabled')) return;
+  try {
+    commandsEngine = createCommandsEngine();
+    await commandsEngine.initialize();
+    log.info(`Commands engine initialized with ${commandsEngine.getAll().length} commands`);
+  } catch (err) {
+    log.error('Commands engine failed to initialize', err);
+    commandsEngine = null;
+  }
+}
+
+async function startup(): Promise<void> {
+  log.info('App starting');
+
+  // Environment setup that must finish before the engines read PATH/HOME
+  // (e.g. importing the login-shell PATH) chains in here.
+  const environmentReady: Promise<void> = Promise.resolve();
+
+  // Both engines load in parallel; neither promise rejects.
+  const shortcutsReady = environmentReady.then(initShortcuts);
+  const commandsReady = environmentReady.then(initCommands);
+
+  // Register IPC before any await so an early renderer never hits
+  // "No handler registered"; data handlers wait for the engines.
+  registerIpcHandlers(
+    parserRegistry,
+    { openPreferences, changeGlobalShortcut },
+    () => commandsEngine,
+    { shortcuts: shortcutsReady, commands: commandsReady },
+  );
+
+  mainWindow = createWindow();
+
+  // Apply initial settings (theme, dock, menu bar, login item, shortcut)
+  applyInitialSettings();
+  setupSettingsChangeListener();
+
+  await Promise.all([shortcutsReady, commandsReady]);
 
   exposeE2EControls({
     show: showWindow,
     hide: hideWindow,
     toggle: toggleWindow,
     openPreferences,
+    isTrayVisible,
   });
 
   log.info('App ready');
+}
+
+app.on('ready', () => {
+  if (started || resetRequested) return;
+  void startup();
 });
 
 app.on('will-quit', () => {

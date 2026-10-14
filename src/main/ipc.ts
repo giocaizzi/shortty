@@ -8,24 +8,46 @@ import type { CommandsEngine } from './commands/engine';
 
 let registered = false;
 
+export interface IpcCallbacks {
+  openPreferences: () => void;
+  /**
+   * Apply a new global shortcut before it is saved. Returns an error message
+   * when the accelerator cannot be registered (the old one stays active).
+   */
+  changeGlobalShortcut: (accelerator: string) => string | null;
+}
+
+/**
+ * Startup milestones the data handlers wait for. Handlers are registered
+ * before any startup await (so the renderer never hits "No handler
+ * registered"); a call made while the engines are still loading resolves once
+ * they are ready instead of returning empty data. Both must never reject.
+ */
+export interface IpcReadiness {
+  shortcuts: Promise<unknown>;
+  commands: Promise<unknown>;
+}
+
 export function registerIpcHandlers(
   registry: ParserRegistry,
-  callbacks: {
-    openPreferences: () => void;
-  },
+  callbacks: IpcCallbacks,
   getCommandsEngine: () => CommandsEngine | null,
+  ready: IpcReadiness,
 ): void {
   if (registered) return;
   registered = true;
-  ipcMain.handle(IPC_CHANNELS.GET_SOURCES, () => {
+  ipcMain.handle(IPC_CHANNELS.GET_SOURCES, async () => {
+    await ready.shortcuts;
     return registry.getSources();
   });
 
-  ipcMain.handle(IPC_CHANNELS.GET_AVAILABLE_SOURCES, () => {
+  ipcMain.handle(IPC_CHANNELS.GET_AVAILABLE_SOURCES, async () => {
+    await ready.shortcuts;
     return registry.getAvailableSources();
   });
 
-  ipcMain.handle(IPC_CHANNELS.GET_ALL_SOURCES, (): SourceStatus[] => {
+  ipcMain.handle(IPC_CHANNELS.GET_ALL_SOURCES, async (): Promise<SourceStatus[]> => {
+    await ready.shortcuts;
     return registry.getAllSources().map((s) => ({
       id: s.id,
       label: s.label,
@@ -39,15 +61,18 @@ export function registerIpcHandlers(
     }));
   });
 
-  ipcMain.handle(IPC_CHANNELS.GET_ALL, () => {
+  ipcMain.handle(IPC_CHANNELS.GET_ALL, async () => {
+    await ready.shortcuts;
     return registry.getAllCached();
   });
 
-  ipcMain.handle(IPC_CHANNELS.GET_BY_SOURCE, (_event, sourceId: string) => {
+  ipcMain.handle(IPC_CHANNELS.GET_BY_SOURCE, async (_event, sourceId: string) => {
+    await ready.shortcuts;
     return registry.getCachedBySource(sourceId);
   });
 
   ipcMain.handle(IPC_CHANNELS.REFRESH, async () => {
+    await ready.shortcuts;
     return registry.parseAll();
   });
 
@@ -59,6 +84,13 @@ export function registerIpcHandlers(
     IPC_CHANNELS.SETTINGS_SET,
     (_event, key: keyof AppSettings, value: unknown) => {
       try {
+        if (key === 'globalShortcut') {
+          if (typeof value !== 'string' || !value) {
+            return { success: false, error: 'Invalid shortcut' };
+          }
+          const error = callbacks.changeGlobalShortcut(value);
+          if (error) return { success: false, error };
+        }
         setSetting(key, value as AppSettings[typeof key]);
         return { success: true };
       } catch (error) {
@@ -75,11 +107,13 @@ export function registerIpcHandlers(
   });
 
   // Commands handlers
-  ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_ALL, () => {
+  ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_ALL, async () => {
+    await ready.commands;
     return getCommandsEngine()?.getAll() ?? [];
   });
 
-  ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_DETAIL, (_event, name: string) => {
+  ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_DETAIL, async (_event, name: string) => {
+    await ready.commands;
     return getCommandsEngine()?.getDetail(name) ?? null;
   });
 

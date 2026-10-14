@@ -28,6 +28,7 @@ interface E2EControls {
   hide: () => void;
   toggle: () => void;
   openPreferences: () => void;
+  isTrayVisible: () => boolean;
 }
 
 /**

@@ -56,7 +56,8 @@ and the app is launched with only these environment variables:
 The fake home gets the fixtures at the macOS default paths the cheatsheets
 declare (VS Code `keybindings.json`, Ghostty config, Chrome `Preferences`,
 `.zshrc`, `.vimrc`, `.bashrc`, `.inputrc`, an Obsidian vault). `config.json` is
-pre-seeded with `launchAtLogin: false`. No real config, `~/Library` file,
+pre-seeded with `launchAtLogin: false` and `commandPrefixMode: true` (the specs
+exercise the `>` prefix; the app default is off). No real config, `~/Library` file,
 `man`/`whatis` database or developer binary is read.
 
 What the hook (`src/main/e2e.ts`) does when `SHORTTY_E2E=1`, and nothing else:
@@ -67,11 +68,11 @@ What the hook (`src/main/e2e.ts`) does when `SHORTTY_E2E=1`, and nothing else:
 - skips the login-item and global-shortcut registration, so a run never grabs
   `Cmd+Shift+Space` from a running Shortty;
 - exposes `globalThis.__shorttyE2E` (`show`, `hide`, `toggle`,
-  `openPreferences`) to `electronApp.evaluate()` once startup finished; its
-  presence is the "app ready" signal.
+  `openPreferences`, `isTrayVisible`) to `electronApp.evaluate()` once startup
+  finished; its presence is the "app ready" signal.
 
-Security settings (`contextIsolation`, `nodeIntegration: false`, fuses) are
-unchanged. The only shared OS resource touched is the clipboard; the fixture
+Security settings (`sandbox`, `contextIsolation`, `nodeIntegration: false`,
+fuses) are unchanged. The only shared OS resource touched is the clipboard; the fixture
 saves it before a test and restores it after.
 
 | Variable (test runner) | Effect |

@@ -24,7 +24,7 @@ export function openPreferencesWindow(): void {
     trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
     },

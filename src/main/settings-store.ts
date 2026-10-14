@@ -23,6 +23,11 @@ export function setSetting<K extends keyof AppSettings>(
   store.set(key, value);
 }
 
+/** Restore every setting to its default (`shortty --reset-settings`). */
+export function resetSettings(): void {
+  store.clear();
+}
+
 export function onSettingsChange(
   callback: (newValue: AppSettings, oldValue: AppSettings) => void,
 ): () => void {

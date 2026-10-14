@@ -3,6 +3,23 @@ import { IPC_CHANNELS } from '../shared/ipc-channels';
 import type { Shortcut, ParserMeta, Command, SubcommandDetail, SourceStatus } from '../shared/types';
 import type { AppSettings } from '../shared/settings';
 
+// Exit-animation listeners (see onWindowWillHide). The preload answers every
+// will-hide request itself, once all listeners settled, so main never waits
+// for its timeout when nothing animates.
+const willHideListeners = new Set<() => void | Promise<void>>();
+ipcRenderer.on(IPC_CHANNELS.WINDOW_WILL_HIDE, (_event, id: number) => {
+  const pending = Array.from(willHideListeners, (cb) => {
+    try {
+      return Promise.resolve(cb());
+    } catch {
+      return Promise.resolve();
+    }
+  });
+  Promise.allSettled(pending).then(() => {
+    ipcRenderer.send(IPC_CHANNELS.WINDOW_HIDE_READY, id);
+  });
+});
+
 const electronAPI = {
   getSources(): Promise<ParserMeta[]> {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_SOURCES);
@@ -41,14 +58,14 @@ const electronAPI = {
 
   onWindowShown(cb: () => void): () => void {
     const handler = () => cb();
-    ipcRenderer.on('window:shown', handler);
-    return () => ipcRenderer.removeListener('window:shown', handler);
+    ipcRenderer.on(IPC_CHANNELS.WINDOW_SHOWN, handler);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.WINDOW_SHOWN, handler);
   },
 
   onWindowHidden(cb: () => void): () => void {
     const handler = () => cb();
-    ipcRenderer.on('window:hidden', handler);
-    return () => ipcRenderer.removeListener('window:hidden', handler);
+    ipcRenderer.on(IPC_CHANNELS.WINDOW_HIDDEN, handler);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.WINDOW_HIDDEN, handler);
   },
 
   getSettings(): Promise<AppSettings> {
@@ -106,6 +123,28 @@ const electronAPI = {
 
   setWindowHeight(height: number): void {
     ipcRenderer.send(IPC_CHANNELS.SET_WINDOW_HEIGHT, height);
+  },
+
+  // --- Launcher window lifecycle (main-process package) ---
+
+  /** OS platform (`process` itself is not available in the renderers). */
+  platform: process.platform,
+
+  /** Dismiss the launcher. Main plays the exit animation, then hides. */
+  hideWindow(): void {
+    ipcRenderer.send(IPC_CHANNELS.WINDOW_HIDE);
+  },
+
+  /**
+   * Called when the launcher is about to hide. Return a promise to delay the
+   * hide until it settles (e.g. an 80ms exit animation); main hides anyway
+   * after ~120ms. Returns an unsubscribe function.
+   */
+  onWindowWillHide(cb: () => void | Promise<void>): () => void {
+    willHideListeners.add(cb);
+    return () => {
+      willHideListeners.delete(cb);
+    };
   },
 };
 

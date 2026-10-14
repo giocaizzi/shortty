@@ -15,7 +15,8 @@ function getTrayIconPath(): string {
   return path.join(app.getAppPath(), 'src/assets/tray-iconTemplate.png');
 }
 
-export function createTray(callbacks: TrayCallbacks): Tray {
+function createTray(callbacks: TrayCallbacks): void {
+  if (tray) return;
   const icon = nativeImage.createFromPath(getTrayIconPath());
 
   tray = new Tray(icon);
@@ -30,11 +31,22 @@ export function createTray(callbacks: TrayCallbacks): Tray {
   ]);
 
   tray.setContextMenu(contextMenu);
-
-  return tray;
 }
 
 export function destroyTray(): void {
   tray?.destroy();
   tray = null;
+}
+
+/** Create or destroy the menu-bar icon to match the "Show in Menu Bar" setting. */
+export function syncTray(visible: boolean, callbacks: TrayCallbacks): void {
+  if (visible) {
+    createTray(callbacks);
+  } else {
+    destroyTray();
+  }
+}
+
+export function isTrayVisible(): boolean {
+  return tray !== null;
 }

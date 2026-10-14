@@ -142,7 +142,7 @@ export function App() {
       setCopyFlashIndex(index);
       setTimeout(() => setCopyFlashIndex(null), 300);
       if (dismissAfterCopy) {
-        setTimeout(() => window.blur(), 300);
+        setTimeout(() => window.electronAPI.hideWindow(), 300);
       }
     },
     [dismissAfterCopy],
@@ -346,7 +346,7 @@ export function App() {
           } else if (navStack.length > 1) {
             popLevel();
           } else {
-            window.blur();
+            window.electronAPI.hideWindow();
           }
           break;
       }
