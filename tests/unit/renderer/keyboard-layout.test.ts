@@ -182,6 +182,22 @@ describe('detectLayout', () => {
     expect(detectLayout(layoutMapOf(id))?.id).toBe(id);
   });
 
+  it('recognises a real getLayoutMap() result (Italian, Electron 44 on macOS)', () => {
+    const real = new Map(Object.entries({
+      IntlYen: '\\', KeyK: 'k', KeyG: 'g', Digit2: '2', Digit0: '0', KeyV: 'v', KeyA: 'a', Backquote: '<',
+      KeyL: 'l', IntlBackslash: '\\', Quote: 'à', KeyW: 'w', Digit8: '8', KeyM: 'm', KeyH: 'h', Period: '.',
+      Digit7: '7', Digit1: '1', KeyP: 'p', KeyD: 'd', KeyF: 'f', KeyO: 'o', KeyQ: 'q', KeyC: 'c', KeyN: 'n',
+      BracketLeft: 'è', KeyZ: 'z', KeyY: 'y', Digit3: '3', Digit6: '6', Digit5: '5', KeyX: 'x', Slash: '-',
+      Backslash: 'ù', Comma: ',', Minus: "'", Digit4: '4', KeyB: 'b', KeyT: 't', Digit9: '9', KeyS: 's',
+      KeyI: 'i', KeyU: 'u', IntlRo: '<', Equal: 'ì', KeyJ: 'j', Semicolon: 'ò', KeyR: 'r', BracketRight: '+',
+      KeyE: 'e',
+    }));
+    expect(detectLayout(real)?.id).toBe('it');
+    // the built-in table agrees with the real map on every key it lists
+    for (const [code, ch] of layoutMapOf('it')) expect(real.get(code), code).toBe(ch);
+    expect(resolveStroke(S.charBracket, makeLayout(real)).hint).toBe('Type “[” with ⌥È on your keyboard.');
+  });
+
   it('returns null for an unknown layout', () => {
     const map = new Map(layoutMapOf('us'));
     for (const code of ['KeyQ', 'KeyW', 'Semicolon', 'Quote', 'BracketLeft']) map.set(code, 'x');

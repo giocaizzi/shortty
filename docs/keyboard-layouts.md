@@ -112,8 +112,9 @@ layout (Italian `?` is ⇧', `>` is ⇧<). Covered by
 - The shift/⌥ tables cover the layouts above (macOS variants); other
   layouts get only the generic hint. Dead keys (`^`, `` ` ``, `´`) are
   shown as their character.
-- On ISO keyboards the key left of 1 and the key left of Z
-  (`IntlBackslash` / `Backquote`) are mapped as Chromium does on macOS;
-  they are excluded from layout recognition.
+- On ISO Macs Chromium reports the key left of 1 as `IntlBackslash` and
+  the key left of Z as `Backquote` (verified with `getLayoutMap()` on an
+  Italian Mac: `IntlBackslash` → `\`, `Backquote` → `<`). They are
+  excluded from layout recognition.
 - Copy to clipboard (Enter) copies the US-based `key` string.
 - Terminal sources show Meta as ⌥ (macOS terminals with "Option as Meta").
