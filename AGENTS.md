@@ -18,6 +18,8 @@ make knip                # Find unused files, deps, and exports (knip)
 make precommit           # Run lint + typecheck + test + knip (used by git pre-commit hook)
 make setup-hooks         # Install git pre-commit hook
 make check               # Run lint + test (what CI's required `check` job gates on)
+make e2e                 # Build, then run the Playwright e2e suite on the real app (slow, local macOS, not in check)
+make e2e-benchmark       # Build, then write timings/screenshots to docs/wip/benchmark (LABEL=baseline)
 make help                # List targets
 ```
 
@@ -71,6 +73,7 @@ Startup → ParserRegistry discovers & parses → cache → chokidar watches con
 - Parser tests mock `getConfigPaths()` to point at `fixtures/` directory
 - Component tests use `@testing-library/react`
 - Test files: `tests/unit/parsers/*.test.ts`, `tests/components/*.test.tsx`
+- End-to-end: Playwright `_electron` specs in `tests/e2e/*.spec.ts` drive the built app in a hermetic mode (`SHORTTY_E2E=1`, `src/main/e2e.ts`). Known bugs are `knownBug(...)` fixmes. See [docs/e2e.md](docs/e2e.md); baseline findings in [docs/wip/benchmark.md](docs/wip/benchmark.md).
 
 ## Window Configuration
 

@@ -16,6 +16,7 @@ export function SourceRow({
   return (
     <div
       data-index={dataIndex}
+      data-testid="source-row"
       role="option"
       aria-selected={selected}
       style={{ padding: '12px 28px' }}

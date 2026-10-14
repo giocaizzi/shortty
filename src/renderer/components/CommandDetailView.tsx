@@ -154,6 +154,7 @@ export function CommandDetailView({
                 <div
                   key={sc.name}
                   data-index={idx}
+                  data-testid="subcommand-row"
                   role="option"
                   aria-selected={idx === selectedIndex}
                   style={{ padding: '12px 28px' }}
@@ -196,6 +197,7 @@ export function CommandDetailView({
                 <div
                   key={flagName}
                   data-index={idx}
+                  data-testid="flag-row"
                   role="option"
                   aria-selected={idx === selectedIndex}
                   className={`

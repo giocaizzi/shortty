@@ -19,6 +19,7 @@ export function ShortcutRow({
   return (
     <div
       data-index={dataIndex}
+      data-testid="shortcut-row"
       role="option"
       aria-selected={selected}
       style={{ padding: '12px 28px' }}

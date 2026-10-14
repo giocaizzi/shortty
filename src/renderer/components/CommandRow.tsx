@@ -16,6 +16,7 @@ export function CommandRow({
   return (
     <div
       data-index={dataIndex}
+      data-testid="command-row"
       role="option"
       aria-selected={selected}
       style={{ padding: '12px 28px' }}

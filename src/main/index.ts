@@ -1,3 +1,5 @@
+// Must stay first: redirects app paths before settings-store reads them.
+import { isE2E, exposeE2EControls } from './e2e';
 import {
   app,
   BrowserWindow,
@@ -201,6 +203,12 @@ function applyInitialSettings(): void {
     }
   }
 
+  // e2e runs must not register login items or grab the developer's hotkey
+  if (isE2E) {
+    log.info('E2E mode: skipping login item and global shortcut registration');
+    return;
+  }
+
   // Launch at login
   app.setLoginItemSettings({
     openAtLogin: settings.launchAtLogin,
@@ -345,6 +353,13 @@ app.on('ready', async () => {
     log.error('Parser registry initialization failed', err);
   }
   startWatching(parserRegistry, mainWindow);
+
+  exposeE2EControls({
+    show: showWindow,
+    hide: hideWindow,
+    toggle: toggleWindow,
+    openPreferences,
+  });
 
   log.info('App ready');
 });
