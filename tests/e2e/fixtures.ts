@@ -193,8 +193,14 @@ export class Shortty {
     }).toPass({ timeout: 10_000 });
   }
 
+  /**
+   * Hide the launcher and wait until it is gone: the hide waits for the
+   * renderer's exit animation, so an immediate show() would otherwise see a
+   * still-visible window, skip, and then lose it to the delayed hide.
+   */
   async hide(): Promise<void> {
     await this.app.evaluate(() => (globalThis as E2EGlobal).__shorttyE2E?.hide());
+    await expect.poll(() => this.isVisible(), { timeout: 2_000 }).toBe(false);
   }
 
   async toggle(): Promise<void> {
