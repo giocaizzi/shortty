@@ -619,15 +619,10 @@ input {
   gap: 10px;
 }
 
-.pf-source-icon {
-  display: inline-grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  background: var(--pf-segment-track);
-  font-size: 15px;
-  flex-shrink: 0;
+/* Same monogram tiles as the launcher (SourceIcon); the glyph is drawn by
+   CSS so it stays out of the row's text. */
+.source-icon::after {
+  content: attr(data-glyph);
 }
 
 .pf-source-title {

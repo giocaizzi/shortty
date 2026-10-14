@@ -3,6 +3,7 @@ import type { AppSettings } from '../../../shared/settings';
 import type { SourceStatus } from '../../../shared/types';
 import type { PathCheck } from '../../../preload/preload';
 import type { UpdateSetting } from '../hooks/useSettings';
+import { SourceIcon } from '../../components/SourceIcon';
 import { Badge, Message, PaneHeader, Section, Switch } from './controls';
 import { isImeComposing } from '../../lib/ime';
 
@@ -166,9 +167,7 @@ function SourceCard({ source, enabled, override, onToggle, onCommitOverride }: S
     <div className="pf-source" data-testid="source-card">
       <div className="pf-row pf-source-header">
         <div className="pf-row-main">
-          <span className="pf-source-icon" aria-hidden="true">
-            {source.icon}
-          </span>
+          <SourceIcon id={source.id} label={source.label} size={26} />
           <div className="pf-row-text">
             <div className="pf-source-title">
               <span className="pf-row-label" id={titleId}>

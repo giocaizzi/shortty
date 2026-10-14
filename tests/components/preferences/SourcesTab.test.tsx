@@ -44,6 +44,15 @@ describe('SourcesTab', () => {
     expect(within(nth(cards, 2)).getByText(/no config file/)).toBeInTheDocument();
   });
 
+  it('shows the launcher monogram tile, not the cheatsheet emoji', async () => {
+    setup([makeSource()]);
+    const [card] = await screen.findAllByTestId('source-card');
+    const tile = card.querySelector('[data-source-icon]');
+    expect(tile).toHaveAttribute('data-source-icon', 'ghostty');
+    expect(tile).toHaveAttribute('data-glyph', 'Gh');
+    expect(card).not.toHaveTextContent('👻');
+  });
+
   it('marks each config path as existing or missing', async () => {
     setup([
       makeSource({ configPaths: ['/home/me/.config/ghostty/config', '/home/me/missing/config'] }),
