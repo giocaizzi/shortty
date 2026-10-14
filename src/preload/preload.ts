@@ -146,7 +146,25 @@ const electronAPI = {
       willHideListeners.delete(cb);
     };
   },
+
+  // Preferences window (WP-F)
+
+  /** Native open dialog for a config file or folder; null when cancelled. */
+  pickPath(defaultPath?: string): Promise<string | null> {
+    return ipcRenderer.invoke(IPC_CHANNELS.PREFS_PICK_PATH, defaultPath);
+  },
+
+  /** Expand ~ and env vars in each path and report whether it exists. */
+  checkPaths(paths: string[]): Promise<PathCheck[]> {
+    return ipcRenderer.invoke(IPC_CHANNELS.PREFS_CHECK_PATHS, paths);
+  },
 };
+
+export interface PathCheck {
+  path: string;
+  resolved: string;
+  exists: boolean;
+}
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);
 

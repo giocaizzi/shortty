@@ -33,4 +33,8 @@ export const IPC_CHANNELS = {
   WINDOW_WILL_HIDE: 'window:will-hide',
   /** main -> renderer: the launcher is now hidden. */
   WINDOW_HIDDEN: 'window:hidden',
+
+  // Preferences window (WP-F)
+  PREFS_PICK_PATH: 'prefs:pickPath',
+  PREFS_CHECK_PATHS: 'prefs:checkPaths',
 } as const;
