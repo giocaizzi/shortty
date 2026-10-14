@@ -23,7 +23,8 @@ import {
   resetSettings,
 } from './settings-store';
 import { syncTray, destroyTray, isTrayVisible } from './tray';
-import { openPreferencesWindow } from './preferences-window';
+import { openPreferencesWindow, preferencesLocation } from './preferences-window';
+import { guardWebContents, type AppLocations } from './navigation-guard';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import type { AppSettings } from '../shared/settings';
 import { CommandsEngine } from './commands/engine';
@@ -66,6 +67,20 @@ let quitting = false;
 const parserRegistry = new ParserRegistry();
 
 const isDev = !!MAIN_WINDOW_VITE_DEV_SERVER_URL;
+
+const LAUNCHER_HTML = path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`);
+
+// Every renderer (launcher, preferences) only ever shows the app's own pages.
+const appLocations: AppLocations = {
+  devOrigins: [MAIN_WINDOW_VITE_DEV_SERVER_URL, preferencesLocation().devUrl]
+    .filter((u): u is string => !!u)
+    .map((u) => new URL(u).origin),
+  files: [LAUNCHER_HTML, preferencesLocation().file],
+};
+app.on('web-contents-created', (_event, contents) => {
+  // App windows only: DevTools (development) runs its own devtools:// pages
+  if (contents.getType() === 'window') guardWebContents(contents, appLocations);
+});
 
 /** Upper bound for the renderer's exit animation (80ms, docs/spec.md §10.9) plus IPC. */
 const HIDE_ANIMATION_TIMEOUT_MS = 120;
@@ -146,9 +161,7 @@ function createWindow(): BrowserWindow {
     });
     win.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    win.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-    );
+    win.loadFile(LAUNCHER_HTML);
   }
 
   if (isDev && process.env.DEVTOOLS === '1') {
