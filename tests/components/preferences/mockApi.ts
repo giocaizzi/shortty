@@ -5,10 +5,13 @@ import { DEFAULT_SETTINGS } from '../../../src/shared/settings';
 import type { SourceStatus } from '../../../src/shared/types';
 
 /**
- * In-memory stand-in for window.electronAPI: setSetting writes to `store`,
- * getSettings reads it back, so read-after-write behaves like the real store.
+ * In-memory stand-in for window.electronAPI: setSetting writes to `store` and
+ * broadcasts the result to onSettingsChange listeners, like the main process.
  */
-export function installMockApi(initial: Partial<AppSettings> = {}) {
+export function installMockApi(
+  initial: Partial<AppSettings> = {},
+  platform: NodeJS.Platform = 'darwin',
+) {
   const store: AppSettings = structuredClone({ ...DEFAULT_SETTINGS, ...initial });
   const listeners = new Set<(s: AppSettings) => void>();
 
@@ -25,6 +28,7 @@ export function installMockApi(initial: Partial<AppSettings> = {}) {
     getSettings: vi.fn(async () => structuredClone(store)),
     setSetting: vi.fn(async (key: keyof AppSettings, value: unknown) => {
       Object.assign(store, { [key]: value });
+      listeners.forEach((l) => l(structuredClone(store)));
       return { success: true };
     }),
     onSettingsChange: vi.fn((cb: (s: AppSettings) => void) => {
@@ -39,6 +43,9 @@ export function installMockApi(initial: Partial<AppSettings> = {}) {
     getSubcommandDetail: vi.fn(async () => null),
     getCommandsStats: vi.fn(async () => ({ total: 0, enriched: 0, running: false })),
     setWindowHeight: vi.fn(),
+    platform,
+    hideWindow: vi.fn(),
+    onWindowWillHide: vi.fn(() => () => undefined),
     pickPath: vi.fn(async (): Promise<string | null> => null),
     checkPaths: vi.fn(async (paths: string[]) =>
       paths.map((p) => ({ path: p, resolved: p, exists: !p.includes('missing') })),

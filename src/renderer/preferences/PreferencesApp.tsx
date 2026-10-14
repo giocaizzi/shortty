@@ -1,5 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useSettings } from './hooks/useSettings';
+import { useAppliedTheme } from './hooks/useAppliedTheme';
 import { GeneralTab } from './components/GeneralTab';
 import { SourcesTab } from './components/SourcesTab';
 import { SearchTab } from './components/SearchTab';
@@ -61,6 +62,7 @@ export function PreferencesApp() {
   const { settings, loading, updateSetting } = useSettings();
   const [activeTab, setActiveTab] = useState<Tab>('general');
   const navRef = useRef<HTMLElement>(null);
+  useAppliedTheme(settings?.theme);
 
   // Up/Down move through the sidebar like a native source list.
   const handleNavKeyDown = (e: KeyboardEvent<HTMLElement>) => {

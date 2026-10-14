@@ -1,8 +1,7 @@
 /**
- * Platform detection for the renderer. `process` does not exist here
- * (contextIsolation, no nodeIntegration), so read it from the navigator.
+ * Whether the app runs on macOS. `process` does not exist in the sandboxed
+ * renderer, so the preload exposes the platform.
  */
 export function isMacPlatform(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  return /mac/i.test(navigator.platform || navigator.userAgent);
+  return window.electronAPI.platform === 'darwin';
 }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, render, renderHook, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PreferencesApp } from '../../../src/renderer/preferences/PreferencesApp';
-import { NOT_APPLIED, useSettings } from '../../../src/renderer/preferences/hooks/useSettings';
+import { useSettings } from '../../../src/renderer/preferences/hooks/useSettings';
 import { DEFAULT_SETTINGS } from '../../../src/shared/settings';
 import { installMockApi } from './mockApi';
 
@@ -15,6 +15,20 @@ describe('useSettings', () => {
 
     act(() => emit({ ...DEFAULT_SETTINGS, theme: 'light' }));
     expect(result.current.settings?.theme).toBe('light');
+  });
+
+  it('passes refusals from the main process through', async () => {
+    const { api } = installMockApi();
+    api.setSetting.mockResolvedValue({ success: false, error: 'taken' });
+    const { result } = renderHook(() => useSettings());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.updateSetting('globalShortcut', 'Alt+Shift+K');
+    });
+    expect(outcome).toEqual({ success: false, error: 'taken' });
+    expect(result.current.settings?.globalShortcut).toBe(DEFAULT_SETTINGS.globalShortcut);
   });
 
   it('round-trips a write through the store', async () => {
@@ -37,21 +51,6 @@ describe('useSettings', () => {
       commands: 6,
     });
     expect(result.current.settings?.resultLimits.shortcuts).toBe(12);
-  });
-
-  it('reports a value the main process reverted', async () => {
-    const { api } = installMockApi();
-    // Main accepts the write, then restores the old shortcut (registration failed).
-    api.setSetting.mockResolvedValue({ success: true });
-    const { result } = renderHook(() => useSettings());
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    let outcome: unknown;
-    await act(async () => {
-      outcome = await result.current.updateSetting('globalShortcut', 'Alt+Shift+K');
-    });
-    expect(outcome).toEqual({ success: false, error: NOT_APPLIED });
-    expect(result.current.settings?.globalShortcut).toBe(DEFAULT_SETTINGS.globalShortcut);
   });
 });
 
@@ -105,6 +104,14 @@ describe('PreferencesApp', () => {
         shortcuts: 50,
       }),
     );
+  });
+
+  it('applies the Theme setting to the window', async () => {
+    const { emit } = installMockApi({ theme: 'dark' });
+    render(<PreferencesApp />);
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe('dark'));
+    act(() => emit({ ...DEFAULT_SETTINGS, theme: 'light' }));
+    expect(document.documentElement.dataset.theme).toBe('light');
   });
 
   it('shows enrichment progress on the Commands tab', async () => {

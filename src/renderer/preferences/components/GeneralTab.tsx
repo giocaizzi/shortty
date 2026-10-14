@@ -3,7 +3,7 @@ import type { AppSettings } from '../../../shared/settings';
 import { DEFAULT_SETTINGS } from '../../../shared/settings';
 import { acceleratorToGlyphs } from '../lib/accelerator';
 import { isMacPlatform } from '../lib/platform';
-import { NOT_APPLIED, type UpdateSetting } from '../hooks/useSettings';
+import type { UpdateSetting } from '../hooks/useSettings';
 import { Keycaps, PaneHeader, Row, Section, Segmented, SwitchRow } from './controls';
 import { ShortcutRecorder } from './ShortcutRecorder';
 
@@ -47,14 +47,13 @@ export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
     setPendingHide(null);
   };
 
+  // Main registers the new shortcut before saving it and returns an error
+  // (keeping the old one) when another app or macOS already owns it.
   const saveShortcut = async (accelerator: string): Promise<string | null> => {
     const result = await onUpdate('globalShortcut', accelerator);
     if (result.success) return null;
     const wanted = acceleratorToGlyphs(accelerator, mac).join('');
     const kept = acceleratorToGlyphs(settings.globalShortcut, mac).join('');
-    if (result.error && result.error !== NOT_APPLIED) {
-      return `Couldn't use ${wanted}: ${result.error}`;
-    }
     return `Couldn't register ${wanted}. Another app or a system shortcut already uses it. Shortty kept ${kept}.`;
   };
 
@@ -108,13 +107,15 @@ export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
         />
       </Section>
 
-      <Section label="Appearance">
+      <Section
+        label="Appearance"
+        footer="Position is where the launcher opens. System appearance follows macOS light and dark mode."
+      >
         <Row
-          label="Window position"
-          description="Where the launcher appears when you open it."
+          label="Position"
           control={
             <Segmented
-              label="Window position"
+              label="Position"
               value={settings.windowPosition}
               options={POSITIONS}
               onChange={(v) => void onUpdate('windowPosition', v)}
@@ -123,7 +124,6 @@ export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
         />
         <Row
           label="Appearance"
-          description="System follows your macOS light or dark setting."
           control={
             <Segmented
               label="Appearance"

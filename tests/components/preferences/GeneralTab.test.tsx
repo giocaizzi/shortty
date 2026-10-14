@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { GeneralTab } from '../../../src/renderer/preferences/components/GeneralTab';
-import { NOT_APPLIED, type UpdateSetting } from '../../../src/renderer/preferences/hooks/useSettings';
+import type { UpdateSetting } from '../../../src/renderer/preferences/hooks/useSettings';
 import { DEFAULT_SETTINGS, type AppSettings } from '../../../src/shared/settings';
 import { installMockApi } from './mockApi';
 
@@ -15,10 +15,6 @@ function sourceFiles(dir: string): string[] {
     if (statSync(full).isDirectory()) return sourceFiles(full);
     return /\.tsx?$/.test(name) ? [full] : [];
   });
-}
-
-function setPlatform(platform: string) {
-  vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform);
 }
 
 function renderTab(
@@ -39,7 +35,6 @@ function startRecording() {
 describe('GeneralTab', () => {
   beforeEach(() => {
     installMockApi();
-    setPlatform('MacIntel');
   });
 
   afterEach(() => {
@@ -60,7 +55,7 @@ describe('GeneralTab', () => {
   });
 
   it('hides the Dock toggle elsewhere', () => {
-    setPlatform('Linux x86_64');
+    installMockApi({}, 'linux');
     renderTab();
     expect(screen.queryByRole('switch', { name: 'Show in Dock' })).not.toBeInTheDocument();
   });
@@ -152,14 +147,18 @@ describe('GeneralTab', () => {
       expect(onUpdate).not.toHaveBeenCalled();
     });
 
-    it('reports a shortcut the system refused to register', async () => {
-      const onUpdate = vi.fn(async () => ({ success: false, error: NOT_APPLIED }));
+    it('reports a registration error returned by the main process', async () => {
+      const onUpdate = vi.fn(async () => ({
+        success: false,
+        error: 'Control+Alt+K is already in use or is not a valid shortcut',
+      }));
       renderTab({}, onUpdate);
       const field = startRecording();
       fireEvent.keyDown(field, { key: 'k', code: 'KeyK', ctrlKey: true, altKey: true });
       expect(await screen.findByRole('alert')).toHaveTextContent(
         "Couldn't register ⌃⌥K. Another app or a system shortcut already uses it. Shortty kept ⇧⌘Space.",
       );
+      expect(field).toHaveTextContent('⇧⌘Space');
     });
 
     it('offers to restore the default shortcut', async () => {

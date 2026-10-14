@@ -7,7 +7,7 @@
  */
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
   --pf-sidebar: #e7e6e7;
   --pf-content: #f5f5f5;
@@ -49,43 +49,46 @@
   --pf-sheet: #ececec;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --pf-sidebar: #2b2a2b;
-    --pf-content: #1f1e1f;
-    --pf-group: rgba(255, 255, 255, 0.035);
-    --pf-group-border: rgba(255, 255, 255, 0.055);
-    --pf-separator: rgba(255, 255, 255, 0.07);
-    --pf-text: rgba(255, 255, 255, 0.86);
-    --pf-text-secondary: rgba(255, 255, 255, 0.5);
-    --pf-text-tertiary: rgba(255, 255, 255, 0.25);
-    --pf-accent: #0a84ff;
-    --pf-accent-ring: rgba(10, 132, 255, 0.55);
+/*
+ * Dark palette. PreferencesApp sets data-theme from the Theme setting;
+ * System resolves through prefers-color-scheme.
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --pf-sidebar: #2b2a2b;
+  --pf-content: #1f1e1f;
+  --pf-group: rgba(255, 255, 255, 0.035);
+  --pf-group-border: rgba(255, 255, 255, 0.055);
+  --pf-separator: rgba(255, 255, 255, 0.07);
+  --pf-text: rgba(255, 255, 255, 0.86);
+  --pf-text-secondary: rgba(255, 255, 255, 0.5);
+  --pf-text-tertiary: rgba(255, 255, 255, 0.25);
+  --pf-accent: #0a84ff;
+  --pf-accent-ring: rgba(10, 132, 255, 0.55);
 
-    --pf-control: rgba(255, 255, 255, 0.16);
-    --pf-control-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 0.5px 0 rgba(255, 255, 255, 0.08) inset;
-    --pf-control-pressed: rgba(255, 255, 255, 0.24);
-    --pf-field: rgba(255, 255, 255, 0.05);
-    --pf-field-border: rgba(255, 255, 255, 0.12);
-    --pf-track: rgba(255, 255, 255, 0.14);
-    --pf-segment-track: rgba(255, 255, 255, 0.07);
-    --pf-segment-on: rgba(255, 255, 255, 0.24);
-    --pf-thumb: #d9d9d9;
+  --pf-control: rgba(255, 255, 255, 0.16);
+  --pf-control-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 0.5px 0 rgba(255, 255, 255, 0.08) inset;
+  --pf-control-pressed: rgba(255, 255, 255, 0.24);
+  --pf-field: rgba(255, 255, 255, 0.05);
+  --pf-field-border: rgba(255, 255, 255, 0.12);
+  --pf-track: rgba(255, 255, 255, 0.14);
+  --pf-segment-track: rgba(255, 255, 255, 0.07);
+  --pf-segment-on: rgba(255, 255, 255, 0.24);
+  --pf-thumb: #d9d9d9;
 
-    --pf-key-face: #3a393b;
-    --pf-key-edge: rgba(0, 0, 0, 0.6);
-    --pf-key-text: rgba(255, 255, 255, 0.86);
+  --pf-key-face: #3a393b;
+  --pf-key-edge: rgba(0, 0, 0, 0.6);
+  --pf-key-text: rgba(255, 255, 255, 0.86);
 
-    --pf-ok: #30d158;
-    --pf-warn: #ffb340;
-    --pf-error: #ff6961;
-    --pf-info: #64aaff;
+  --pf-ok: #30d158;
+  --pf-warn: #ffb340;
+  --pf-error: #ff6961;
+  --pf-info: #64aaff;
 
-    --pf-tile-commands: #48484a;
+  --pf-tile-commands: #48484a;
 
-    --pf-backdrop: rgba(0, 0, 0, 0.35);
-    --pf-sheet: #323133;
-  }
+  --pf-backdrop: rgba(0, 0, 0, 0.35);
+  --pf-sheet: #323133;
 }
 
 * {
@@ -186,6 +189,7 @@ input {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   background: var(--pf-content);
 }
 

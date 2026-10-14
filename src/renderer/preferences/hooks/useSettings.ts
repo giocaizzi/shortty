@@ -8,13 +8,10 @@ export type UpdateSetting = <K extends keyof AppSettings>(
   value: AppSettings[K],
 ) => Promise<UpdateResult>;
 
-/** Message used when the main process stored something other than the requested value. */
-export const NOT_APPLIED = 'not-applied';
-
 /**
- * Settings for the Preferences window. Every write is read back from the
- * store: the main process may revert a value it could not apply (a global
- * shortcut that failed to register), and that revert is reported as an error.
+ * Settings for the Preferences window. Writes go to the main-process store,
+ * which broadcasts the new settings to every window; a write main refuses
+ * (e.g. a global shortcut that cannot be registered) resolves with an error.
  */
 export function useSettings() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -44,16 +41,10 @@ export function useSettings() {
     };
   }, []);
 
-  const updateSetting = useCallback<UpdateSetting>(async (key, value) => {
-    const api = window.electronAPI;
-    const result = await api.setSetting(key, value);
-    const fresh = await api.getSettings();
-    setSettings(fresh);
-    if (result.success && JSON.stringify(fresh[key]) !== JSON.stringify(value)) {
-      return { success: false, error: NOT_APPLIED };
-    }
-    return result;
-  }, []);
+  const updateSetting = useCallback<UpdateSetting>(
+    (key, value) => window.electronAPI.setSetting(key, value),
+    [],
+  );
 
   return { settings, loading, updateSetting };
 }
