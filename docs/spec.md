@@ -1,5 +1,7 @@
 # Shortty — Specification
 
+> Product and architecture spec for v1. Screen-by-screen reference: [screens.md](screens.md). Where the implementation deliberately departs from the original plan, the reason is in [§15 Decisions](#15-decisions). Current v1 status: [wip/v1-status.md](wip/v1-status.md).
+
 ## 1. Vision
 
 Shortty is a **lightweight desktop lookup tool** for keyboard shortcuts and CLI commands. Activated by a global hotkey, it presents a Spotlight-style floating panel where users instantly search across all their tools' keybindings and shell commands, then dismiss it.
@@ -42,8 +44,9 @@ interface Shortcut {
   id: string;                // SHA-256 hash (12 chars) of source + rawCommand
   source: string;            // Source ID: "vscode", "ghostty", "tmux", etc.
   sourceLabel: string;       // Display name: "VS Code", "Ghostty", etc.
-  key: string;               // Display format with glyphs: "⌘⇧T"
+  key: string;               // Display format with glyphs (US-based): "⌘⇧T"
   searchKey: string;         // Search format: "cmd shift t"
+  strokes?: KeyStroke[];     // Structured keys, resolved per keyboard layout in the renderer (docs/keyboard-layouts.md)
   command: string;           // Human-readable action: "Reopen Closed Editor"
   rawCommand: string;        // Original command ID: "workbench.action.reopenClosedEditor"
   context?: string;          // Mode/state: "editorFocus", "normal", "prefix"
@@ -61,15 +64,17 @@ interface Shortcut {
 interface Command {
   name: string;              // Executable name: "git"
   description: string;       // One-line description: "the stupid content tracker"
+  synopsis?: string;         // Usage line from man/--help
   bin: string;               // Full path: "/usr/bin/git"
   mtime: number;             // Binary modification time
-  enrichment: 'basic' | 'partial' | 'full' | 'failed';
+  enrichment: 'basic' | 'full' | 'failed';
   enrichedFrom?: 'zsh-completion' | 'bash-completion' | 'man' | 'help';
   enrichedAt?: string;       // ISO timestamp
   hasManPage: boolean;
   hasCompletion: boolean;
   subcommands: CommandDetail[];
   flags: FlagDetail[];
+  arguments: ArgumentDetail[]; // Positional arguments: name, required, variadic
 }
 
 interface CommandDetail {
@@ -153,6 +158,8 @@ interface FlagDetail {
 - No telemetry, no network calls, all data stays local
 - Logs contain summaries only, never file contents
 - Cache stores parsed results, not raw config data
+- Probed binaries (`--help`) run in a sandbox with an environment allowlist (§7.5)
+- Single instance per user: a second launch shows the running panel and exits (`app.requestSingleInstanceLock()`)
 
 ---
 
@@ -220,7 +227,13 @@ Key schema decisions:
 
 #### JSON Schema Validation
 
-A `schema.json` file validates cheatsheet structure. All cheatsheet files must pass validation. Errors caught at build time, not runtime.
+A `schema.json` file validates cheatsheet structure. All cheatsheet files must pass validation. Errors are caught by the test suite (`tests/unit/cheatsheets/shipped.test.ts` validates every shipped file against `schema.json`), not at runtime; the runtime loader still skips an invalid file with a warning.
+
+#### Bundling
+
+The cheatsheets are bundled into the main-process build with Vite's `import.meta.glob('../../cheatsheets/sources/*.json', { eager: true })` (`src/main/cheatsheets/loader.ts`), so dev, e2e and the packaged app read the same data with no runtime path to resolve. Tests can still point the loader at a directory.
+
+The `icon` field is kept as metadata; the UI draws a monogram tile per source instead (§10.4).
 
 ### 6.2 Parser System
 
@@ -341,7 +354,7 @@ The commands engine dynamically indexes every CLI command available on the user'
 │  TIER 1 — Immediate (~200ms, on startup)                │
 │  ┌────────────────────────────────────────────────────┐  │
 │  │ Scan PATH directories → command names               │  │
-│  │ Read whatis database → one-line descriptions        │  │
+│  │ `apropos .` (async) → one-line descriptions         │  │
 │  │ Result: ~4,000 entries with name + description      │  │
 │  │ Memory: ~500KB    Fuse.js build: ~30ms              │  │
 │  └────────────────────────────────────────────────────┘  │
@@ -368,9 +381,13 @@ The commands engine dynamically indexes every CLI command available on the user'
 
 ### 7.3 Index Lifecycle
 
+**PATH import:** an app started from Finder or at login gets the minimal launchd PATH (`/usr/bin:/bin:/usr/sbin:/sbin`), without Homebrew, `~/.local/bin`, nvm, etc. At startup, before the commands engine and the parsers run, the main process runs the user's login shell (`$SHELL -ilc`, stdin closed, 3s timeout, async) and merges the PATH it prints in front of the current one (`src/main/shell-env.ts`).
+
+**Descriptions:** `apropos .` (async; a few seconds on macOS), falling back to `whatis -w '*'` (man-db). macOS `whatis` has no `-w`. A name documented in several man sections takes the description from its command section (1, then 8, then 6).
+
 **First launch (cold):**
 1. No cached index exists
-2. Tier 1: scan PATH + whatis → basic index (~200ms)
+2. Tier 1: scan PATH + apropos → basic index
 3. Save index to disk
 4. Searchable immediately with name + description
 5. Background enrichment worker starts
@@ -388,15 +405,9 @@ The commands engine dynamically indexes every CLI command available on the user'
 - If hash differs → rescan, incremental update
 - Per-command detail cache: invalidated when binary mtime changes
 
-### 7.4 Expanded Index
+### 7.4 Subcommand Drill-In (replaces the expanded index)
 
-Commands are indexed with subcommand expansion:
-- `git` exists as its own entry (top-level)
-- `git commit` exists as a separate entry
-- `git push` exists as a separate entry
-- etc.
-
-Unenriched commands are top-level entries only (~5,000). As enrichment runs, subcommand entries are added. Index grows from ~5,000 to potentially ~50,000 entries. Fuse.js handles this in under 20ms per query.
+The index holds one entry per executable. Subcommand names are a search key of their parent (§8.3), so "commit" finds `git`. Subcommands are explored on demand: drilling into a subcommand row of the detail view reads its man page (`man git-commit`), falling back to `<cmd> <sub> --help` (same sandbox, blocklist and owner checks as §7.5), and caches the result under `cache/details/sub/`; drill-in recurses (`docker compose up`). See `src/main/commands/subcommand-enricher.ts` and [§15 Decisions](#15-decisions).
 
 ### 7.5 Enrichment Worker
 
@@ -430,8 +441,10 @@ Interactive: `ssh`, `telnet`, `ftp`, `sftp`, `nc`, `ncat`, `python`, `python3`, 
 Additional rules:
 - Skip dotfile/hidden commands (names starting with `.` or `_`)
 - Never spawn as root
-- 2 second timeout, hard kill
+- 2 second timeout, hard kill (SIGKILL to the whole process group)
 - Skip binaries not owned by root or current user
+
+**`--help` sandbox** (`src/main/commands/sandbox-exec.ts`): every probe runs in a throwaway temp cwd with stdin closed and output capped at 1 MB. The environment is an allowlist (`PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, `TMPDIR`, `LANG`, `MANPATH`, `LC_*`), so tokens and keys in the user's environment never reach an arbitrary binary; pagers are `cat`, editors are `true`, colours and Homebrew auto-update are off.
 
 **Whatis fallback:**
 If whatis database doesn't exist, Tier 1 index has names with no descriptions. Enrichment naturally fills descriptions from man page NAME sections. No special handling needed.
@@ -472,8 +485,8 @@ Structure:
 
 | | Shortcuts Index | Commands Index |
 |---|---|---|
-| Data type | `Shortcut` | `Command` (expanded with subcommands) |
-| Size | Hundreds to low thousands | 5,000–50,000 |
+| Data type | `Shortcut` | `Command` (one per executable; subcommand names as a key) |
+| Size | Hundreds to low thousands | Thousands (one per PATH executable) |
 | Updated by | Cheatsheet load + parser merge + file watcher | PATH scan + enrichment worker |
 | Rebuilt when | Source config changes | PATH changes |
 | Queried when | Every search (or when not in prefix mode) | Every search (or when `>` prefix active) |
@@ -500,7 +513,11 @@ subcommands:       0.2
 
 **Default: unified search.** Type anything → results from both shortcuts and commands, visually separated into sections.
 
-**Optional: command prefix mode** (setting). When enabled, default search returns shortcuts only. `>` prefix returns commands only. Power user feature.
+**Optional: command prefix mode** (setting, default **off**). When enabled, default search returns shortcuts only. `>` prefix returns commands only. Power user feature.
+
+**Source matching:** source names match space- and punctuation-insensitively, so "vsc" and "vscode" both find VS Code.
+
+**Layout-aware keys:** the shortcut index also searches the key as labelled on the user's keyboard layout (e.g. "ò" on Italian). See [keyboard-layouts.md](keyboard-layouts.md).
 
 ### 8.5 Result Sections
 
@@ -518,7 +535,7 @@ Search results display in three fixed-order sections:
 | Shortcuts | 8 |
 | Commands | 5 |
 
-Each section shows "Show all X results" when truncated. No debouncing — instant search on every keystroke.
+Each section shows a selectable "Show all X" row when truncated (Enter expands it). No debouncing — instant search on every keystroke. Command results rank an exact name first, then name prefixes, then the Fuse order.
 
 ---
 
@@ -542,11 +559,13 @@ Each section shows "Show all X results" when truncated. No debouncing — instan
 | Result Limits | object | see §8.5 | Search tab |
 | Commands Enabled | boolean | `true` | Commands tab |
 
-**Visibility safety:** if user disables both Dock and Menu Bar, show confirmation dialog: "You'll only be able to access Shortty via the keyboard shortcut. Are you sure?" Escape hatch: `shortty --reset-settings` CLI flag.
+**Visibility safety:** if user disables both Dock and Menu Bar, show confirmation dialog: "You'll only be able to access Shortty via the keyboard shortcut. Are you sure?" Escape hatch: `shortty --reset-settings` CLI flag. It restores `DEFAULT_SETTINGS` (`src/shared/settings.ts`) and exits without opening a window; it refuses (exit code 1) while another instance holds the single-instance lock. Procedure: [runbooks/reset-settings.md](runbooks/reset-settings.md).
 
 Theme values: `light | dark | system`. No additional theming in v1.
 
 ### 9.2 Preferences Window Structure
+
+The Preferences window is modelled on macOS System Settings: a sidebar source list with coloured tiles (↑/↓ move between tabs), inset grouped sections, native-sized switches, segmented controls and sliders, light and dark palettes that follow the Theme setting. 600×500, non-resizable, hidden-inset title bar.
 
 | Tab | Contents |
 |-----|----------|
@@ -591,7 +610,7 @@ The panel is a **lookup tool**. Users come with intent.
 - **Blank on open** — search bar focused, no results displayed, ready for input
 - **Type to search** — results appear instantly in three sections (Sources, Shortcuts, Commands)
 - **Full state reset on every open** — query cleared, back to flat mode
-- **Dismiss** — Esc (in flat mode), click outside, blur/focus loss, global hotkey toggle
+- **Dismiss** — Esc (in flat mode with an empty query; with a query, Esc clears it first), click outside, blur/focus loss, global hotkey toggle
 
 ### 10.2 Navigation Model: Flat → Drill-In
 
@@ -599,34 +618,39 @@ The panel is a **lookup tool**. Users come with intent.
 Search across all sources. Results show Sources, Shortcuts, and Commands sections.
 
 **Drill-in to source:**
-Select a source from the Sources section (Enter) → panel scopes to that source. Shows all entries for that source. Search filters within source. Esc returns to flat mode.
+Select a source from the Sources section (Enter) → panel scopes to that source. Shows all entries for that source, grouped by category, with no section limit. Search filters within source. Esc (or ← / Backspace on an empty field) returns to flat mode with the previous query, expanded sections and selection restored.
 
 **Drill-in to command:**
-On a command row, Tab or → drills into command detail view. Shows subcommands and flags. Search filters within details. Esc returns to results.
+On a command row, Tab or → drills into command detail view. Shows subcommands, flags and arguments. Search filters within details. Tab/→ on a subcommand drills one level deeper (§7.4). Esc returns to the previous level, restored as it was.
 
 ### 10.3 Search Behavior
 
 - **Instant** — no debouncing, Fuse.js responds in <5ms
 - **Empty query** — blank panel, no results
-- **Empty results** — no message, absence of results is the feedback
+- **Empty results** — a short "No matches for …" line with a hint (e.g. "Type > first to search commands" in prefix mode); the window grows only to 180px for it
 - **Sources in search** — source names are searchable; typing "vsc" shows VS Code in Sources section
 - **Cross-section navigation** — ↑/↓ treats all rows as one flat list, wraps around at boundaries
 
 ### 10.4 Entry Anatomy
 
+Rows follow a single-line layout inspired by the Vaise launcher: identity on the left, keys on the right. Every row starts with a **source tile**, a small tinted monogram like a Dock icon (`VS`, `Gh`, `tm`, `>_` for commands; `src/renderer/components/SourceIcon.tsx`), instead of the cheatsheet emoji.
+
 **Shortcut row:**
-- Left: key combo as kbd pills (macOS glyphs)
-- Center: command name
-- Right: source label (in flat mode), hidden when drilled into source
-- Context badge below command name if present (small, muted)
+- Left: source tile (flat mode only), command name, then the `rawCommand` in muted monospace when it differs
+- Right: context pill if present (small, muted), source label (flat mode only), key combo as key caps
+- Key caps show the keys as labelled on the user's keyboard layout ([keyboard-layouts.md](keyboard-layouts.md)); an unbound shortcut shows "unbound" instead of caps
 
 **Command row:**
-- Left: command name as code badge
-- Center: description
-- Right: empty
+- Shell tile (`>_`), command name in monospace, description, chevron (drillable)
 
 **Source row:**
-- Source icon + name + entry count
+- Source tile + name + entry count + chevron
+
+**Footer:** a 36px bar under the results. Left: status ("27 results", "Copied …", or the drilled source and its count). Right: key hints for the selected row (e.g. "Copy keys ↩ · Clear esc", "Copy ↩ · Details ⇥ · Close esc").
+
+**Search bar:** a ⌘⇧Space hotkey hint (the configured global shortcut) and a `?` button that opens the keyboard help.
+
+**Theme:** colours are CSS tokens with light and dark values (`src/renderer/styles/globals.css`) following `prefers-color-scheme`, which Electron drives from the Theme setting through `nativeTheme.themeSource`. Components use the tokens rather than fixed white or black.
 
 ### 10.5 Entry Actions
 
@@ -635,6 +659,8 @@ On a command row, Tab or → drills into command detail view. Shows subcommands 
 | Enter | Drill into source | Copy key combo to clipboard | Copy command to clipboard |
 | Tab / → | — | — | Drill into command details |
 | Esc | — | — | Back from detail view |
+
+Enter on a "Show all X" row expands that section. The shortcut copied is the key combo as labelled on the user's keyboard layout (e.g. "⌘Ò" rather than the US "⌘;" on Italian).
 
 ### 10.6 Visual Feedback
 
@@ -646,25 +672,29 @@ On a command row, Tab or → drills into command detail view. Shows subcommands 
 | Key | Flat Search | Drilled Into Source | Command Detail |
 |-----|-------------|--------------------| --------------|
 | `⌘⇧Space` | Toggle panel | Toggle panel | Toggle panel |
-| `Esc` | Dismiss | Back to flat | Back to results |
+| `Esc` | Clear query, else dismiss | Clear query, else back to flat | Clear query, else back to results |
 | `↑` / `↓` | Navigate rows | Navigate rows | Navigate rows |
 | `Enter` | Action (per row type) | Copy shortcut | Copy subcommand/flag |
-| `Tab` / `→` | Drill into command | Drill into command | — |
+| `Tab` / `→` | Drill into command | Drill into command | Drill into subcommand |
+| `←` / `Backspace` (empty field) | — | Back to flat | Back to results |
 | Any character | Search input | Search within source | Filter within details |
-| `?` icon | Show keyboard shortcuts help | — | — |
+| `?` icon (or `?` on an empty query) | Show keyboard shortcuts help | — | — |
+
+Tab never moves focus out of the search field; → drills only when the caret is at the end of the query.
 
 ### 10.8 Window Behavior
 
 | Property | Value |
 |----------|-------|
-| Size | 680×500px, fixed |
+| Size | 750px wide; height collapses to the search bar (72px) when empty, 180px for a no-results line, 580px with results, a detail view or help |
 | Frame | Frameless, no title bar |
-| Position | Configurable: top-center (default), center, mouse |
+| Position | Configurable: top-center (default), center, mouse; always on the display under the cursor, positioned for the 580px height so growing never leaves the work area |
 | Always on top | Yes |
 | Show in dock | Configurable (default: off) |
 | Show in mission control | No |
-| Background | Transparent, Liquid Glass panel |
-| Scrolling | Scroll within fixed window when results overflow |
+| Background | Native macOS vibrancy (`under-window`), light or dark per Theme |
+| Scrolling | Scroll within the 580px window when results overflow |
+| Instances | One per user (single-instance lock); a second launch shows the running panel |
 | Dismiss | Esc, click outside, blur, global shortcut toggle |
 | State on reopen | Full reset (blank) |
 
@@ -673,6 +703,7 @@ On a command row, Tab or → drills into command detail view. Shows subcommands 
 - **Show**: scale from 0.97 → 1.0 + opacity 0 → 1, 120ms ease-out
 - **Hide**: scale from 1.0 → 0.97 + opacity 1 → 0, 80ms ease-in
 - **Respects `prefers-reduced-motion`**: instant show/hide when enabled
+- Every hide (Esc, copy, blur, hotkey, tray) plays the exit animation: main asks the renderer to animate out and hides on its acknowledgement, with a short upper bound (`src/main/window-hider.ts`)
 
 ### 10.10 Result Section Limits
 
@@ -691,7 +722,10 @@ On a command row, Tab or → drills into command detail view. Shows subcommands 
 ### 11.1 Startup Sequence
 
 ```
+0. Single-instance lock; `--reset-settings` handled here (§9.1)
 1. App ready
+   - Import the login-shell PATH (§7.3); both engines wait for it
+   - Register IPC handlers before any await (data handlers wait for the engines)
 2. Read settings from electron-store
 3. Apply settings (theme, dock, menu bar, login, global shortcut)
 4. Create system tray (if menu bar enabled)
@@ -756,11 +790,11 @@ Principle: **never crash the app, never block the user.** Each subsystem fails i
 
 | Aspect | Value |
 |--------|-------|
-| Library | `electron-log` or simple file logger |
+| Library | `electron-log` |
 | Location | `app.getPath('userData')/logs/` |
 | Levels | error, warn, info, debug |
 | Default | info (production), debug (dev) |
-| Rotation | 3 files, 5MB each |
+| Rotation | 3 files (live + 2 archives), 5MB each |
 | Content | Parser summaries, enrichment progress, watcher events, errors |
 | Excluded | File contents, keybinding data, user data |
 
@@ -777,10 +811,10 @@ Principle: **never crash the app, never block the user.** Each subsystem fails i
 
 ### 12.5 Distribution
 
-- **v1:** GitHub Releases — DMG for macOS, Squirrel for Windows, deb/rpm for Linux
+- **v1:** GitHub Releases — DMG + ZIP for macOS; Squirrel (Windows) and deb/rpm (Linux) makers are configured but untested in v1. Procedure: [runbooks/release-macos.md](runbooks/release-macos.md)
 - **Post-v1:** Homebrew Cask formula
 - **Deferred:** Mac App Store (sandboxing conflicts)
-- **Code signing:** Apple Developer account, sign + notarize from v1
+- **Code signing:** Apple Developer account, sign + notarize from v1; enabled only through environment variables (`APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`), unsigned otherwise
 
 ---
 
@@ -788,17 +822,18 @@ Principle: **never crash the app, never block the user.** Each subsystem fails i
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
-| Framework | Electron | ^41 |
-| Build | Electron Forge + Vite plugin | ^7 |
-| Renderer | React + TypeScript | 19 / 5.8 |
+| Framework | Electron | 44 |
+| Build | Electron Forge + Vite plugin | ^8 |
+| Renderer | React + TypeScript | 19 / 5.9 |
 | Styling | Tailwind CSS (`@tailwindcss/vite`) | 4 |
 | Search | Fuse.js | ^7 |
-| File watching | chokidar | ^4 |
+| File watching | chokidar | ^5 |
 | Settings | electron-store | ^11 |
 | Icons | Lucide React | ^1 |
-| Logging | electron-log | TBD |
-| Auto-update | electron-updater | TBD |
-| Testing | Vitest + React Testing Library | ^4 |
+| Logging | electron-log | ^5 |
+| Auto-update | electron-updater | not in v1 |
+| Testing | Vitest + React Testing Library | ^5 |
+| End-to-end | Playwright (`_electron`) | 1.63 ([runbook](runbooks/run-e2e-tests.md)) |
 | Linting | ESLint + @typescript-eslint | latest |
 | Unused code | knip | ^6 |
 
@@ -815,3 +850,29 @@ Principle: **never crash the app, never block the user.** Each subsystem fails i
 - Runtime app version detection for cheatsheet filtering
 - Shell completion execution (we index, not execute)
 - Curated CLI cheatsheets (Tier 2) — fully dynamic enrichment only
+
+---
+
+## 15. Decisions
+
+Where v1 deliberately departs from the original plan. Each row is implemented; earlier sections already describe the new behaviour.
+
+| Decision | Original plan | Why |
+|---|---|---|
+| Collapsible window, 750px wide, 72px collapsed, up to 580px (§10.8) | Fixed 680×500 | Spotlight-like: opening shows only the search bar and the window grows with results; the extra width fits the row layout below. |
+| Footer with status and key hints (§10.4) | "No footer, no pills, no hints" | Shows what Enter/Tab/Esc do on the selected row and confirms copies without a modal. |
+| Vaise-style single-line rows, keys on the right (§10.4) | Key pills on the left, command in the middle | Command names are what users scan; right-aligned caps line up in a column. |
+| Source monogram tiles (§10.4) | Cheatsheet emoji icon | Emoji render inconsistently next to text and clash with the vibrancy material. |
+| Light/dark tokens following Theme (§10.4) | Theme setting with no launcher palette | Hard-coded white text was unreadable on light vibrancy. |
+| No-results line with a hint (§10.3) | Blank panel | Confirms the query ran and matched nothing, and points to the `>` prefix when prefix mode is on. |
+| Esc clears the query first (§10.7) | Esc dismisses / goes back | Matches Spotlight and lets users retype without leaving the level. |
+| On-demand subcommand drill-in (§7.4) | Expanded subcommand index (up to ~50k entries) | Smaller index, no blind `--help` on every subcommand, and drill-in recurses to any depth. |
+| Login-shell PATH import (§7.3) | `process.env.PATH` | Apps launched from Finder or at login only see launchd's PATH, which misses Homebrew, nvm, `~/.local/bin`. |
+| `apropos .` for descriptions (§7.3) | `whatis -w '*'` | macOS `whatis` has no `-w`, which left every command without a description. |
+| Env-allowlisted `--help` sandbox (§7.5) | Blocklist and timeout only | Arbitrary binaries must not see tokens or keys from the user's environment, open editors or pagers, or block on stdin. |
+| Layout-aware key display and copy (§10.4, [keyboard-layouts.md](keyboard-layouts.md)) | US key labels; "native keymap" deferred | On non-US layouts the US label is not what the user presses; Chromium's `navigator.keyboard.getLayoutMap()` gives the real labels without a native module. |
+| Single-instance lock (§5.3) | — | A second launch would add a second tray, watcher set and commands engine. |
+| Cheatsheets bundled with `import.meta.glob`, schema checked by tests (§6.1) | JSON files read at runtime, validated at build time | No runtime path to resolve in dev, e2e and the packaged app; a unit test gives the same guarantee as a build step. |
+| Preferences styled like macOS System Settings (§9.2) | Generic sidebar + tabs | Native look and controls on the primary platform. |
+
+Command prefix mode stays **off** by default as originally specified; an interim commit (`874aa74`) had turned it on and `32885a4` restored the §9.1 defaults.
