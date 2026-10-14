@@ -117,7 +117,12 @@ function createHermeticEnv(settings: Record<string, unknown> = {}): HermeticEnv 
   // Seed electron-store so nothing is registered with the OS on first run.
   writeFileSync(
     path.join(userData, 'config.json'),
-    JSON.stringify({ launchAtLogin: false, showDockIcon: false, ...settings }, null, 2),
+    // The specs exercise the ">" command prefix; the app default is off (SPECS §9.1).
+    JSON.stringify(
+      { launchAtLogin: false, showDockIcon: false, commandPrefixMode: true, ...settings },
+      null,
+      2,
+    ),
   );
 
   return {

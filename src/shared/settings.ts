@@ -28,8 +28,9 @@ export interface AppSettings {
   commandsEnabled: boolean;
 }
 
+/** Defaults from SPECS §9.1. */
 export const DEFAULT_SETTINGS: AppSettings = {
-  launchAtLogin: true,
+  launchAtLogin: false,
   showDockIcon: false,
   showMenuBar: true,
   dismissAfterCopy: true,
@@ -45,7 +46,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     contextWeight: 0.1,
     threshold: 0.35,
   },
-  commandPrefixMode: true,
+  commandPrefixMode: false,
   resultLimits: {
     sources: 3,
     shortcuts: 8,
