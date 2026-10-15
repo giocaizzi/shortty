@@ -1,0 +1,7 @@
+# Default rules, plus fixtures of captured tool output that trip generic-api-key.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Captured PSReadLine key handler output (function names, no secrets)"
+paths = ['''^fixtures/psreadline-key-handlers\.json$''']
