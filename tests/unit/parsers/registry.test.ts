@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { join } from 'node:path';
 import type { Shortcut } from '../../../src/shared/types';
-import { FIXTURES, withPlatform } from './parser-helpers';
+import { FIXTURES } from './parser-helpers';
+import { withPlatform } from '../../helpers';
 
 vi.mock('../../../src/main/logger', () => ({
   default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },

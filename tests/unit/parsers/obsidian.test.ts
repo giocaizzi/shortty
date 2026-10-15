@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { join } from 'node:path';
 import { ObsidianParser } from '../../../src/main/parsers/obsidian.parser';
-import { FIXTURES, rows, withPlatform } from './parser-helpers';
+import { FIXTURES, rows } from './parser-helpers';
+import { withPlatform } from '../../helpers';
 
 const FIXTURE_PATH = join(FIXTURES, 'obsidian-hotkeys.json');
 const VAULT_PATH = join(FIXTURES, 'obsidian-vault/Notes/.obsidian/hotkeys.json');

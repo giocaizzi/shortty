@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { resolvePath } from '../../../src/main/utils/path-resolver';
 
 describe('resolvePath', () => {
@@ -22,6 +22,7 @@ describe('resolvePath', () => {
 
   it('uses XDG_CONFIG_HOME when set', () => {
     process.env.XDG_CONFIG_HOME = '/custom/config';
-    expect(resolvePath('$XDG_CONFIG_HOME/ghostty/config')).toBe('/custom/config/ghostty/config');
+    // resolve(): on Windows the path gets the current drive
+    expect(resolvePath('$XDG_CONFIG_HOME/ghostty/config')).toBe(resolve('/custom/config/ghostty/config'));
   });
 });
