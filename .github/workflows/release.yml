@@ -55,7 +55,11 @@ jobs:
             os: macos-latest
           - name: Windows
             os: windows-latest
+          - name: Linux
+            os: ubuntu-latest
     runs-on: ${{ matrix.os }}
+    # Signing secrets live in this environment (docs/runbooks/release.md).
+    environment: release
     defaults:
       run:
         shell: bash
@@ -67,17 +71,59 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Install rpmbuild (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
       - run: make install
+      # Without the secrets the macOS build is unsigned, like a local one.
+      - name: Import the Developer ID certificate (macOS)
+        if: runner.os == 'macOS'
+        env:
+          CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          if [ -z "$CERT_P12" ]; then echo "::warning::MACOS_CERT_P12 not set: unsigned macOS build"; exit 0; fi
+          kc="$RUNNER_TEMP/signing.keychain-db"
+          kc_pw="$(openssl rand -hex 16)"
+          security create-keychain -p "$kc_pw" "$kc"
+          security set-keychain-settings -lut 3600 "$kc"
+          security unlock-keychain -p "$kc_pw" "$kc"
+          printf '%s' "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$kc_pw" "$kc" > /dev/null
+          security list-keychains -d user -s "$kc" login.keychain-db
       - run: make make
+        env:
+          # forge.config.ts signs when the identity is set and notarizes when
+          # all four are set.
+          APPLE_SIGNING_IDENTITY: ${{ runner.os == 'macOS' && secrets.APPLE_SIGNING_IDENTITY || '' }}
+          APPLE_ID: ${{ runner.os == 'macOS' && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ runner.os == 'macOS' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_TEAM_ID || '' }}
+      - name: Verify the signature (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          app="$(find out -maxdepth 3 -name Shortty.app -print -quit)"
+          if codesign --verify --deep --strict "$app" 2>/dev/null && codesign -dv "$app" 2>&1 | grep -q 'Authority=Developer ID'; then
+            spctl --assess --type execute -vv "$app"
+          else
+            echo "::warning::macOS build is not Developer ID signed"
+          fi
       - name: Name installers for stable download links
         run: |
           mkdir dist
           if [ "$RUNNER_OS" = macOS ]; then
             cp out/make/dmg/*/Shortty-*.dmg dist/Shortty-macOS-arm64.dmg
             cp out/make/zip/darwin/*/Shortty-darwin-*.zip dist/Shortty-macOS-arm64.zip
-          else
+          elif [ "$RUNNER_OS" = Windows ]; then
             cp out/make/squirrel.windows/x64/*Setup.exe dist/Shortty-Windows-x64-Setup.exe
             cp out/make/zip/win32/x64/Shortty-win32-*.zip dist/Shortty-Windows-x64.zip
+            # The Squirrel update feed (update.electronjs.org) reads these as built.
+            cp out/make/squirrel.windows/x64/RELEASES out/make/squirrel.windows/x64/*.nupkg dist/
+          else
+            cp out/make/deb/x64/*.deb dist/Shortty-Linux-x64.deb
+            cp out/make/rpm/x64/*.rpm dist/Shortty-Linux-x64.rpm
           fi
           ls -l dist
       - uses: actions/upload-artifact@v7

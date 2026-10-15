@@ -13,12 +13,13 @@
 
 [![Download for macOS](https://img.shields.io/badge/Download-macOS%20(Apple%20silicon)-black?style=for-the-badge&logo=apple)](https://github.com/giocaizzi/shortty/releases/latest/download/Shortty-macOS-arm64.dmg)
 [![Download for Windows](https://img.shields.io/badge/Download-Windows%20(x64)-0078D4?style=for-the-badge&logo=windows)](https://github.com/giocaizzi/shortty/releases/latest/download/Shortty-Windows-x64-Setup.exe)
+[![Download for Linux](https://img.shields.io/badge/Download-Linux%20(.deb)-E95420?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/giocaizzi/shortty/releases/latest/download/Shortty-Linux-x64.deb)
 
 <img src="docs/assets/readme-tmux.png" alt="Searching &quot;pane&quot;: tmux prefix bindings next to VS Code" width="720">
 
 </div>
 
-Forgot the tmux binding to break out a pane? The vim motion for the end of a WORD? The `kubectl get` flag for custom columns? Shortty is a menu-bar / system-tray launcher for macOS and Windows that reads the keyboard shortcuts of your tools (your own config included) and the help of every CLI on your PATH, and puts them all behind one fuzzy search. Nothing leaves your machine.
+Forgot the tmux binding to break out a pane? The vim motion for the end of a WORD? The `kubectl get` flag for custom columns? Shortty is a menu-bar / system-tray launcher for macOS, Windows and Linux that reads the keyboard shortcuts of your tools (your own config included) and the help of every CLI on your PATH, and puts them all behind one fuzzy search. Nothing leaves your machine.
 
 ## Your keybindings, as you configured them
 
@@ -51,6 +52,7 @@ Grab the latest release with the buttons above, or from [Releases](https://githu
 
 - **macOS** (Apple silicon): open `Shortty-macOS-arm64.dmg` and drag Shortty to Applications. Builds are not notarized yet: the first time, right-click Shortty → Open.
 - **Windows** (x64): run `Shortty-Windows-x64-Setup.exe` (installs for your user, no admin). SmartScreen may warn about an unknown publisher: More info → Run anyway.
+- **Linux** (x64): `sudo apt install ./Shortty-Linux-x64.deb` or `sudo dnf install ./Shortty-Linux-x64.rpm`.
 
 Or build it yourself: `make install && make make` (installers land in `out/make`).
 
