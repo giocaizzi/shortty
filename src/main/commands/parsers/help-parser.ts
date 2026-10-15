@@ -1,6 +1,6 @@
 import { open, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { basename, join, sep } from 'node:path';
+import { posix, win32 } from 'node:path';
 import type { ArgumentDetail, CommandDetail, FlagDetail, HelpExtras, SubcommandDetail } from '../../../shared/types';
 import {
   parseFlagsFromText,
@@ -23,6 +23,7 @@ import {
 } from './help-extras';
 import { parseManContent } from './man-parser';
 import { runSandboxed } from '../sandbox-exec';
+import { windowsExecutableExtensions } from '../path-scanner';
 
 const BLOCKLIST = new Set([
   // Destructive system commands
@@ -50,8 +51,23 @@ const BLOCKLIST = new Set([
   'parallel', 'entr',
 ]);
 
+/**
+ * Windows only, on top of BLOCKLIST (which already has shutdown, bash...):
+ * disk/boot/ACL/registry/service tools, shells, script hosts, GUI launchers.
+ */
+const WINDOWS_BLOCKLIST = new Set([
+  'format', 'diskpart', 'bcdedit', 'cipher', 'takeown', 'icacls', 'reg', 'sc', 'net', 'taskkill',
+  'vssadmin', 'wmic', 'cmd', 'powershell', 'pwsh', 'wsl', 'runas', 'start', 'mshta',
+  'rundll32', 'regsvr32', 'msiexec', 'wscript', 'cscript', 'explorer', 'notepad', 'mmc', 'control',
+]);
+
+/** On Windows names are case-insensitive and may carry their PATHEXT extension (Python.EXE). */
 export function isBlocklisted(name: string): boolean {
-  return BLOCKLIST.has(name);
+  if (process.platform !== 'win32') return BLOCKLIST.has(name);
+  let key = name.toLowerCase();
+  const ext = win32.extname(key);
+  if (windowsExecutableExtensions().includes(ext)) key = key.slice(0, -ext.length);
+  return BLOCKLIST.has(key) || WINDOWS_BLOCKLIST.has(key);
 }
 
 /**
@@ -63,6 +79,8 @@ export function isBlocklisted(name: string): boolean {
  * resolved (symlink-free) path.
  */
 function trustedScriptPrefixes(): string[] {
+  if (process.platform === 'win32') return windowsTrustedPrefixes();
+  const { join, sep } = posix;
   const home = homedir();
   const prefixes = [
     '/usr/', '/bin/', '/sbin/', '/System/', '/Library/Apple/',
@@ -78,6 +96,50 @@ function trustedScriptPrefixes(): string[] {
   return prefixes;
 }
 
+/** Windows directories from the environment, each ending in a backslash; unset variables are skipped. */
+function windowsDirs(parts: (string | undefined)[][]): string[] {
+  return parts
+    .filter((p): p is string[] => p.every((part) => part !== undefined && part !== ''))
+    .map((p) => win32.join(...p) + win32.sep);
+}
+
+/**
+ * Windows install prefixes whose .cmd/.bat/.ps1 scripts may be probed:
+ * Program Files, and the shims and packages of Chocolatey, Scoop, npm,
+ * WinGet, per-user installers, Cargo and Go.
+ */
+function windowsTrustedPrefixes(): string[] {
+  const env = process.env;
+  const home = homedir();
+  const local = env.LOCALAPPDATA;
+  const prefixes = windowsDirs([
+    [env.ProgramFiles], [env['ProgramFiles(x86)']], [env.ProgramW6432],
+    [env.ProgramData, 'chocolatey'],
+    [home, 'scoop', 'shims'], [home, 'scoop', 'apps'],
+    [env.APPDATA, 'npm'],
+    [local, 'Microsoft', 'WinGet', 'Links'], [local, 'Microsoft', 'WinGet', 'Packages'],
+    [local, 'Programs'],
+    [home, '.cargo', 'bin'], [home, 'go', 'bin'],
+  ]);
+  const e2eDir = env.SHORTTY_E2E === '1' ? env.SHORTTY_E2E_DIR : undefined;
+  if (e2eDir) prefixes.push(win32.join(e2eDir, 'bin') + win32.sep);
+  return prefixes;
+}
+
+/**
+ * Windows' own directories, never probed: the system root (System32 holds
+ * format, diskpart, GUI tools) and the Store app execution aliases, which
+ * are reparse points that launch packaged apps (python.exe opens the Store).
+ */
+function windowsSystemPrefixes(): string[] {
+  const env = process.env;
+  return windowsDirs([
+    [env.SystemRoot || env.windir || 'C:\\Windows'],
+    [env.LOCALAPPDATA, 'Microsoft', 'WindowsApps'],
+    [env.ProgramFiles || 'C:\\Program Files', 'WindowsApps'],
+  ]);
+}
+
 /**
  * The OS's own directories: never probed with --help, only described from
  * their man pages. Apple's binaries there include Xcode shims that offer
@@ -88,6 +150,9 @@ const SYSTEM_PREFIXES = [
   '/usr/bin/', '/usr/sbin/', '/usr/libexec/', '/bin/', '/sbin/',
   '/System/', '/Library/Apple/', '/Library/Developer/', '/Applications/Xcode',
 ];
+
+/** Windows scripts run through cmd.exe or PowerShell: judged like `#!` scripts. */
+const WINDOWS_SCRIPT_EXTENSIONS = ['.cmd', '.bat', '.ps1'];
 
 const NATIVE_MAGICS = [
   'feedface', 'feedfacf', 'cefaedfe', 'cffaedfe', // Mach-O 32/64, both byte orders
@@ -117,10 +182,11 @@ async function readMagic(path: string): Promise<Buffer | null> {
  * through a symlink with another name.
  */
 async function isTrustedBinary(binPath: string): Promise<boolean> {
+  if (process.platform === 'win32') return isTrustedWindowsBinary(binPath);
   if (process.getuid?.() === 0) return false;
   try {
     const real = await realpath(binPath);
-    if (isBlocklisted(basename(real))) return false;
+    if (isBlocklisted(posix.basename(real))) return false;
     if (SYSTEM_PREFIXES.some((prefix) => real.startsWith(prefix) || binPath.startsWith(prefix))) return false;
     const s = await stat(real);
     if (s.uid !== 0 && s.uid !== process.getuid?.()) return false;
@@ -139,6 +205,29 @@ async function isTrustedBinary(binPath: string): Promise<boolean> {
 }
 
 /**
+ * The Windows policy: no owner or mode bits to check; paths compared
+ * case-insensitively; PE executables (`MZ`) anywhere outside the system
+ * directories, .cmd/.bat/.ps1 only under trusted install prefixes.
+ */
+async function isTrustedWindowsBinary(binPath: string): Promise<boolean> {
+  const system = windowsSystemPrefixes().map((p) => p.toLowerCase());
+  const inSystem = (path: string) => system.some((prefix) => path.toLowerCase().startsWith(prefix));
+  // Checked before realpath: an app execution alias may not resolve at all
+  if (inSystem(binPath)) return false;
+  try {
+    const real = await realpath(binPath);
+    if (inSystem(real) || isBlocklisted(win32.basename(real))) return false;
+    if (WINDOWS_SCRIPT_EXTENSIONS.includes(win32.extname(real).toLowerCase())) {
+      return trustedScriptPrefixes().some((prefix) => real.toLowerCase().startsWith(prefix.toLowerCase()));
+    }
+    const magic = await readMagic(real);
+    return magic !== null && magic[0] === 0x4d && magic[1] === 0x5a; // "MZ"
+  } catch {
+    return false;
+  }
+}
+
+/**
  * CLIs whose `--help` does not list their commands, by command name: the
  * words that print their help instead, after the subcommand path
  * (docs/spec.md §7.5). aws's `--help` is an error, its help is
@@ -151,8 +240,17 @@ const HELP_WORDS: Record<string, { top: string[]; sub: string[] }> = {
   poetry: { top: ['list'], sub: ['--help'] },
 };
 
+/**
+ * Git for Windows opens `git <cmd> --help` as an HTML page in the browser;
+ * `-h` prints the usage in the terminal.
+ */
+const WINDOWS_HELP_WORDS: Record<string, { top: string[]; sub: string[] }> = {
+  git: { top: ['-h'], sub: ['-h'] },
+};
+
 function helpArgs(commandName: string, subcommandParts: string[] = []): string[] {
-  const words = HELP_WORDS[commandName];
+  const words = (process.platform === 'win32' ? WINDOWS_HELP_WORDS[commandName.toLowerCase()] : undefined)
+    ?? HELP_WORDS[commandName];
   return [...subcommandParts, ...(words ? (subcommandParts.length > 0 ? words.sub : words.top) : ['--help'])];
 }
 

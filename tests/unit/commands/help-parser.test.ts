@@ -1,6 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
+import { homedir } from 'node:os';
+import { posix, win32 } from 'node:path';
 import { parseHelp, parseSubcommandHelp, isBlocklisted } from '../../../src/main/commands/parsers/help-parser';
-import { assertDefined } from '../../helpers';
+import { assertDefined, withPlatform } from '../../helpers';
 
 // Mock the sandboxed runner and fs
 vi.mock('../../../src/main/commands/sandbox-exec', () => ({
@@ -41,6 +43,9 @@ function setupMocks(helpOutput: string, overrides: Partial<Awaited<ReturnType<ty
   setMagic(MACH_O);
   mockRun.mockResolvedValue({ output: helpOutput, exitCode: 0, timedOut: false, truncated: false, ...overrides });
 }
+
+// The POSIX policy everywhere; the Windows one has its own block below
+withPlatform('darwin');
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -228,8 +233,8 @@ describe('parseHelp', () => {
       expect(await parseHelp('tool', bin)).not.toBeNull();
     }
     // ~/.local/bin/ruff -> ~/.local/share/uv/tools/ruff/bin/ruff: judged by where it lives
-    mockRealpath.mockResolvedValue(`${process.env.HOME}/.local/share/uv/tools/ruff/bin/ruff`);
-    expect(await parseHelp('ruff', `${process.env.HOME}/.local/bin/ruff`)).not.toBeNull();
+    mockRealpath.mockResolvedValue(posix.join(homedir(), '.local/share/uv/tools/ruff/bin/ruff'));
+    expect(await parseHelp('ruff', posix.join(homedir(), '.local/bin/ruff'))).not.toBeNull();
     expect(mockRun).toHaveBeenCalledTimes(4);
   });
 
@@ -308,5 +313,113 @@ describe('parseSubcommandHelp', () => {
     const result = await parseSubcommandHelp('/opt/homebrew/bin/mytool', ['sub'], 'mytool sub');
     assertDefined(result);
     expect(result.description).toBe('A simple tool for processing files.');
+  });
+});
+
+describe('Windows probing policy', () => {
+  withPlatform('win32');
+
+  const PE = Buffer.from('4d5a9000', 'hex');
+  const ENV = {
+    SystemRoot: 'C:\\Windows',
+    LOCALAPPDATA: 'C:\\Users\\me\\AppData\\Local',
+    APPDATA: 'C:\\Users\\me\\AppData\\Roaming',
+    ProgramFiles: 'C:\\Program Files',
+    ProgramData: 'C:\\ProgramData',
+    PATHEXT: '.COM;.EXE;.BAT;.CMD',
+  };
+  const saved: Record<string, string | undefined> = {};
+  beforeAll(() => {
+    for (const [k, v] of Object.entries(ENV)) {
+      saved[k] = process.env[k];
+      process.env[k] = v;
+    }
+  });
+  afterAll(() => {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  });
+
+  function setupWindows(magic = PE) {
+    setupMocks(SIMPLE_HELP);
+    // Owner and mode bits mean nothing on Windows
+    setStat(4242, 0o100777);
+    setMagic(magic);
+  }
+
+  it('probes PE executables anywhere outside the system directories', async () => {
+    setupWindows();
+    expect(await parseHelp('mytool', 'D:\\tools\\mytool.exe')).not.toBeNull();
+    expect(await parseHelp('rg', 'C:\\Users\\me\\scoop\\shims\\rg.exe')).not.toBeNull();
+    expect(mockRun).toHaveBeenCalledWith('D:\\tools\\mytool.exe', ['--help']);
+  });
+
+  it('never probes System32, Store aliases or packaged apps, in any case', async () => {
+    setupWindows();
+    for (const bin of [
+      'C:\\Windows\\System32\\where.exe',
+      'c:\\windows\\notepad.exe',
+      'C:\\Program Files\\WindowsApps\\App_1.0\\app.exe',
+    ]) {
+      expect(await parseHelp('tool', bin)).toBeNull();
+    }
+    // An app execution alias may not even resolve
+    mockRealpath.mockRejectedValue(Object.assign(new Error('UNKNOWN'), { code: 'UNKNOWN' }));
+    expect(await parseHelp('python3', 'C:\\Users\\me\\AppData\\Local\\Microsoft\\WindowsApps\\python3.exe')).toBeNull();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  it('skips a file on PATH that resolves into the system directories', async () => {
+    setupWindows();
+    mockRealpath.mockResolvedValue('C:\\Windows\\System32\\tool.exe');
+    expect(await parseHelp('tool', 'D:\\links\\tool.exe')).toBeNull();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  it('probes .cmd/.bat/.ps1 only under trusted install prefixes (case-insensitive)', async () => {
+    setupWindows(Buffer.from('@ech'));
+    for (const bin of [
+      'C:\\Users\\me\\AppData\\Roaming\\npm\\tsc.cmd',
+      'c:\\program files\\tool\\bin\\tool.bat',
+      win32.join(homedir(), 'scoop', 'shims', 'x.ps1'),
+      'C:\\ProgramData\\chocolatey\\bin\\x.CMD',
+    ]) {
+      expect(await parseHelp('tool', bin)).not.toBeNull();
+    }
+    expect(mockRun).toHaveBeenCalledTimes(4);
+    mockRun.mockClear();
+    for (const bin of ['D:\\scripts\\deploy.cmd', 'C:\\Users\\me\\bin\\deploy.ps1', 'C:\\Users\\me\\deploy.bat']) {
+      expect(await parseHelp('deploy', bin)).toBeNull();
+    }
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  it('skips files that are not PE executables or Windows scripts', async () => {
+    setupWindows(SHEBANG);
+    expect(await parseHelp('tool', 'D:\\tools\\tool.exe')).toBeNull();
+    expect(await parseHelp('tool', 'C:\\Program Files\\tool\\tool.js')).toBeNull();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  it('blocks names case-insensitively, with or without their extension', async () => {
+    for (const name of ['Python.EXE', 'format.com', 'REG', 'powershell.exe', 'cmd', 'diskpart', 'rm.exe', 'msiexec']) {
+      expect(isBlocklisted(name)).toBe(true);
+    }
+    expect(isBlocklisted('git.exe')).toBe(false);
+    setupWindows();
+    mockRealpath.mockResolvedValue('D:\\tools\\PWSH.EXE');
+    expect(await parseHelp('myshell', 'D:\\tools\\myshell.exe')).toBeNull();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  it('asks git for -h: git <cmd> --help opens a browser on Windows', async () => {
+    setupWindows();
+    const git = 'C:\\Program Files\\Git\\cmd\\git.exe';
+    await parseHelp('git', git);
+    await parseSubcommandHelp(git, ['commit'], 'git commit');
+    expect(mockRun).toHaveBeenNthCalledWith(1, git, ['-h']);
+    expect(mockRun).toHaveBeenNthCalledWith(2, git, ['commit', '-h']);
   });
 });

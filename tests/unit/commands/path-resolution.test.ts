@@ -1,10 +1,17 @@
 // PATH resolution against a real temporary filesystem (no fs mocks).
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, symlinkSync, rmSync, utimesSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { scanPath, pathDirectories } from '../../../src/main/commands/path-scanner';
 import { CommandCache } from '../../../src/main/commands/cache';
+import { withPlatform } from '../../helpers';
+
+// HOME drives "~" here; os.homedir() ignores it on a Windows host
+vi.mock('node:os', async (importOriginal) => {
+  const os = await importOriginal<typeof import('node:os')>();
+  return { ...os, homedir: () => process.env.HOME ?? os.homedir() };
+});
 
 const posix = process.platform !== 'win32';
 let root: string;
@@ -37,9 +44,44 @@ afterEach(() => {
 });
 
 describe('pathDirectories', () => {
+  withPlatform('linux');
+
   it('expands ~, drops relative and empty entries, removes duplicates and trailing slashes', () => {
     process.env.HOME = '/home/u';
     expect(pathDirectories('~/bin::.:bin:/usr/bin:/usr/bin/:~:/opt/x')).toEqual(['/home/u/bin', '/usr/bin', '/home/u', '/opt/x']);
+  });
+});
+
+describe('pathDirectories on Windows', () => {
+  withPlatform('win32');
+
+  it('splits on ";", unquotes, drops relative entries, normalizes and dedupes case-insensitively', () => {
+    const path = 'C:\\Tools;;.;bin;"C:\\Program Files\\Git\\cmd";c:\\tools\\;C:\\Windows\\System32;D:/x/;D:\\';
+    expect(pathDirectories(path)).toEqual(['C:\\Tools', 'C:\\Program Files\\Git\\cmd', 'C:\\Windows\\System32', 'D:\\x', 'D:\\']);
+  });
+});
+
+describe.runIf(!posix)('scanPath on Windows (real filesystem)', () => {
+  it('lists PATHEXT files without their extension, first directory then PATHEXT order wins', async () => {
+    const a = join(root, 'wa');
+    const b = join(root, 'wb');
+    for (const d of [a, b]) mkdirSync(d, { recursive: true });
+    for (const name of ['foo.cmd', 'foo.exe', 'bar.cmd', 'baz.dll', 'Qux.EXE', 'readme.txt']) writeFileSync(join(a, name), '');
+    writeFileSync(join(b, 'QUX.exe'), '');
+    writeFileSync(join(b, 'tool.ps1'), '');
+    mkdirSync(join(b, 'dir.exe'));
+    process.env.PATH = [a, b].join(';');
+    const savedExt = process.env.PATHEXT;
+    process.env.PATHEXT = '.COM;.EXE;.BAT;.CMD';
+    try {
+      const byName = new Map((await scanPath()).map(c => [c.name, c.bin]));
+      expect([...byName.keys()].sort()).toEqual(['Qux', 'bar', 'foo', 'tool']);
+      expect(byName.get('foo')).toBe(join(a, 'foo.exe'));
+      expect(byName.get('Qux')).toBe(join(a, 'Qux.EXE'));
+      expect(byName.get('tool')).toBe(join(b, 'tool.ps1'));
+    } finally {
+      process.env.PATHEXT = savedExt;
+    }
   });
 });
 

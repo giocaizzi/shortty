@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { parseManPage, parseSubcommandManPage } from '../../../src/main/commands/parsers/man-parser';
-import { assertDefined } from '../../helpers';
+import { assertDefined, withPlatform } from '../../helpers';
 import { EventEmitter, Readable, Writable } from 'node:stream';
 
 // Mock child_process spawn
@@ -170,6 +170,7 @@ SEE ALSO
 `;
 
 describe('parseManPage', () => {
+  withPlatform('darwin');
   it('extracts description from NAME section', async () => {
     mockManOutput(GIT_ADD_MAN);
     const result = await parseManPage('git-add');
@@ -279,7 +280,7 @@ describe('parseManPage', () => {
     expect(result).toBeNull();
   });
 
-  it.runIf(process.platform !== 'win32')('runs man in its own process group and kills the group on timeout', async () => {
+  it('runs man in its own process group and kills the group on timeout', async () => {
     vi.useFakeTimers();
     mockManOutput(''); // installs the pass-through col
     const colOnly = mockSpawn.getMockImplementation();
@@ -324,6 +325,7 @@ describe('parseManPage', () => {
 });
 
 describe('parseSubcommandManPage', () => {
+  withPlatform('darwin');
   it('converts qualified name to hyphenated man page name', async () => {
     mockManOutput(GIT_ADD_MAN);
     await parseSubcommandManPage('git add');
@@ -399,5 +401,16 @@ SEE ALSO
 `);
     const result = await parseSubcommandManPage('empty');
     expect(result).toBeNull();
+  });
+});
+
+describe('man pages on Windows', () => {
+  withPlatform('win32');
+
+  it('never spawns man: there is none', async () => {
+    mockSpawn.mockReset();
+    expect(await parseManPage('git')).toBeNull();
+    expect(await parseSubcommandManPage('git commit')).toBeNull();
+    expect(mockSpawn).not.toHaveBeenCalled();
   });
 });

@@ -39,7 +39,7 @@ export function parseWhatisOutput(output: string): Map<string, string> {
 
 function run(bin: string, args: string[]): Promise<string> {
   return new Promise((resolve) => {
-    execFile(bin, args, { encoding: 'utf-8', timeout: 20000, maxBuffer: 32 * 1024 * 1024 }, (_err, stdout) => {
+    execFile(bin, args, { encoding: 'utf-8', timeout: 20000, maxBuffer: 32 * 1024 * 1024, windowsHide: true }, (_err, stdout) => {
       resolve(stdout ?? '');
     });
   });
@@ -51,6 +51,8 @@ function run(bin: string, args: string[]): Promise<string> {
  * with "illegal option -- w".
  */
 export async function readWhatis(): Promise<Map<string, string>> {
+  // No apropos/whatis database on Windows
+  if (process.platform === 'win32') return new Map();
   const apropos = parseWhatisOutput(await run('apropos', ['.']));
   if (apropos.size > 0) return apropos;
   return parseWhatisOutput(await run('whatis', ['-w', '*']));

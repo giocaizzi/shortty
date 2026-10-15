@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readWhatis, parseWhatisOutput } from '../../../src/main/commands/whatis-reader';
+import { withPlatform } from '../../helpers';
 
 vi.mock('node:child_process', () => ({
   execFile: vi.fn(),
@@ -55,6 +56,8 @@ describe('parseWhatisOutput (real apropos output)', () => {
 });
 
 describe('readWhatis', () => {
+  withPlatform('darwin');
+
   beforeEach(() => {
     vi.resetAllMocks();
   });
@@ -75,5 +78,15 @@ describe('readWhatis', () => {
   it('returns an empty map when neither works (macOS whatis rejects -w)', async () => {
     mockOutputs({ apropos: '', whatis: new Error('whatis: illegal option -- w') });
     expect((await readWhatis()).size).toBe(0);
+  });
+});
+
+describe('readWhatis on Windows', () => {
+  withPlatform('win32');
+
+  it('returns an empty map without spawning (no man database)', async () => {
+    vi.resetAllMocks();
+    expect((await readWhatis()).size).toBe(0);
+    expect(mockExecFile).not.toHaveBeenCalled();
   });
 });
