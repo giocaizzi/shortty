@@ -27,7 +27,7 @@ export function installMockApi(
     onWindowShown: vi.fn(() => () => undefined),
     onWindowHidden: vi.fn(() => () => undefined),
     getSettings: vi.fn(async () => structuredClone(store)),
-    setSetting: vi.fn(async (key: keyof AppSettings, value: unknown) => {
+    setSetting: vi.fn(async (key: keyof AppSettings, value: unknown): Promise<{ success: boolean; error?: string }> => {
       Object.assign(store, { [key]: value });
       listeners.forEach((l) => l(structuredClone(store)));
       return { success: true };
@@ -56,6 +56,7 @@ export function installMockApi(
     hideWindow: vi.fn(),
     onWindowWillHide: vi.fn(() => () => undefined),
     pickPath: vi.fn(async (): Promise<string | null> => null),
+    getIcon: vi.fn(async (): Promise<string | null> => null),
     checkPaths: vi.fn(async (paths: string[]) =>
       paths.map((p) => ({
         path: p,

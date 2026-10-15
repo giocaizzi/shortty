@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react';
+import type { Command } from '@shared/types';
 import type { ElectronAPI } from '../../src/preload/preload';
 import {
   CommandDetailView,

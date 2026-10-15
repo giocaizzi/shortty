@@ -39,7 +39,11 @@ test.describe('launcher window', () => {
     await expect.poll(() => shortty.app.windows().length).toBe(2);
     const prefs = await shortty.app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows().map((w) => {
-        const p = w.webContents.getLastWebPreferences();
+        // Exists at runtime but is missing from Electron's typings
+        const contents = w.webContents as typeof w.webContents & {
+          getLastWebPreferences(): Electron.WebPreferences | null;
+        };
+        const p = contents.getLastWebPreferences();
         return { sandbox: p?.sandbox, contextIsolation: p?.contextIsolation, nodeIntegration: p?.nodeIntegration };
       }),
     );

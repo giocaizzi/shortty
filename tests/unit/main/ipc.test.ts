@@ -37,7 +37,14 @@ const changeGlobalShortcut = vi.fn<(accelerator: string) => string | null>(() =>
 beforeAll(() => {
   registerIpcHandlers(
     registry as never,
-    { openPreferences: vi.fn(), changeGlobalShortcut },
+    {
+      openPreferences: vi.fn(),
+      changeGlobalShortcut,
+      rebuildIndex: vi.fn(async () => undefined),
+      getUpdateStatus: vi.fn(() => ({ current: '0.1.0', state: 'idle' as const })),
+      checkForUpdates: vi.fn(async () => undefined),
+      installUpdate: vi.fn(),
+    },
     () => engine as never,
     { shortcuts: shortcuts.promise, commands: commands.promise },
   );

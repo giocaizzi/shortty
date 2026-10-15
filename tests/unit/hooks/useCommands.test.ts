@@ -50,7 +50,7 @@ describe('useCommands', () => {
   });
 
   it('fetches commands and stats on mount', async () => {
-    const api = window.electronAPI;
+    const api = vi.mocked(window.electronAPI);
     const { result } = renderHook(() => useCommands());
 
     await waitFor(() => {
@@ -66,7 +66,7 @@ describe('useCommands', () => {
   it('cleans up event listeners on unmount', async () => {
     const unsubUpdate = vi.fn();
     const unsubShown = vi.fn();
-    const api = window.electronAPI;
+    const api = vi.mocked(window.electronAPI);
     api.onCommandsUpdate.mockReturnValue(unsubUpdate);
     api.onWindowShown.mockReturnValue(unsubShown);
 
@@ -93,7 +93,7 @@ describe('useCommands', () => {
   });
 
   it('reloads the index on show only when its size changed', async () => {
-    const api = window.electronAPI;
+    const api = vi.mocked(window.electronAPI);
     let shown: () => void = () => undefined;
     api.onWindowShown.mockImplementation((cb: () => void) => {
       shown = cb;
@@ -112,7 +112,7 @@ describe('useCommands', () => {
   });
 
   it('adds commands that arrive in an update batch', async () => {
-    const api = window.electronAPI;
+    const api = vi.mocked(window.electronAPI);
     let push: (batch: Command[]) => void = () => undefined;
     api.onCommandsUpdate.mockImplementation((cb: (batch: Command[]) => void) => {
       push = cb;

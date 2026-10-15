@@ -23,7 +23,7 @@ class StubPwsh extends PsReadLineParser {
 }
 
 /** Keys as structured strokes, independent of how the platform displays them. */
-const strokes = (s: Shortcut) => s.strokes.map((st) => [...st.mods, st.key].join('+')).join(' ');
+const strokes = (s: Shortcut) => (s.strokes ?? []).map((st) => [...st.mods, st.key].join('+')).join(' ');
 const view = (list: Shortcut[]) => list.map((s) => [strokes(s), s.rawCommand, s.command, s.origin, s.isUnbound]);
 
 describe('PsReadLineParser', () => {

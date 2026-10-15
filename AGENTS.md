@@ -14,7 +14,7 @@ make dev                 # Start the app with HMR (electron-forge start)
 make check               # lint + test: what CI's required `check` job gates on
 make precommit           # lint + typecheck + test + knip (the git pre-commit hook; never bypass it)
 make lint                # eslint
-make typecheck           # tsc --noEmit
+make typecheck           # tsc --noEmit (src and tests, e2e included)
 make test                # vitest run (unit + component)
 make knip                # unused files, deps and exports
 make e2e                 # build, then run the Playwright e2e suite on the real app (slow, local macOS, not in check)
