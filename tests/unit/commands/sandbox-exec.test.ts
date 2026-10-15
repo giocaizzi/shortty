@@ -187,8 +187,21 @@ describe.runIf(!posix)('runSandboxed on Windows (real processes)', () => {
   it('runs a .ps1 through PowerShell', async () => {
     const bin = file('hello.ps1', 'Write-Output "ps $($args -join \',\')"\r\n');
     const result = await runSandboxed(bin, ['--help'], { timeoutMs: 15000 });
-    expect(result.output.trim()).toBe('ps --help');
-  }, 20000); // PowerShell takes seconds to start on a cold runner
+    expect(result).toMatchObject({ output: 'ps --help\r\n', timedOut: false });
+  }, 20000);
+
+  it('DIAG powershell', async () => {
+    const bin = file('diag.ps1', 'Write-Output "ps ok"\r\n');
+    const t0 = Date.now();
+    const full = await runSandboxed(bin, [], { timeoutMs: 15000, env: { ...process.env } });
+    console.log('DIAG full', Date.now() - t0, JSON.stringify(full));
+    const t1 = Date.now();
+    const bare = await runSandboxed(bin, [], { timeoutMs: 15000 });
+    console.log('DIAG bare', Date.now() - t1, JSON.stringify(bare));
+    const t2 = Date.now();
+    const cmd = await runSandboxed('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', 'Write-Output hi'], { timeoutMs: 15000 });
+    console.log('DIAG command', Date.now() - t2, JSON.stringify(cmd));
+  }, 60000); // PowerShell takes seconds to start on a cold runner
 
   it('kills the whole tree at the timeout', async () => {
     const bin = file('hang.cmd', '@echo off\r\nping -n 30 127.0.0.1 > nul\r\n');
