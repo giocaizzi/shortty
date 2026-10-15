@@ -1,4 +1,4 @@
-.PHONY: help check install lint typecheck test knip precommit dev package make setup-hooks e2e e2e-benchmark readme-screenshots
+.PHONY: help check install lint typecheck test knip precommit dev package make setup-hooks e2e e2e-benchmark smoke readme-screenshots
 
 help: ## Show this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*##/ { printf "  %-12s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -35,6 +35,10 @@ make: ## Build distributables.
 # other's focus: serialize them on a machine-wide lock (macOS lockf).
 E2E_LOCK ?= /tmp/shortty-e2e.lock
 E2E_RUN = $(if $(shell command -v lockf),lockf -t 3600 $(E2E_LOCK),)
+
+smoke: ## Package, then launch the packaged app and wait for "App ready" (catches start-up crashes).
+	npm run package
+	node scripts/smoke-packaged.mjs
 
 e2e: ## Build, then run the Playwright e2e suite on the real app (slow, not in check).
 	$(E2E_RUN) sh -c 'npm run package && npx playwright test'

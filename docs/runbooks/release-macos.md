@@ -1,6 +1,6 @@
 # Release macOS
 
-**When:** cutting a Shortty release for macOS (DMG + ZIP on a GitHub Release), or building a local DMG to test. Not for Windows/Linux: their makers (Squirrel, deb, rpm) are configured in `forge.config.ts` but untested for v1.
+**When:** building, signing or notarizing a macOS build by hand, or setting up macOS signing. Releases themselves are automated: [release.md](release.md).
 **Preconditions:** a Mac of the target architecture; `make install` done; a clean tree on the commit to release, with the version set in `package.json`; for a signed build, the Developer ID certificate in the keychain and the notarization credentials available (see "What a human must provide"); `gh` authenticated to publish.
 
 How to build, sign, notarize and verify a Shortty macOS release.
@@ -68,25 +68,19 @@ The packaged app must contain: the cheatsheets (bundled into `app.asar` at `.vit
 
 ## 4. Publish
 
-Attach the DMG and ZIP to a GitHub Release for the tag (`gh release create vX.Y.Z out/make/dmg/*/*.dmg out/make/zip/darwin/*/*.zip`). No auto-update channel exists in v1.
+Releases are published by CI ([release.md](release.md)). By hand: `gh release create vX.Y.Z out/make/dmg/*/*.dmg out/make/zip/darwin/*/*.zip`, renamed as in release.md, or auto-update cannot find the zip ([updates.md](updates.md)).
 
 ## What a human must provide
 
 - An Apple Developer Program membership and a **Developer ID Application** certificate installed in the signing keychain (the private key never goes in the repo).
 - An app-specific password and the team ID for notarization.
 
-## What a CI release workflow would need
+## Signing in CI
 
-Not added yet (repo follows the org CI standard). A tag-triggered workflow (`v*`) would:
-
-1. Run on `macos-latest` with Node 22: `make install`, `make precommit`.
-2. Import the Developer ID certificate (base64 `.p12` secret plus password) into a temporary keychain.
-3. Expose `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` from repository secrets.
-4. `make make`, then upload `out/make/**/*.dmg` and `*.zip` to the GitHub Release (`gh release upload`).
-5. Delete the temporary keychain.
+`.github/workflows/release.yml` imports the Developer ID certificate (`MACOS_CERT_P12`, `MACOS_CERT_PASSWORD`) into a temporary keychain and signs and notarizes with the four variables above, all secrets of the `release` environment ([release.md](release.md#what-a-human-must-provide)). Without them it builds unsigned with a warning.
 
 ## Rollback
 
-Before publishing, nothing leaves the machine: delete `out/`. After publishing, delete the GitHub Release and its tag (`gh release delete vX.Y.Z --cleanup-tag`); users who already downloaded the DMG keep it (there is no auto-update channel to retract). A notarization submission cannot be withdrawn, but it has no effect without the published artifact.
+Before publishing, nothing leaves the machine: delete `out/`. After publishing, delete the GitHub Release and its tag (`gh release delete vX.Y.Z --cleanup-tag`); users who already installed it keep it ([release.md](release.md#rollback)). A notarization submission cannot be withdrawn, but it has no effect without the published artifact.
 
 **Last verified:** 2026-10-14 by the feat/finish-v1 docs pass (commands read against `Makefile` and `forge.config.ts`; signing and publishing not exercised, no certificate available)

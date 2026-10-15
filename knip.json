@@ -8,7 +8,8 @@
     "vite.preload.config.ts",
     "vite.renderer.config.mts",
     "vite.preferences.config.mts",
-    "tests/**/*.{test,spec}.{ts,tsx}"
+    "tests/**/*.{test,spec}.{ts,tsx}",
+    "scripts/*.mjs"
   ],
   "ignoreDependencies": [
     "@electron-forge/plugin-auto-unpack-natives",

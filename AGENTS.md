@@ -19,6 +19,7 @@ make test                # vitest run (unit + component)
 make knip                # unused files, deps and exports
 make e2e                 # build, then run the Playwright e2e suite on the real app (slow, local macOS, not in check)
 make e2e-benchmark       # build, then write timings/screenshots to docs/wip/benchmark (LABEL=baseline)
+make smoke               # package, launch the packaged app, wait for "App ready" (CI runs it on every OS)
 make package             # package the app
 make make                # build distributables (DMG + ZIP on macOS)
 make setup-hooks         # install the pre-commit hook
@@ -84,4 +85,4 @@ Index: [docs/README.md](docs/README.md). Runbooks: [run e2e tests](docs/runbooks
 
 ## Workflow
 
-Changes land on `main` only through a squash-merged PR with a Conventional Commit title; the required status check is the aggregate CI job `check` (`.github/workflows/ci.yml`, which also runs gitleaks). Repo conventions: [GitHub standard](https://github.com/giocaizzi/.github/blob/main/docs/standard.md).
+Changes land on `main` only through a squash-merged PR with a Conventional Commit title; the required status check is the aggregate CI job `check` (`.github/workflows/ci.yml`: lint, knip, gitleaks, tests on Linux, macOS and Windows, and `make smoke` on all three). Repo conventions: [GitHub standard](https://github.com/giocaizzi/.github/blob/main/docs/standard.md).
