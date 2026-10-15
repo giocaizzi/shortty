@@ -26,6 +26,9 @@ const config: ForgeConfig = {
     extraResource: [
       'src/assets/tray-iconTemplate.png',
       'src/assets/tray-iconTemplate@2x.png',
+      // Windows and Linux tray icons (src/main/tray.ts).
+      'src/assets/icon.ico',
+      'src/assets/icon.png',
     ],
     extendInfo: {
       LSUIElement: true,
@@ -43,9 +46,15 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {},
   makers: [
-    new MakerSquirrel({}),
+    // Installs per user into %LOCALAPPDATA%\shortty (src/main/login-item.ts, docs/runbooks/reset-settings.md).
+    new MakerSquirrel({
+      name: 'shortty',
+      setupIcon: 'src/assets/icon.ico',
+      // Shown in Apps & features; Squirrel needs a URL, not a path.
+      iconUrl: 'https://raw.githubusercontent.com/giocaizzi/shortty/main/src/assets/icon.ico',
+    }),
     new MakerDMG({ icon: 'src/assets/icon.icns', format: 'ULFO' }, ['darwin']),
-    new MakerZIP({}, ['darwin']),
+    new MakerZIP({}, ['darwin', 'win32']),
     new MakerRpm({}),
     new MakerDeb({}),
   ],
