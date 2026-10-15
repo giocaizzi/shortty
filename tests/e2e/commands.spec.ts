@@ -123,7 +123,7 @@ test.describe('commands from the fixture PATH', () => {
 
     await shortty.selectRow('--verbose');
     await shortty.win.keyboard.press('Enter');
-    await expect.poll(() => shortty.clipboard()).toBe('--verbose');
+    await expect.poll(() => shortty.clipboard()).toBe('gizmo --verbose');
   });
 
   test('typing filters subcommands and flags', async ({ shortty }) => {
@@ -218,7 +218,7 @@ test.describe('typed drill-down (docs/spec.md §10.2)', () => {
     await expect(shortty.win.getByTestId('flag-row')).toHaveText([/--zone/]);
 
     await shortty.win.keyboard.press('Enter');
-    await expect.poll(() => shortty.clipboard()).toBe('--zone');
+    await expect.poll(() => shortty.clipboard()).toBe('nestor compute instances create --zone');
   });
 
   test('a pasted line resolves as far as it can', async ({ shortty }) => {

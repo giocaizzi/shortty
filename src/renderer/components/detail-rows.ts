@@ -129,17 +129,24 @@ function rowCopyText(row: DetailRow): string {
   }
 }
 
-type RowSource = Pick<DetailData, 'subcommands' | 'flags' | 'arguments' | 'examples' | 'environment'>;
+type RowSource = Pick<DetailData, 'name' | 'subcommands' | 'flags' | 'arguments' | 'examples' | 'environment'>;
 
 /** Get total number of navigable items in a detail view. */
 export function getDetailItemCount(data: RowSource, filterQuery: string): number {
   return buildDetailGroups(data, filterQuery).reduce((n, g) => n + g.rows.length, 0);
 }
 
-/** Get the copyable text for a given index in a detail view. */
+/**
+ * Get the copyable text for a given index in a detail view. Flags and
+ * arguments carry the command path (`gh auth login --hostname`); subcommand
+ * names and examples already do, and environment variables stand alone.
+ */
 export function getDetailCopyText(data: RowSource, filterQuery: string, index: number): string | null {
   const row = rowAt(data, filterQuery, index);
-  return row ? rowCopyText(row) : null;
+  if (!row) return null;
+  const text = rowCopyText(row);
+  const needsPath = (row.kind === 'flag' || row.kind === 'argument') && data.name && text;
+  return needsPath ? `${data.name} ${text}` : text;
 }
 
 /** Check if item at index is a subcommand (not an argument, example, flag or variable). */

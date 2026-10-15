@@ -98,7 +98,7 @@ describe('CommandDetailView: examples, environment, aliases, see also', () => {
   it('keyboard model: examples copy their command, variables their name', () => {
     expect(getDetailItemCount(gh, '')).toBe(8);
     expect(getDetailCopyText(gh, '', 0)).toBe('gh pr list --author "@me"');
-    expect(getDetailCopyText(gh, '', 2)).toBe('--state');
+    expect(getDetailCopyText(gh, '', 2)).toBe('gh pr list --state');
     expect(getDetailCopyText(gh, '', 7)).toBe('GH_TOKEN');
     expect(isSubcommandAtIndex(gh, '', 0)).toBe(false);
   });
@@ -128,7 +128,7 @@ describe('CommandDetailView: long sections collapse', () => {
     view(many, 25);
     expect(screen.getAllByTestId('subcommand-row')).toHaveLength(60);
     expect(screen.getByTestId('flag-row').getAttribute('data-index')).toBe('60');
-    expect(getDetailCopyText(many, '', 60)).toBe('--one');
+    expect(getDetailCopyText(many, '', 60)).toBe('git --one');
   });
 
   it('a filter shows every match', () => {

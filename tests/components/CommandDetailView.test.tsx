@@ -246,8 +246,8 @@ describe('getDetailItemCount', () => {
 
 describe('getDetailCopyText', () => {
   it('returns argument name for argument index', () => {
-    expect(getDetailCopyText(mockCommandWithArgs, '', 0)).toBe('<command>');
-    expect(getDetailCopyText(mockCommandWithArgs, '', 1)).toBe('<args>');
+    expect(getDetailCopyText(mockCommandWithArgs, '', 0)).toBe('git <command>');
+    expect(getDetailCopyText(mockCommandWithArgs, '', 1)).toBe('git <args>');
   });
 
   it('returns subcommand name for subcommand index (after arguments)', () => {
@@ -258,7 +258,7 @@ describe('getDetailCopyText', () => {
 
   it('returns flag for flag index (after arguments + subcommands)', () => {
     // 2 arguments + 2 subcommands = 4, flag at index 4
-    expect(getDetailCopyText(mockCommandWithArgs, '', 4)).toBe('--verbose');
+    expect(getDetailCopyText(mockCommandWithArgs, '', 4)).toBe('git --verbose');
   });
 
   it('returns subcommand name for index 0 when no arguments', () => {
@@ -266,7 +266,7 @@ describe('getDetailCopyText', () => {
   });
 
   it('returns flag for flag index when no arguments', () => {
-    expect(getDetailCopyText(mockCommand, '', 2)).toBe('--verbose');
+    expect(getDetailCopyText(mockCommand, '', 2)).toBe('git --verbose');
   });
 
   it('returns null for out-of-range index', () => {

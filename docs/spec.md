@@ -773,6 +773,8 @@ Enter on a "Show all X" row expands that section. The shortcut copied is the key
 | Any character | Search input | Search within source | Filter within details |
 | `?` icon (or `?` on an empty query) | Show keyboard shortcuts help | — | — |
 
+In Command Detail, Enter copies the full command line: a subcommand row copies its path (`gh auth login`), a flag or argument row copies it after the current path (`gh auth login --hostname`, `git <args>`), an example copies its whole command, an environment variable its name alone.
+
 Tab never moves focus out of the search field; → drills only when the caret is at the end of the query.
 
 ### 10.8 Window Behavior
