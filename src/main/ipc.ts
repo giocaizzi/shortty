@@ -154,7 +154,7 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle(IPC_CHANNELS.ICONS_GET, async (_event, kind: unknown, name: unknown) => {
-    if (process.platform !== 'darwin') return null;
+    if (process.platform !== 'darwin' && process.platform !== 'win32') return null;
     await (kind === 'command' ? ready.commands : ready.shortcuts);
     return getIcon(kind, name);
   });
@@ -172,11 +172,14 @@ export function registerIpcHandlers(
       const resolved = resolvePath(defaultPath.trim());
       start = existsSync(resolved) ? resolved : dirname(resolved);
     }
+    // Only macOS lets one dialog pick a file or a folder; elsewhere
+    // openDirectory wins, so Windows and Linux pick a file.
+    const mac = process.platform === 'darwin';
     const options: OpenDialogOptions = {
-      title: 'Choose a config file or folder',
+      title: mac ? 'Choose a config file or folder' : 'Choose a config file',
       buttonLabel: 'Use',
       defaultPath: start,
-      properties: ['openFile', 'openDirectory', 'showHiddenFiles'],
+      properties: mac ? ['openFile', 'openDirectory', 'showHiddenFiles'] : ['openFile', 'showHiddenFiles'],
     };
     const win = BrowserWindow.fromWebContents(event.sender);
     const result = win

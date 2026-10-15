@@ -3,6 +3,7 @@ import type { BrowserWindow } from 'electron';
 import log from './logger';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import type { ParserRegistry } from './parsers/registry';
+import { pathKey } from './utils/path-key';
 
 let watcher: FSWatcher | null = null;
 
@@ -20,11 +21,11 @@ export function startWatching(
 
   for (const [sourceId, paths] of watchPathsMap) {
     for (const p of paths) {
-      pathToSource.set(p, sourceId);
+      pathToSource.set(pathKey(p), sourceId);
     }
   }
 
-  const allPaths = Array.from(pathToSource.keys());
+  const allPaths = Array.from(new Set(Array.from(watchPathsMap.values()).flat()));
   if (allPaths.length === 0) {
     log.debug('File watcher: no paths to watch');
     return;
@@ -39,7 +40,8 @@ export function startWatching(
 
   // 'add'/'unlink' cover config files created or removed after startup.
   const onEvent = async (changedPath: string) => {
-    const sourceId = pathToSource.get(changedPath);
+    // chokidar may report another spelling of a watched path (separators, case on Windows).
+    const sourceId = pathToSource.get(pathKey(changedPath));
     if (!sourceId) return;
 
     log.info(`Config changed: ${sourceId} (${changedPath})`);

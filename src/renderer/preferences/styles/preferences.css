@@ -146,6 +146,16 @@ input {
   -webkit-app-region: drag;
 }
 
+/* Windows and Linux: a native title bar drags the window, no traffic lights to clear. */
+:root:not([data-platform='darwin']) .pf-sidebar {
+  padding-top: 12px;
+  -webkit-app-region: no-drag;
+}
+
+:root:not([data-platform='darwin']) .pf-pane-title {
+  -webkit-app-region: no-drag;
+}
+
 .pf-nav-item {
   -webkit-app-region: no-drag;
   display: flex;

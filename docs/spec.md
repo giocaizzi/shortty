@@ -239,7 +239,7 @@ A `schema.json` file validates cheatsheet structure. All cheatsheet files must p
 
 The cheatsheets are bundled into the main-process build with Vite's `import.meta.glob('../../cheatsheets/sources/*.json', { eager: true })` (`src/main/cheatsheets/loader.ts`), so dev, e2e and the packaged app read the same data with no runtime path to resolve. Tests can still point the loader at a directory.
 
-The `icon` field is kept as metadata; the UI draws a source tile instead (§10.4). The optional `app` field (`{ "bundleId": "com.google.Chrome", "name": "Google Chrome" }`) names the macOS app whose real icon represents the source.
+The `icon` field is kept as metadata; the UI draws a source tile instead (§10.4). The optional `app` field (`{ "bundleId": "com.google.Chrome", "name": "Google Chrome" }`) names the macOS app whose real icon represents the source; on Windows its `name` picks the app's `.exe` (§10.4).
 
 ### 6.2 Parser System
 
@@ -666,13 +666,13 @@ Each section shows a selectable "Show all X" row when truncated (Enter expands i
 | Result Limits | object | see §8.5 | Search tab |
 | Commands Enabled | boolean | `true` | Commands tab |
 
-**Visibility safety:** if user disables both Dock and Menu Bar, show confirmation dialog: "You'll only be able to access Shortty via the keyboard shortcut. Are you sure?" Escape hatch: `shortty --reset-settings` CLI flag. It restores `DEFAULT_SETTINGS` (`src/shared/settings.ts`) and exits without opening a window; it refuses (exit code 1) while another instance holds the single-instance lock. Procedure: [runbooks/reset-settings.md](runbooks/reset-settings.md).
+**Visibility safety:** if user disables both Dock and Menu Bar (off macOS: the system tray icon, the only one there), show confirmation dialog: "You'll only be able to access Shortty via the keyboard shortcut. Are you sure?" Escape hatch: the `--reset-settings` CLI flag, shown in the dialog with the installed app's path per platform. It restores `DEFAULT_SETTINGS` (`src/shared/settings.ts`) and exits without opening a window; it refuses (exit code 1) while another instance holds the single-instance lock. Procedure: [runbooks/reset-settings.md](runbooks/reset-settings.md).
 
 Theme values: `light | dark | system`. No additional theming in v1.
 
 ### 9.2 Preferences Window Structure
 
-It opens from the menu bar icon (Preferences...) or, while a Shortty window is focused, from the app menu's Settings… item (`⌘,`). The Preferences window is modelled on macOS System Settings: a sidebar source list with coloured tiles (↑/↓ move between tabs), inset grouped sections, native-sized switches, segmented controls and sliders, light and dark palettes that follow the Theme setting. 600×500, non-resizable, hidden-inset title bar.
+It opens from the menu bar / tray icon (Preferences...) or, while a Shortty window is focused, from the app menu's Settings… item (`⌘,`; on Windows and Linux the hidden File menu's Settings…, `Ctrl+,`). The Preferences window is modelled on macOS System Settings: a sidebar source list with coloured tiles (↑/↓ move between tabs), inset grouped sections, native-sized switches, segmented controls and sliders, light and dark palettes that follow the Theme setting. 600×500, non-resizable, hidden-inset title bar on macOS; on Windows and Linux the native frame, its menu bar hidden until Alt (`autoHideMenuBar`), no drag regions or traffic-light padding (`data-platform` on `<html>`). The path picker (Browse…) chooses a file or a folder on macOS, a file elsewhere (one dialog cannot do both there).
 
 | Tab | Contents |
 |-----|----------|
@@ -753,11 +753,11 @@ Typing a command line drills by itself, as deep as the subcommands go (`>gh auth
 
 Rows follow a single-line layout inspired by the Vaise launcher: identity on the left, keys on the right. Every row starts with a **source tile** (`src/renderer/components/SourceIcon.tsx`), instead of the cheatsheet emoji. The tile is, in order of preference:
 
-1. **The real app icon**, autofound on macOS: main (`src/main/icons.ts`) finds the bundle of the cheatsheet's `app` by bundle id with Spotlight (`mdfind`, argv only, 2 s timeout), else by name in `/Applications`, `~/Applications`, `/System/Applications` and `/System/Library/CoreServices`, and renders it with Quick Look (`nativeImage.createThumbnailFromPath`, 64 px; `app.getFileIcon` stops at 32 px on macOS and its `large` size aborts the process). Commands whose binary resolves (after symlinks) into an `.app` get that app's icon (`code` → Visual Studio Code). The renderer asks through `icons:get` with a known source id or command name only, never a path; main caches hits and misses for the session, and the renderer sends one request per icon.
+1. **The real app icon**, autofound on macOS: main (`src/main/icons.ts`) finds the bundle of the cheatsheet's `app` by bundle id with Spotlight (`mdfind`, argv only, 2 s timeout), else by name in `/Applications`, `~/Applications`, `/System/Applications` and `/System/Library/CoreServices`, and renders it with Quick Look (`nativeImage.createThumbnailFromPath`, 64 px; `app.getFileIcon` stops at 32 px on macOS and its `large` size aborts the process). Commands whose binary resolves (after symlinks) into an `.app` get that app's icon (`code` → Visual Studio Code). On Windows, main looks for the cheatsheet app's `.exe` (VS Code, Chrome, Obsidian) under `%LOCALAPPDATA%\Programs`, `%ProgramFiles%`, `%ProgramFiles(x86)%` and `%LOCALAPPDATA%`, and a command whose binary resolves to an `.exe` uses that file's icon (`.cmd`/`.bat` shims do not); both are drawn with `app.getFileIcon` (`large`, 32 px). Linux has no app icons. The renderer asks through `icons:get` with a known source id or command name only, never a path; main caches hits and misses for the session, and the renderer sends one request per icon.
 2. **A brand glyph** from `simple-icons` (`src/renderer/lib/brand-icons.ts`): for sources whose app is missing or that are CLIs (tmux, vim, zsh, bash), and for ~150 common CLIs (`git`, `gh`, `docker`, `kubectl`, `terraform`, `gcloud`, `node`, `uv`, `brew`, `psql`, …; version suffixes like `python3.12` or `psql-17` are stripped). For commands a curated glyph wins over the app bundle, because a binary's bundle is not always its brand (`kubectl` ships inside Docker.app). The glyph takes the brand colour on a quiet tile; a colour under 3:1 contrast on the current theme is mixed toward the foreground colour.
 3. **A tinted monogram** like a Dock icon (`VS`, `Gh`, `tm`, `>_` for other commands); an unknown source gets its initial on a hue derived from its id.
 
-Tiles have a fixed size, so rows never jump when an icon arrives. In e2e runs autofind skips Spotlight and looks only in the fake HOME's `Applications`, where the fixtures put a fake `Google Chrome.app`.
+Tiles have a fixed size, so rows never jump when an icon arrives. In e2e runs autofind skips Spotlight and looks only in the fake HOME's `Applications` (on Windows it looks nowhere), where the fixtures put a fake `Google Chrome.app`.
 
 **Shortcut row:**
 - Left: source tile (flat mode only), command name, then the `rawCommand` in muted monospace when it differs
@@ -818,7 +818,8 @@ Tab never moves focus out of the search field; → drills only when the caret is
 | Always on top | Yes |
 | Show in dock | Configurable (default: off) |
 | Show in mission control | No |
-| Background | Native macOS vibrancy (`under-window`), light or dark per Theme |
+| Background | Native material, light or dark per Theme: macOS vibrancy (`under-window`), Windows 11 22H2+ acrylic (`backgroundMaterial`); elsewhere (Windows 10, Linux) the solid `--panel-solid` token (`src/main/launcher-window.ts`) |
+| Focus on show | macOS activates the app (`app.focus({ steal: true })`); Windows raises the launcher itself (`moveTop`, then `focus`), since `app.focus()` there focuses the app's first window |
 | Scrolling | Scroll within the 580px window when results overflow |
 | Instances | One per user (single-instance lock); a second launch shows the running panel |
 | Dismiss | Esc, click outside, blur, global shortcut toggle |
@@ -937,7 +938,7 @@ Principle: **never crash the app, never block the user.** Each subsystem fails i
 
 ### 12.5 Distribution
 
-- **v1:** GitHub Releases — DMG + ZIP for macOS; Squirrel (Windows) and deb/rpm (Linux) makers are configured but untested in v1. Procedure: [runbooks/release-macos.md](runbooks/release-macos.md)
+- **v1:** GitHub Releases — DMG + ZIP for macOS; Squirrel installer (per user, into `%LOCALAPPDATA%\shortty`, icon `src/assets/icon.ico`) + portable ZIP for Windows, and deb/rpm (Linux) makers are configured but untested in v1. Launch at login on a Squirrel install registers the stub launcher `%LOCALAPPDATA%\shortty\shortty.exe`, which starts the latest installed version, so the login item survives updates (`src/main/login-item.ts`). Procedure: [runbooks/release-macos.md](runbooks/release-macos.md)
 - **Post-v1:** Homebrew Cask formula
 - **Deferred:** Mac App Store (sandboxing conflicts)
 - **Code signing:** Apple Developer account, sign + notarize from v1; enabled only through environment variables (`APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`), unsigned otherwise

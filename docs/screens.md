@@ -323,9 +323,10 @@ User clicks the `?` button in the search bar, or types `?` on an empty query.
 
 ### 4.1 Tray Icon
 
-Small monochrome icon in the macOS menu bar / Windows system tray.
-Uses `tray-iconTemplate.png` (macOS template image, auto-adapts to light/dark).
-Shown only while "Show in menu bar" is on; toggling the setting creates or removes it immediately.
+Small icon in the macOS menu bar / Windows system tray.
+macOS uses `tray-iconTemplate.png` (template image, auto-adapts to light/dark); Windows shows the colour app icon (`icon.ico`), Linux `icon.png`.
+Shown only while "Show in menu bar" ("Show in system tray" off macOS) is on; toggling the setting creates or removes it immediately.
+On macOS a click opens the menu below; on Windows a left-click shows or hides the launcher and a right-click opens the menu.
 
 ### 4.2 Tray Context Menu
 
@@ -347,7 +348,7 @@ Shown only while "Show in menu bar" is on; toggling the setting creates or remov
 
 ## 5. Preferences Window
 
-Separate window: 600x500px, non-resizable, hidden-inset title bar (traffic lights over the sidebar). Styled like macOS System Settings: a sidebar source list with coloured icon tiles, content in inset grouped sections with native-sized switches, segmented controls and sliders. Light and dark follow the Theme setting. ↑/↓ move through the sidebar.
+Separate window: 600x500px, non-resizable, hidden-inset title bar on macOS (traffic lights over the sidebar). On Windows and Linux it has the native title bar and no traffic-light gap; its File/Edit menu bar is hidden until Alt is pressed. Styled like macOS System Settings: a sidebar source list with coloured icon tiles, content in inset grouped sections with native-sized switches, segmented controls and sliders. Light and dark follow the Theme setting. ↑/↓ move through the sidebar.
 
 ### 5.1 General Tab
 
@@ -373,7 +374,8 @@ Separate window: 600x500px, non-resizable, hidden-inset title bar (traffic light
 
 - Each switch has a one-line explanation under its label
 - The shortcut recorder records physical keys (`KeyboardEvent.code`) and labels them for the user's layout; a shortcut already in use shows the error from the main process
-- Turning off both Dock and menu bar asks for confirmation first
+- Off macOS the Dock row is absent and the tray row reads "Show in system tray" / "Add a Shortty icon to the system tray."
+- Turning off both Dock and menu bar (off macOS: the tray icon) asks for confirmation first. The dialog names the installed app's reset command: `/Applications/Shortty.app/Contents/MacOS/shortty --reset-settings` on macOS, `%LOCALAPPDATA%\shortty\shortty.exe --reset-settings` on Windows, `shortty --reset-settings` on Linux
 
 ---
 

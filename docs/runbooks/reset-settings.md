@@ -1,23 +1,34 @@
 # Reset settings
 
 **When:** Shortty is unreachable, for example after turning off both
-"Show in Dock" and "Show in Menu Bar" and forgetting or breaking the global
-shortcut ([spec §9.1](../spec.md#91-app-settings), visibility safety). Not for
+"Show in Dock" and "Show in Menu Bar" (on Windows: "Show in system tray") and
+forgetting or breaking the global shortcut ([spec §9.1](../spec.md#91-app-settings), visibility safety). Not for
 clearing the commands cache or logs: this resets settings only.
-**Preconditions:** a shell on the machine; Shortty installed
-(`/Applications/Shortty.app`) or built with `make package` for development.
+**Preconditions:** a shell on the machine (on Windows, the Run dialog `Win+R`
+is enough); Shortty installed (macOS: `/Applications/Shortty.app`; Windows:
+the Squirrel installer, per user into `%LOCALAPPDATA%\shortty`) or built with
+`make package` for development.
 
 ## Steps
 
-1. Quit the running instance: `pkill -x Shortty` (macOS) or end the
-   `shortty` process. While it runs, `--reset-settings` refuses, logs
+1. Quit the running instance: `pkill -x Shortty` (macOS),
+   `taskkill /IM shortty.exe` (Windows) or end the `shortty` process. While it runs, `--reset-settings` refuses, logs
    `Shortty is running; quit it first` and exits with code 1 (one instance
    per user, enforced with Electron's single-instance lock).
 2. Run the binary with the flag:
 
    ```bash
+   # macOS
    /Applications/Shortty.app/Contents/MacOS/shortty --reset-settings
    ```
+
+   ```bat
+   :: Windows (cmd or Win+R): the Squirrel stub, which starts the installed version
+   %LOCALAPPDATA%\shortty\shortty.exe --reset-settings
+   ```
+
+   In PowerShell: `& "$env:LOCALAPPDATA\shortty\shortty.exe" --reset-settings`.
+   From the portable ZIP, run `shortty.exe --reset-settings` in its folder.
 
    During development, after `make package`: `npx electron . --reset-settings`.
 3. The process restores every setting to its default
@@ -33,12 +44,16 @@ field) and the log says `Invalid settings reset to defaults: <keys>`
 
 The commands cache and logs are not touched. Settings live in
 `config.json` under the app's `userData` directory
-(`~/Library/Application Support/Shortty/` on macOS).
+(`~/Library/Application Support/Shortty/` on macOS,
+`%APPDATA%\Shortty\` on Windows).
 
 ## Verify
 
-- Step 2 exits with code 0 (`echo $?` prints `0`).
-- After step 4 the menu-bar icon is back and `⌘⇧Space` opens the launcher.
+- Step 2 exits with code 0 (`echo $?` prints `0`). On Windows the exit code
+  may be the stub launcher's, so check the log for
+  `Settings reset to defaults (--reset-settings)` instead.
+- After step 4 the menu-bar (tray) icon is back and `⌘⇧Space` (`Ctrl+Shift+Space`
+  on Windows) opens the launcher.
 
 Covered by the e2e tests "`shortty --reset-settings` restores the defaults and
 quits" and "`--reset-settings` refuses to run while Shortty is running"

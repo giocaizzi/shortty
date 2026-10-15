@@ -29,11 +29,12 @@ function StatusBadge({ source }: { source: SourceStatus }) {
   return <Badge tone="warn">Not detected</Badge>;
 }
 
-/** Show paths under the home folder as ~/..., like Finder and the shell. */
-function tildify(path: string, home: string | undefined): string {
+/** Show paths under the home folder as ~/... (~\... on Windows), like Finder and the shell. */
+export function tildify(path: string, home: string | undefined): string {
   if (!home || home === '/') return path;
   if (path === home) return '~';
-  return path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
+  const under = path.startsWith(`${home}/`) || path.startsWith(`${home}\\`);
+  return under ? `~${path.slice(home.length)}` : path;
 }
 
 /** Path text that truncates at the start, so the file name stays visible. */

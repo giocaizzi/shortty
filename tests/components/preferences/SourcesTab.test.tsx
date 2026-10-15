@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { SourcesTab, SOURCES_SETTLE_MS } from '../../../src/renderer/preferences/components/SourcesTab';
+import { SourcesTab, SOURCES_SETTLE_MS, tildify } from '../../../src/renderer/preferences/components/SourcesTab';
 import type { UpdateSetting } from '../../../src/renderer/preferences/hooks/useSettings';
 import { DEFAULT_SETTINGS, type AppSettings } from '../../../src/shared/settings';
 import type { SourceStatus } from '../../../src/shared/types';
@@ -23,6 +23,19 @@ function setup(
 async function customPathField() {
   return screen.findByLabelText('Custom path');
 }
+
+describe('tildify', () => {
+  it('shortens paths under the home folder on macOS and Windows', () => {
+    expect(tildify('/Users/me/.zshrc', '/Users/me')).toBe('~/.zshrc');
+    expect(tildify('C:\\Users\\me\\AppData\\Roaming\\Code', 'C:\\Users\\me')).toBe('~\\AppData\\Roaming\\Code');
+    expect(tildify('C:\\Users\\me', 'C:\\Users\\me')).toBe('~');
+  });
+
+  it('leaves other paths, and sibling folders sharing the prefix, alone', () => {
+    expect(tildify('C:\\Users\\meg\\x', 'C:\\Users\\me')).toBe('C:\\Users\\meg\\x');
+    expect(tildify('/etc/inputrc', '/Users/me')).toBe('/etc/inputrc');
+  });
+});
 
 describe('SourcesTab', () => {
   afterEach(() => {
