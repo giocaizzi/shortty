@@ -186,15 +186,10 @@ describe.runIf(!posix)('runSandboxed on Windows (real processes)', () => {
 
   it('runs a .ps1 through PowerShell', async () => {
     const bin = file('hello.ps1', 'Write-Output "ps $($args -join \',\')"\r\n');
-    for (const run of [1, 2]) {
-      const t = Date.now();
-      const result = await runSandboxed(bin, ['--help'], { timeoutMs: 60000 });
-      console.log('DIAG ps1 run', run, Date.now() - t, JSON.stringify(result));
-      const t2 = Date.now();
-      const full = await runSandboxed(bin, ['--help'], { timeoutMs: 60000, env: { ...process.env } });
-      console.log('DIAG ps1 full', run, Date.now() - t2, JSON.stringify(full));
-    }
-  }, 300000);
+    // A cold PowerShell start takes 5-15s on the runner (warm: under 0.5s)
+    const result = await runSandboxed(bin, ['--help'], { timeoutMs: 60000 });
+    expect(result).toMatchObject({ output: 'ps --help\r\n', timedOut: false });
+  }, 90000);
 
   it('kills the whole tree at the timeout', async () => {
     const bin = file('hang.cmd', '@echo off\r\nping -n 30 127.0.0.1 > nul\r\n');
