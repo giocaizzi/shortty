@@ -4,21 +4,25 @@
 
 **Every shortcut and every CLI flag, one keystroke away.**
 
-`⌘⇧Space` → type → `↩` copied.
+`⌘⇧Space` (Windows: `Ctrl+Shift+Space`) → type → `↩` copied.
 
+[![Release](https://img.shields.io/github/v/release/giocaizzi/shortty?sort=semver)](https://github.com/giocaizzi/shortty/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/giocaizzi/shortty/total)](https://github.com/giocaizzi/shortty/releases)
 [![CI](https://github.com/giocaizzi/shortty/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/giocaizzi/shortty/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-![macOS](https://img.shields.io/badge/macOS-first-black?logo=apple)
+
+[![Download for macOS](https://img.shields.io/badge/Download-macOS%20(Apple%20silicon)-black?style=for-the-badge&logo=apple)](https://github.com/giocaizzi/shortty/releases/latest/download/Shortty-macOS-arm64.dmg)
+[![Download for Windows](https://img.shields.io/badge/Download-Windows%20(x64)-0078D4?style=for-the-badge&logo=windows)](https://github.com/giocaizzi/shortty/releases/latest/download/Shortty-Windows-x64-Setup.exe)
 
 <img src="docs/assets/readme-tmux.png" alt="Searching &quot;pane&quot;: tmux prefix bindings next to VS Code" width="720">
 
 </div>
 
-Forgot the tmux binding to break out a pane? The vim motion for the end of a WORD? The `kubectl get` flag for custom columns? Shortty is a macOS menu-bar launcher that reads the keyboard shortcuts of your tools (your own config included) and the help of every CLI on your PATH, and puts them all behind one fuzzy search. Nothing leaves your machine.
+Forgot the tmux binding to break out a pane? The vim motion for the end of a WORD? The `kubectl get` flag for custom columns? Shortty is a menu-bar / system-tray launcher for macOS and Windows that reads the keyboard shortcuts of your tools (your own config included) and the help of every CLI on your PATH, and puts them all behind one fuzzy search. Nothing leaves your machine.
 
 ## Your keybindings, as you configured them
 
-Shortty ships curated defaults for **tmux, vim, VS Code, Ghostty, Zsh, Bash, Obsidian, Chrome, Finder and macOS**, then merges in your config files: a remap in `~/.config/vim/vimrc` or `.tmux.conf` shows up as you set it, live, without a restart. Drill into one source to browse it on its own.
+Shortty ships curated defaults for **tmux, vim, VS Code, Ghostty, Zsh, Bash, Obsidian, Chrome, Finder and macOS**, and on Windows **Windows, File Explorer, Windows Terminal and PowerShell**, then merges in your config files: a remap in `~/.config/vim/vimrc` or `.tmux.conf` shows up as you set it, live, without a restart. Drill into one source to browse it on its own.
 
 <div align="center">
 <img src="docs/assets/readme-vim.png" alt="vim drilled in, filtered by &quot;word&quot;: w, b, e, diw, ciw, yiw" width="720">
@@ -43,13 +47,12 @@ Parsed help formats include cobra (kubectl, gh, docker, helm), clap, click, argp
 
 ## Install
 
-No release yet: build it.
+Grab the latest release with the buttons above, or from [Releases](https://github.com/giocaizzi/shortty/releases):
 
-```sh
-make install   # npm ci
-make make      # DMG + ZIP in out/make
-open out/make/dmg/*/Shortty-*.dmg   # drag Shortty to Applications
-```
+- **macOS** (Apple silicon): open `Shortty-macOS-arm64.dmg` and drag Shortty to Applications. Builds are not notarized yet: the first time, right-click Shortty → Open.
+- **Windows** (x64): run `Shortty-Windows-x64-Setup.exe` (installs for your user, no admin). SmartScreen may warn about an unknown publisher: More info → Run anyway.
+
+Or build it yourself: `make install && make make` (installers land in `out/make`).
 
 ## Develop
 

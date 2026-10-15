@@ -1,6 +1,6 @@
 # Release macOS
 
-**When:** cutting a Shortty release for macOS (DMG + ZIP on a GitHub Release), or building a local DMG to test. Not for Windows/Linux: their makers (Squirrel, deb, rpm) are configured in `forge.config.ts` but untested for v1.
+**When:** building, signing or notarizing a macOS build by hand, or setting up macOS signing. Releases themselves are automated: [release.md](release.md).
 **Preconditions:** a Mac of the target architecture; `make install` done; a clean tree on the commit to release, with the version set in `package.json`; for a signed build, the Developer ID certificate in the keychain and the notarization credentials available (see "What a human must provide"); `gh` authenticated to publish.
 
 How to build, sign, notarize and verify a Shortty macOS release.
@@ -75,15 +75,9 @@ Attach the DMG and ZIP to a GitHub Release for the tag (`gh release create vX.Y.
 - An Apple Developer Program membership and a **Developer ID Application** certificate installed in the signing keychain (the private key never goes in the repo).
 - An app-specific password and the team ID for notarization.
 
-## What a CI release workflow would need
+## Signing in CI
 
-Not added yet (repo follows the org CI standard). A tag-triggered workflow (`v*`) would:
-
-1. Run on `macos-latest` with Node 22: `make install`, `make precommit`.
-2. Import the Developer ID certificate (base64 `.p12` secret plus password) into a temporary keychain.
-3. Expose `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` from repository secrets.
-4. `make make`, then upload `out/make/**/*.dmg` and `*.zip` to the GitHub Release (`gh release upload`).
-5. Delete the temporary keychain.
+Releases build unsigned in `.github/workflows/release.yml` ([release.md](release.md)). To sign there: import the Developer ID certificate (base64 `.p12` secret plus password) into a temporary keychain on the macOS build job, expose `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` as secrets of a `release` environment, and delete the keychain afterwards (issue #49).
 
 ## Rollback
 
