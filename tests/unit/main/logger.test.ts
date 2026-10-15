@@ -1,0 +1,28 @@
+import { describe, it, expect, afterEach } from 'vitest';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { rotateLogFiles } from '../../../src/main/logger';
+
+let dir: string;
+
+afterEach(() => {
+  rmSync(dir, { recursive: true, force: true });
+});
+
+describe('rotateLogFiles', () => {
+  it('keeps at most 3 files (live + 2 archives), newest archive first', () => {
+    dir = mkdtempSync(path.join(tmpdir(), 'shortty-log-'));
+    const file = path.join(dir, 'main.log');
+
+    for (const generation of ['a', 'b', 'c', 'd']) {
+      writeFileSync(file, generation);
+      rotateLogFiles(file);
+    }
+    writeFileSync(file, 'live');
+
+    expect(readdirSync(dir).sort()).toEqual(['main.1.log', 'main.2.log', 'main.log']);
+    expect(readFileSync(path.join(dir, 'main.1.log'), 'utf8')).toBe('d');
+    expect(readFileSync(path.join(dir, 'main.2.log'), 'utf8')).toBe('c');
+  });
+});

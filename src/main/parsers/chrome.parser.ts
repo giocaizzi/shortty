@@ -1,8 +1,15 @@
 import { existsSync } from 'node:fs';
-import type { Keybinding, ParserMeta } from '../../shared/types';
-import { getConfigPaths } from '../platform/paths';
+import { dirname, join } from 'node:path';
+import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
+import { formatKeyCombo } from './key-normalizer';
 
+/**
+ * Extension keyboard shortcuts from Chrome's profile `Preferences`
+ * (`extensions.commands`, keyed "<platform>:<accelerator>"). Extension
+ * names and command descriptions come from the manifests stored in the
+ * profile's `Secure Preferences` (or `Preferences` on older versions).
+ */
 export class ChromeParser extends BaseParser {
   get meta(): ParserMeta {
     return {
@@ -14,44 +21,52 @@ export class ChromeParser extends BaseParser {
   }
 
   async isAvailable(): Promise<boolean> {
-    return getConfigPaths('chrome').some((p) => existsSync(p));
+    return this.getConfigPaths().some((p) => existsSync(p));
   }
 
   getWatchPaths(): string[] {
-    return getConfigPaths('chrome').filter((p) => existsSync(p));
+    return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
-  async parse(): Promise<Keybinding[]> {
-    const keybindings: Keybinding[] = [];
+  async parse(): Promise<Shortcut[]> {
+    const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
-      const content = await this.readFileIfExists(filePath);
-      if (!content) continue;
+      const prefs = await this.readJson(filePath);
+      if (!prefs) continue;
+      const secure = await this.readJson(join(dirname(filePath), 'Secure Preferences'));
+      const settings = {
+        ...(prefs.extensions?.settings ?? {}),
+        ...(secure?.extensions?.settings ?? {}),
+      };
 
-      let prefs: Record<string, unknown>;
-      try {
-        prefs = JSON.parse(content);
-      } catch {
-        continue;
-      }
-
-      const commands = (prefs as ChromePrefs).extensions?.commands ?? {};
+      const commands = prefs.extensions?.commands ?? {};
       const platformPrefix = this.getPlatformPrefix();
 
       for (const [shortcutKey, shortcutData] of Object.entries(commands)) {
         if (!shortcutKey.startsWith(`${platformPrefix}:`)) continue;
 
         const keyCombo = shortcutKey.slice(platformPrefix.length + 1);
-        if (!keyCombo) continue;
+        if (!keyCombo || !shortcutData) continue;
 
-        const commandName = this.resolveCommandName(shortcutData);
+        const manifest = shortcutData.extension
+          ? settings[shortcutData.extension]?.manifest
+          : undefined;
+        const commandName = this.resolveCommandName(shortcutData, manifest);
         if (!commandName) continue;
 
+        const { displayKey, searchKey, strokes } = formatKeyCombo(keyCombo);
+
         keybindings.push(
-          this.makeKeybinding({
-            key: this.normalizeChromeKey(keyCombo),
+          this.makeShortcut({
+            key: displayKey,
+            searchKey,
+            strokes,
             command: commandName,
-            rawCommand: shortcutKey,
+            // Identity is the extension command, not the key it is bound to.
+            rawCommand: shortcutData.extension && shortcutData.command_name
+              ? `${shortcutData.extension}/${shortcutData.command_name}`
+              : shortcutKey,
             context: shortcutData.global ? 'global' : undefined,
             isDefault: false,
             isUnbound: false,
@@ -64,31 +79,40 @@ export class ChromeParser extends BaseParser {
     return keybindings;
   }
 
-  /** Internal Chrome command names that aren't useful to show. */
-  private static readonly INTERNAL_COMMANDS = new Set([
-    '_execute_action',
-    '_execute_browser_action',
-    '_execute_page_action',
-    '_execute_sidebar_action',
-  ]);
-
-  private resolveCommandName(data: {
-    command_name?: string;
-    description?: string;
-  }): string | null {
-    // Prefer human-readable description
-    if (data.description) return data.description;
-
-    // Skip entries with only an internal Chrome command name
-    if (!data.command_name || ChromeParser.INTERNAL_COMMANDS.has(data.command_name)) {
+  private async readJson(filePath: string): Promise<ChromePrefs | null> {
+    try {
+      const content = await this.readFileIfExists(filePath);
+      return content ? (JSON.parse(content) as ChromePrefs) : null;
+    } catch {
       return null;
     }
+  }
 
-    // Humanize the command name (e.g. "toggle_pause" → "Toggle Pause")
-    return data.command_name
-      .replace(/^_+/, '')
-      .replace(/[_-]/g, ' ')
-      .replace(/\b\w/g, (c: string) => c.toUpperCase());
+  /** Built-in extension commands and what they do. */
+  private static readonly BUILTIN_COMMANDS: Record<string, string> = {
+    _execute_action: 'Activate the extension',
+    _execute_browser_action: 'Activate the extension',
+    _execute_page_action: 'Activate the extension',
+    _execute_sidebar_action: 'Open the side panel',
+  };
+
+  /** "Extension name: description", with fallbacks when the manifest is unknown. */
+  private resolveCommandName(
+    data: ChromeCommand,
+    manifest: ChromeManifest | undefined,
+  ): string | null {
+    const name = data.command_name;
+    const manifestCommand = name ? manifest?.commands?.[name] : undefined;
+    const description = data.description
+      ?? manifestCommand?.description
+      ?? (name ? ChromeParser.BUILTIN_COMMANDS[name] : undefined)
+      ?? name?.replace(/^_+/, '').replace(/[_-]/g, ' ').replace(/^./, (c) => c.toUpperCase());
+    if (!description) return null;
+
+    const extName = manifest?.name && !manifest.name.startsWith('__MSG_')
+      ? manifest.name
+      : undefined;
+    return extName ? `${extName}: ${description}` : description;
   }
 
   private getPlatformPrefix(): string {
@@ -101,22 +125,23 @@ export class ChromeParser extends BaseParser {
         return 'linux';
     }
   }
+}
 
-  private normalizeChromeKey(key: string): string {
-    return this.normalizeKey(key.replace(/-/g, '+'));
-  }
+interface ChromeCommand {
+  command_name?: string;
+  description?: string;
+  extension?: string;
+  global?: boolean;
+}
+
+interface ChromeManifest {
+  name?: string;
+  commands?: Record<string, { description?: string }>;
 }
 
 interface ChromePrefs {
   extensions?: {
-    commands?: Record<
-      string,
-      {
-        command_name?: string;
-        description?: string;
-        extension?: string;
-        global?: boolean;
-      }
-    >;
+    commands?: Record<string, ChromeCommand | undefined>;
+    settings?: Record<string, { manifest?: ChromeManifest } | undefined>;
   };
 }

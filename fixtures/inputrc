@@ -1,0 +1,26 @@
+# Bash inputrc configuration
+set editing-mode emacs
+$include /etc/inputrc
+
+# Key bindings
+"\C-a": beginning-of-line
+"\C-e": end-of-line
+"\C-k": kill-line
+"\C-u": unix-line-discard
+"\e[A": history-search-backward
+"\e[B": history-search-forward
+"\C-r": reverse-search-history
+"\M-f": forward-word
+"\M-b": backward-word
+"\C-x\C-e": edit-and-execute-command
+
+# Symbolic key names and macros
+Control-w: backward-kill-word
+Meta-Rubout: backward-kill-word
+TAB: menu-complete
+"\C-xq": "exit\n"
+
+$if mode=vi
+set keymap vi-insert
+"jk": vi-movement-mode
+$endif

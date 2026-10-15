@@ -1,0 +1,110 @@
+// @vitest-environment jsdom
+import { render, screen, fireEvent } from '@testing-library/react';
+import type { ElectronAPI } from '../../src/preload/preload';
+import { SearchInput, formatAccelerator } from '../../src/renderer/components/SearchInput';
+
+const defaultProps = {
+  query: '',
+  onChange: vi.fn(),
+  navMode: 'flat' as const,
+  onHelpToggle: vi.fn(),
+};
+
+describe('SearchInput', () => {
+  beforeEach(() => {
+    window.electronAPI = {
+      onWindowShown: vi.fn(() => vi.fn()),
+    } as unknown as ElectronAPI;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.electronAPI = undefined as unknown as ElectronAPI;
+  });
+
+  it('Backspace on an empty ">" field leaves command mode', () => {
+    const onChange = vi.fn();
+    render(<SearchInput {...defaultProps} query=">" commandPrefixActive onChange={onChange} />);
+    fireEvent.keyDown(screen.getByRole('searchbox'), { key: 'Backspace' });
+    expect(onChange).toHaveBeenCalledWith('');
+  });
+
+  it('Backspace inside an IME composition stays with the IME', () => {
+    const onChange = vi.fn();
+    render(<SearchInput {...defaultProps} query=">" commandPrefixActive onChange={onChange} />);
+    const input = screen.getByRole('searchbox');
+    expect(fireEvent.keyDown(input, { key: 'Backspace', isComposing: true })).toBe(true);
+    expect(fireEvent.keyDown(input, { key: 'Backspace', keyCode: 229 })).toBe(true);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('renders input with correct placeholder for flat mode', () => {
+    render(<SearchInput {...defaultProps} />);
+    expect(
+      screen.getByPlaceholderText('Search shortcuts and commands...'),
+    ).toBeInTheDocument();
+  });
+
+  it('renders input with source label placeholder for drilled-source mode', () => {
+    render(
+      <SearchInput
+        {...defaultProps}
+        navMode="drilled-source"
+        sourceLabel="VS Code"
+      />,
+    );
+    expect(
+      screen.getByPlaceholderText('Search in VS Code...'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows ">" badge when commandPrefixActive is true', () => {
+    render(<SearchInput {...defaultProps} commandPrefixActive query=">" />);
+    expect(screen.getByText('>')).toBeInTheDocument();
+  });
+
+  it('renders breadcrumbs when provided in command-detail mode', () => {
+    render(
+      <SearchInput
+        {...defaultProps}
+        navMode="command-detail"
+        breadcrumbs={['git', 'commit']}
+      />,
+    );
+    expect(screen.getByText('git')).toBeInTheDocument();
+    expect(screen.getByText('commit')).toBeInTheDocument();
+  });
+
+  it('calls onChange when input value changes', () => {
+    const onChange = vi.fn();
+    render(<SearchInput {...defaultProps} onChange={onChange} />);
+    const input = screen.getByRole('searchbox');
+    fireEvent.change(input, { target: { value: 'test' } });
+    expect(onChange).toHaveBeenCalledWith('test');
+  });
+
+  it('has correct ARIA attributes', () => {
+    render(<SearchInput {...defaultProps} />);
+    const input = screen.getByRole('searchbox');
+    expect(input).toHaveAttribute('aria-label', 'Search shortcuts');
+  });
+
+  it('has a ? button that toggles the keyboard help', () => {
+    const onHelpToggle = vi.fn();
+    render(<SearchInput {...defaultProps} onHelpToggle={onHelpToggle} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Keyboard shortcuts' }));
+    expect(onHelpToggle).toHaveBeenCalledOnce();
+  });
+
+  it('shows the activation hotkey as key caps', () => {
+    render(<SearchInput {...defaultProps} hotkey="CommandOrControl+Shift+Space" />);
+    expect(screen.getByText('⌘')).toBeInTheDocument();
+    expect(screen.getByText('⇧')).toBeInTheDocument();
+    expect(screen.getByText('Space')).toBeInTheDocument();
+  });
+
+  it('formats Electron accelerators with macOS glyphs', () => {
+    expect(formatAccelerator('Control+Alt+K')).toEqual(['⌃', '⌥', 'K']);
+    expect(formatAccelerator('Cmd+Shift+Space')).toEqual(['⌘', '⇧', 'Space']);
+  });
+});

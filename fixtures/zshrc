@@ -3,12 +3,27 @@ export EDITOR=nvim
 export PATH="$HOME/.local/bin:$PATH"
 
 # Key bindings
+bindkey -e
 bindkey '^R' history-incremental-search-backward
 bindkey '^P' up-line-or-history
 bindkey '^N' down-line-or-history
 bindkey '\e[A' up-line-or-search
 bindkey '\e[B' down-line-or-search
 bindkey -M vicmd 'k' up-line-or-history
+
+# Meta / escape sequences
+bindkey '^[b' backward-word
+bindkey "\ef" forward-word
+bindkey '^[[1;5C' forward-word
+bindkey '^[[3~' delete-char
+bindkey '^[^?' backward-kill-word
+bindkey '^X^E' edit-command-line
+bindkey -M viins 'jk' vi-cmd-mode
+bindkey -M menuselect '^[[Z' reverse-menu-complete
+bindkey ^U backward-kill-line
+bindkey -s '^G' 'git status\n'
+bindkey -r '^S'
+bindkey "${terminfo[kcuu1]}" up-line-or-beginning-search
 
 # Aliases
 alias ll="ls -la"

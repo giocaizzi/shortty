@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
-import type { Keybinding, ParserMeta } from '../../shared/types';
-import { getConfigPaths } from '../platform/paths';
+import type { Shortcut, ParserMeta } from '../../shared/types';
 import { BaseParser } from './base-parser';
+import { type NormalizedKey, type ParsedKey, normalizeSequence, parseKeyCombo } from './key-normalizer';
+import { usKeyForCode } from '../../shared/keys';
 
 export class VscodeParser extends BaseParser {
   get meta(): ParserMeta {
@@ -14,15 +15,15 @@ export class VscodeParser extends BaseParser {
   }
 
   async isAvailable(): Promise<boolean> {
-    return getConfigPaths('vscode').some((p) => existsSync(p));
+    return this.getConfigPaths().some((p) => existsSync(p));
   }
 
   getWatchPaths(): string[] {
-    return getConfigPaths('vscode').filter((p) => existsSync(p));
+    return this.getConfigPaths().filter((p) => existsSync(p));
   }
 
-  async parse(): Promise<Keybinding[]> {
-    const keybindings: Keybinding[] = [];
+  async parse(): Promise<Shortcut[]> {
+    const keybindings: Shortcut[] = [];
 
     for (const filePath of this.getWatchPaths()) {
       const content = await this.readFileIfExists(filePath);
@@ -30,14 +31,20 @@ export class VscodeParser extends BaseParser {
 
       const entries = this.parseJsonc(content);
       for (const entry of entries) {
-        if (!entry.key || !entry.command) continue;
+        if (typeof entry.command !== 'string' || !entry.command) continue;
+        const isUnbound = entry.command.startsWith('-');
+        // Removal rules may omit the key ("remove every binding of X").
+        const rawKey = typeof entry.key === 'string' ? entry.key : '';
+        if (!rawKey && !isUnbound) continue;
         if (this.isImpossibleWhen(entry.when)) continue;
 
-        const isUnbound = entry.command.startsWith('-');
+        const { displayKey, searchKey, strokes } = this.normalizeVscodeKey(rawKey);
 
         keybindings.push(
-          this.makeKeybinding({
-            key: this.normalizeVscodeKey(entry.key),
+          this.makeShortcut({
+            key: displayKey,
+            searchKey,
+            strokes,
             command: this.humanizeCommand(
               isUnbound ? entry.command.slice(1) : entry.command,
             ),
@@ -54,15 +61,11 @@ export class VscodeParser extends BaseParser {
     return keybindings;
   }
 
-  /** Strip JSONC comments and trailing commas, then parse. */
+  /** Strip JSONC comments and trailing commas (string-aware), then parse. */
   private parseJsonc(content: string): VscodeKeybinding[] {
-    const stripped = content
-      .replace(/\/\/.*$/gm, '')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/,\s*([\]}])/g, '$1');
-
     try {
-      return JSON.parse(stripped);
+      const parsed: unknown = JSON.parse(stripJsonc(content));
+      return Array.isArray(parsed) ? (parsed as VscodeKeybinding[]) : [];
     } catch {
       return [];
     }
@@ -76,8 +79,6 @@ export class VscodeParser extends BaseParser {
     const isWindows = process.platform === 'win32';
     const isLinux = process.platform === 'linux';
 
-    // Check for platform conditions that contradict the current OS.
-    // These are simple top-level checks — VS Code uses `&&` to combine.
     const clauses = when.split(/\s*&&\s*/);
     for (const clause of clauses) {
       const trimmed = clause.trim();
@@ -101,7 +102,6 @@ export class VscodeParser extends BaseParser {
     const isWindows = process.platform === 'win32';
     const isLinux = process.platform === 'linux';
 
-    // Remove clauses that are always true on the current platform
     const alwaysTrue = new Set<string>();
     if (isMac) alwaysTrue.add('isMac').add('!isWindows').add('!isLinux');
     if (isWindows) alwaysTrue.add('isWindows').add('!isMac').add('!isLinux');
@@ -116,12 +116,22 @@ export class VscodeParser extends BaseParser {
     return filtered.join(' && ');
   }
 
-  private normalizeVscodeKey(key: string): string {
-    // Handle multi-chord keys like "cmd+k cmd+s"
-    return key
-      .split(' ')
-      .map((chord) => this.normalizeKey(chord))
-      .join(' ');
+  /**
+   * Parse a VS Code key: whitespace-separated chords of `mod+key`, where the
+   * key is either a key name (`a`, `[`, `enter`, `numpad1`), resolved by
+   * VS Code against the active layout, or a scan code in brackets
+   * (`[BracketLeft]`, `[KeyA]`), which is a fixed physical position.
+   */
+  private normalizeVscodeKey(key: string): NormalizedKey {
+    const chords = key.trim().split(/\s+/).filter(Boolean);
+    const parsed: ParsedKey[] = chords.map((chord) => {
+      const scan = chord.match(/^(.*?)\[(\w+)\]$/i);
+      if (!scan) return parseKeyCombo(chord);
+      const mods = parseKeyCombo(`${scan[1]}x`).modifiers;
+      const code = scan[2];
+      return { modifiers: mods, key: usKeyForCode(code) ?? code, code };
+    });
+    return normalizeSequence(parsed);
   }
 
   private humanizeCommand(command: string): string {
@@ -137,7 +147,38 @@ export class VscodeParser extends BaseParser {
 }
 
 interface VscodeKeybinding {
-  key: string;
-  command: string;
+  key?: unknown;
+  command?: unknown;
   when?: string;
+}
+
+/** Remove line and block comments and trailing commas outside of strings. */
+export function stripJsonc(content: string): string {
+  let out = '';
+  let inString = false;
+  for (let i = 0; i < content.length; i++) {
+    const ch = content[i];
+    if (inString) {
+      out += ch;
+      if (ch === '\\') {
+        out += content[++i] ?? '';
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      out += ch;
+    } else if (ch === '/' && content[i + 1] === '/') {
+      while (i < content.length && content[i] !== '\n') i++;
+      out += '\n';
+    } else if (ch === '/' && content[i + 1] === '*') {
+      const end = content.indexOf('*/', i + 2);
+      i = end === -1 ? content.length : end + 1;
+    } else {
+      out += ch;
+    }
+  }
+  return out.replace(/,(\s*[\]}])/g, '$1');
 }

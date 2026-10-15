@@ -1,0 +1,22 @@
+{
+  "extensions": {
+    "settings": {
+      "nngceckbapebfimnlniiiahkandclblb": {
+        "manifest": {
+          "name": "Bitwarden Password Manager",
+          "commands": {
+            "_execute_action": { "description": "Open vault popup" },
+            "autofill_login": { "description": "Autofill the last used login for the current website" },
+            "generate_password": { "description": "Generate and copy a new random password to the clipboard." }
+          }
+        }
+      },
+      "bfnaelmomeimhlpmgjnjophhpkkoljpa": {
+        "manifest": { "name": "Phantom" }
+      },
+      "gighmmpiobklfepjocnamgkkbiglidom": {
+        "manifest": { "name": "__MSG_name__", "commands": { "toggle_pause": { "description": "Pause or resume blocking" } } }
+      }
+    }
+  }
+}

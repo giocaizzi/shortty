@@ -1,0 +1,8 @@
+{
+  "id": "badmerge",
+  "label": "Bad Merge App",
+  "icon": "📦",
+  "platforms": ["darwin"],
+  "mergeMode": "override",
+  "shortcuts": []
+}

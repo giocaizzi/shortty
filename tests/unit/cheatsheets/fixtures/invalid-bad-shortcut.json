@@ -1,0 +1,18 @@
+{
+  "id": "badshortcut",
+  "label": "Bad Shortcut App",
+  "icon": "❌",
+  "platforms": ["darwin"],
+  "shortcuts": [
+    {
+      "command": "Do Thing",
+      "rawCommand": "do.thing",
+      "key": { "darwin": "⌘x" }
+    },
+    {
+      "command": "Missing Key",
+      "rawCommand": "missing.key",
+      "key": "not-an-object"
+    }
+  ]
+}

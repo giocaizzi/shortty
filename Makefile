@@ -1,7 +1,7 @@
-.PHONY: help check install lint typecheck test knip precommit dev package make setup-hooks
+.PHONY: help check install lint typecheck test knip precommit dev package make setup-hooks e2e e2e-benchmark
 
 help: ## Show this help.
-	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z_-]+:.*##/ { printf "  %-12s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*##/ { printf "  %-12s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 check: lint test ## Run lint and tests.
 
@@ -30,6 +30,18 @@ package: ## Package the app.
 
 make: ## Build distributables.
 	npm run make
+
+# The launcher hides on blur, so concurrent runs (several worktrees) steal each
+# other's focus: serialize them on a machine-wide lock (macOS lockf).
+E2E_LOCK ?= /tmp/shortty-e2e.lock
+E2E_RUN = $(if $(shell command -v lockf),lockf -t 3600 $(E2E_LOCK),)
+
+e2e: ## Build, then run the Playwright e2e suite on the real app (slow, not in check).
+	$(E2E_RUN) sh -c 'npm run package && npx playwright test'
+
+LABEL ?= baseline
+e2e-benchmark: ## Build, then write timings and screenshots to docs/wip/benchmark (LABEL=baseline).
+	$(E2E_RUN) sh -c 'npm run package && SHORTTY_E2E_BENCHMARK=$(LABEL) npx playwright test benchmark'
 
 setup-hooks: ## Install the pre-commit hook.
 	@echo "#!/bin/sh\nmake precommit" > .git/hooks/pre-commit

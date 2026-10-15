@@ -1,4 +1,4 @@
-// VSCode User Keybindings
+// Place your key bindings in this file to override the defaults
 [
   {
     "key": "cmd+shift+t",
@@ -37,5 +37,60 @@
   {
     "key": "ctrl+shift+`",
     "command": "workbench.action.terminal.new"
-  }
+  },
+  /* Layout-independent scan codes */
+  {
+    "key": "cmd+[BracketLeft]",
+    "command": "editor.action.outdentLines",
+    "when": "editorTextFocus && !editorReadonly"
+  },
+  {
+    "key": "ctrl+[Backquote]",
+    "command": "workbench.action.terminal.toggleTerminal"
+  },
+  {
+    "key": "cmd+k cmd+[KeyM]",
+    "command": "workbench.action.editor.changeLanguageMode"
+  },
+  // Removal of a default binding (matches the cheatsheet ⌘/)
+  {
+    "key": "cmd+/",
+    "command": "-editor.action.commentLine",
+    "when": "editorTextFocus && !editorReadonly"
+  },
+  // Removal without a key removes every binding of the command
+  {
+    "command": "-workbench.action.toggleZenMode"
+  },
+  // Same command bound twice, different contexts
+  {
+    "key": "ctrl+tab",
+    "command": "workbench.action.nextEditor",
+    "when": "isMac"
+  },
+  {
+    "key": "ctrl+alt+right",
+    "command": "workbench.action.nextEditor",
+    "when": "terminalFocus"
+  },
+  // Impossible on macOS
+  {
+    "key": "ctrl+alt+n",
+    "command": "explorer.newFile",
+    "when": "isWindows"
+  },
+  {
+    "key": "shift+alt+down",
+    "command": "editor.action.copyLinesDownAction",
+    "when": "editorTextFocus && !isLinux"
+  },
+  {
+    "key": "cmd+numpad_add",
+    "command": "workbench.action.zoomIn"
+  },
+  {
+    "key": "cmd+enter",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": { "text": "// not a comment, https://example.com\u000D" },
+  },
 ]

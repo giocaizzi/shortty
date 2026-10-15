@@ -1,0 +1,925 @@
+# Shortty — Specification
+
+> Product and architecture spec for v1. Screen-by-screen reference: [screens.md](screens.md). Where the implementation deliberately departs from the original plan, the reason is in [§15 Decisions](#15-decisions). Current v1 status: [wip/v1-status.md](wip/v1-status.md).
+
+## 1. Vision
+
+Shortty is a **lightweight desktop lookup tool** for keyboard shortcuts and CLI commands. Activated by a global hotkey, it presents a Spotlight-style floating panel where users instantly search across all their tools' keybindings and shell commands, then dismiss it.
+
+It is a **lookup tool, not a browser**. Users come with intent, type a query, find what they need, and leave. Every invocation is a fresh start.
+
+**Primary platform:** macOS (Liquid Glass aesthetic).
+**Secondary:** Windows, Linux.
+
+---
+
+## 2. Problem
+
+Developers and power users juggle keybindings across many tools — editors, terminals, browsers, system shortcuts — and constantly forget shortcuts or need to look them up. CLI tools number in the thousands, each with their own subcommands and flags. There is no single place to search "what's bound to Cmd+Shift+T?" or "what are the git commit flags?" across all tools at once.
+
+---
+
+## 3. Solution
+
+A lightweight, always-available launcher that:
+
+1. Aggregates shortcuts from installed tools via **cheatsheets** (curated defaults) and **parsers** (live user config detection)
+2. Indexes CLI commands dynamically from the user's **PATH**, enriched with subcommands and flags from man pages and shell completions
+3. Presents everything in a fast, searchable floating panel with **instant fuzzy search**
+4. Auto-refreshes shortcuts when config files change via file watchers
+5. Progressively enriches CLI command data in the background without impacting performance
+
+---
+
+## 4. Data Model
+
+### 4.1 Two Separate Types
+
+Shortcuts and commands are fundamentally different shapes. They are stored in **separate data structures** and **separate Fuse.js indices**, never mixed.
+
+#### Shortcut
+
+```typescript
+interface Shortcut {
+  id: string;                // SHA-256 hash (12 chars) of source + rawCommand
+  source: string;            // Source ID: "vscode", "ghostty", "tmux", etc.
+  sourceLabel: string;       // Display name: "VS Code", "Ghostty", etc.
+  key: string;               // Display format with glyphs (US-based): "⌘⇧T"
+  searchKey: string;         // Search format: "cmd shift t"
+  strokes?: KeyStroke[];     // Structured keys, resolved per keyboard layout in the renderer (docs/keyboard-layouts.md)
+  command: string;           // Human-readable action: "Reopen Closed Editor"
+  rawCommand: string;        // Original command ID: "workbench.action.reopenClosedEditor"
+  context?: string;          // Mode/state: "editorFocus", "normal", "prefix"
+  category?: string;         // Optional grouping: "Navigation", "Editing"
+  isDefault: boolean;        // true = from cheatsheet, false = user override
+  isUnbound: boolean;        // true = explicitly unbound
+  filePath: string;          // Source config file path
+  origin: 'cheatsheet' | 'user-config' | 'app-defaults';
+}
+```
+
+#### Command
+
+```typescript
+interface Command {
+  name: string;              // Executable name: "git"
+  description: string;       // One-line description: "the stupid content tracker"
+  synopsis?: string;         // Usage line from man/--help
+  bin: string;               // Full path: "/usr/bin/git"
+  mtime: number;             // Binary modification time
+  enrichment: 'basic' | 'full' | 'failed';
+  enrichedFrom?: 'zsh-completion' | 'bash-completion' | 'man' | 'help';
+  enrichedAt?: string;       // ISO timestamp
+  hasManPage: boolean;
+  hasCompletion: boolean;
+  subcommands: CommandDetail[];
+  flags: FlagDetail[];
+  arguments: ArgumentDetail[]; // Positional arguments: name, required, variadic
+}
+
+interface CommandDetail {
+  name: string;              // "commit"
+  description: string;       // "Record changes to the repository"
+}
+
+interface FlagDetail {
+  short?: string;            // "-m"
+  long?: string;             // "--message"
+  arg?: string;              // "<msg>"
+  description: string;       // "Commit message"
+}
+```
+
+### 4.2 Identity Keys
+
+| Type | Identity | Purpose |
+|------|----------|---------|
+| Shortcut | `source` + `rawCommand` | Merge cheatsheet defaults with user overrides |
+| Command | `name` (executable name) | Deduplicated by first occurrence in PATH |
+
+---
+
+## 5. Architecture
+
+### 5.1 High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     MAIN PROCESS                         │
+│                                                          │
+│  ┌─────────────────────┐  ┌───────────────────────────┐ │
+│  │  SHORTCUTS ENGINE    │  │  COMMANDS ENGINE          │ │
+│  │                      │  │                            │ │
+│  │  Cheatsheets (JSON)  │  │  Persistent Index          │ │
+│  │  + Config Parsers    │  │  (commands-index.json)     │ │
+│  │  + Merge Layer       │  │  + Detail Cache            │ │
+│  │  + File Watcher      │  │  + Background Enrichment   │ │
+│  └──────────┬───────────┘  └──────────┬────────────────┘ │
+│             │                         │                   │
+│  ┌──────────┴─────────────────────────┴────────────────┐ │
+│  │                    IPC Layer                          │ │
+│  └──────────────────────┬──────────────────────────────┘ │
+│                          │                                │
+│  ┌───────────────┐  ┌───┴──────────┐  ┌──────────────┐  │
+│  │ Global Shortcut│  │ Settings     │  │ System Tray  │  │
+│  │ (show/hide)   │  │ (electron-   │  │ + Preferences│  │
+│  │               │  │  store)      │  │   Window     │  │
+│  └───────────────┘  └──────────────┘  └──────────────┘  │
+└──────────────────────────┬───────────────────────────────┘
+                           │ contextBridge (preload)
+┌──────────────────────────┴───────────────────────────────┐
+│                    RENDERER PROCESS                       │
+│                                                           │
+│  ┌─────────────┐  ┌──────────────┐  ┌─────────────────┐ │
+│  │ Search Bar   │  │ Results List │  │ Fuse.js         │ │
+│  │              │→ │ (3 sections) │← │ (2 instances:   │ │
+│  │              │  │              │  │  shortcuts +    │ │
+│  │              │  │              │  │  commands)      │ │
+│  └─────────────┘  └──────────────┘  └─────────────────┘ │
+└──────────────────────────────────────────────────────────┘
+```
+
+### 5.2 Process Boundaries
+
+| Process | Responsibilities | Restrictions |
+|---------|-----------------|--------------|
+| Main | File I/O, process spawning, file watching, settings persistence, cheatsheet loading, parser execution, command indexing, enrichment worker | N/A |
+| Preload | Expose typed API via contextBridge | No direct Node.js access |
+| Renderer | UI rendering, Fuse.js search, keyboard navigation, clipboard operations | No file I/O, no process spawning, no `require('fs')` |
+
+### 5.3 Security
+
+- Context isolation: on
+- Node integration in renderer: off
+- Sandbox: on for renderer
+- ASAR integrity: on
+- Electron fuses: cookie encryption, no RunAsNode
+- Code signing + notarization for macOS distribution (Apple Developer account)
+- No telemetry, no network calls, all data stays local
+- Logs contain summaries only, never file contents
+- Cache stores parsed results, not raw config data
+- Probed binaries (`--help`) run in a sandbox with an environment allowlist (§7.5)
+- Single instance per user: a second launch shows the running panel and exits (`app.requestSingleInstanceLock()`)
+
+---
+
+## 6. Shortcuts Engine
+
+### 6.1 Cheatsheet System
+
+Cheatsheets are **JSON files embedded in the repository** that define default shortcuts for each application. They are the **primary data source** for shortcuts. Parsers are optional enhancers that detect user customizations.
+
+#### Cheatsheet Location
+
+```
+src/cheatsheets/
+  schema.json                    # JSON Schema for validation
+  sources/
+    vscode.json
+    chrome.json
+    finder.json
+    vim.json
+    ghostty.json
+    tmux.json                    # Metadata only (parser provides defaults)
+    zsh.json                     # Metadata only
+    bash.json                    # Metadata only
+    obsidian.json                # Metadata only
+    macos-system.json            # Metadata only
+```
+
+#### Cheatsheet Schema
+
+```json
+{
+  "id": "vscode",
+  "label": "VS Code",
+  "icon": "⌨️",
+  "platforms": ["darwin", "win32", "linux"],
+  "parser": "vscode",
+  "mergeMode": "additive",
+  "lastVerified": { "version": "1.96", "date": "2026-04-01" },
+  "defaultPaths": {
+    "darwin": ["~/Library/Application Support/Code/User/keybindings.json"],
+    "win32": ["%APPDATA%/Code/User/keybindings.json"],
+    "linux": ["~/.config/Code/User/keybindings.json"]
+  },
+  "shortcuts": [
+    {
+      "command": "Command Palette",
+      "rawCommand": "workbench.action.showCommands",
+      "key": { "darwin": "Cmd+Shift+P", "win32": "Ctrl+Shift+P", "linux": "Ctrl+Shift+P" },
+      "category": "General",
+      "context": "editorFocus",
+      "minVersion": "1.0"
+    }
+  ]
+}
+```
+
+Key schema decisions:
+- **`key`**: platform map object `{ darwin, win32, linux }` — explicit per-platform keys
+- **`parser`**: string ID referencing a parser class, or `null` for cheatsheet-only sources
+- **`mergeMode`**: `"additive"` (default) or `"replace"`, how the app combines a user binding with the default of the same command (§6.2)
+- **`defaultPaths`**: per-platform arrays, community-maintainable within the cheatsheet file
+- **`category`**: optional string for UI grouping within a source
+- **`context`**: generic field for mode/state (vim modes, VS Code when clauses, tmux tables, zsh keymaps)
+- **`minVersion`**: optional, ignored in v1, available for future version-aware filtering
+- **`lastVerified`**: metadata for contributors, no runtime version detection
+- **`shortcuts`** array can be empty — metadata-only shell for parsers that provide their own defaults
+
+#### JSON Schema Validation
+
+A `schema.json` file validates cheatsheet structure. All cheatsheet files must pass validation. Errors are caught by the test suite (`tests/unit/cheatsheets/shipped.test.ts` validates every shipped file against `schema.json`), not at runtime; the runtime loader still skips an invalid file with a warning.
+
+#### Bundling
+
+The cheatsheets are bundled into the main-process build with Vite's `import.meta.glob('../../cheatsheets/sources/*.json', { eager: true })` (`src/main/cheatsheets/loader.ts`), so dev, e2e and the packaged app read the same data with no runtime path to resolve. Tests can still point the loader at a directory.
+
+The `icon` field is kept as metadata; the UI draws a monogram tile per source instead (§10.4).
+
+### 6.2 Parser System
+
+Parsers are **optional enhancers** that detect user customizations from config files. A cheatsheet defines the source; a parser adds live override detection.
+
+#### Parser ↔ Cheatsheet Relationship
+
+```
+1. Load cheatsheet JSON → baseline shortcuts (defaults)
+2. Parser declared?
+   → No: done (cheatsheet-only source like Finder)
+   → Yes: user config file exists?
+     → No: done (cheatsheet defaults only)
+     → Yes: parse user config → merge overrides onto defaults
+3. Start file watcher on config path (if parser active)
+```
+
+#### Merge
+
+`mergeShortcuts` (`src/main/shortcuts/merge.ts`) merges the parser output onto the cheatsheet defaults, following the cheatsheet's `mergeMode`. Apps disagree on what a user binding does to the default binding of the same command:
+
+- **Additive** apps keep the default and add the user's key. In VS Code, `{ "key": "cmd+e", "command": "X" }` makes `X` reachable from both its default key and ⌘E; Ghostty `keybind`, tmux `bind`, vim `map` and zsh `bindkey` work the same way. A default disappears only when the config removes it explicitly.
+- **Replace** apps store the full list of keys per command: an Obsidian `hotkeys.json` entry for a command *is* that command's hotkeys, and a macOS symbolic hotkey entry *is* the hotkey.
+
+| Source | `mergeMode` | User binding for a default's command | Explicit removal |
+|---|---|---|---|
+| VS Code | additive | adds a key | `-command` entry (with a key: that key; without: every key) |
+| Ghostty | additive | adds a trigger | `keybind = <trigger>=unbind` (matches by key) |
+| tmux | additive | adds a key | `unbind` (merged inside the tmux parser) |
+| vim | additive | adds a mapping | `unmap`, or a map to `<Nop>` (matches by key) |
+| zsh | additive | adds a binding | `bindkey -r` |
+| bash | additive | adds a binding | `bind -r` |
+| Chrome | additive | extension commands only, no overlap with defaults | none |
+| Obsidian | replace | replaces the command's hotkeys | empty hotkey list |
+| macOS System | replace | replaces the hotkey | hotkey disabled |
+| Finder | — | cheatsheet only, no parser | — |
+
+Rules (overrides match defaults by `source` + `rawCommand`, ignoring the VS Code `-` removal prefix):
+
+1. **Removal** (`isUnbound`): marks the matching defaults unbound (`isUnbound: true`, `origin: 'user-config'`) instead of adding an entry. It matches by command and, when the removal names a key, by that key too. A removal whose command the cheatsheet does not know (Ghostty `unbind`, vim `unmap`) matches defaults by key alone. A removal that matches no default is listed as its own entry.
+2. **Binding, additive**: the default stays (`isDefault: true`, `origin: 'cheatsheet'`) and the user binding is added next to it (`isDefault: false`, `origin: 'user-config'`) with the cheatsheet's label and category. A binding on the exact key of the default is one entry: the default becomes the user entry (also undoing an earlier removal of it, e.g. VS Code `-X` then `X` on the same key).
+3. **Binding, replace**: the first binding for a command takes over the default's entry (key, strokes, context); further bindings of the same command are added as entries of their own.
+4. Bindings for commands the cheatsheet does not know are added as `user-config` entries.
+5. Defaults no override touches keep `isDefault: true`, `origin: 'cheatsheet'`.
+
+Known limits: a user binding for a *different* command on a default's key does not shadow that default (in Ghostty and vim a trigger maps to one action, so `keybind = super+d=close_surface` really replaces the default ⌘D `new_split:right`, but both are listed); VS Code removals match on command and key, not on the `when` clause.
+
+**Special case (tmux, macOS System, Zsh, Bash, Obsidian):**
+Parser provides all data (defaults + user config). Cheatsheet has empty `shortcuts` array, serving only as metadata shell (id, label, icon, paths, `mergeMode`). Their `mergeMode` still records the app's semantics so a future cheatsheet merges correctly.
+
+Zsh and Bash defaults come from the shell itself, started without rc files through the `--help` sandbox (`src/main/parsers/shell-defaults.ts`: temp cwd, stdin closed, env allowlist, timeout; Bash also gets `INPUTRC=/dev/null`) and cached per binary path + mtime. Noise is dropped (self-insert, digit arguments, unbound functions, keys listed twice). A config binding replaces the default on the same keymap + key, an unbind marks it unbound; a missing shell leaves only the config bindings.
+
+#### Parser Registration
+
+Parsers register via a code-level map:
+
+```typescript
+const PARSERS: Record<string, new () => BaseParser> = {
+  vscode: VscodeParser,
+  ghostty: GhosttyParser,
+  tmux: TmuxParser,
+  zsh: ZshParser,
+  bash: BashParser,
+  obsidian: ObsidianParser,
+  chrome: ChromeParser,
+  'macos-system': MacosSystemParser,
+  vim: VimParser,
+};
+```
+
+Sources can enter the system through two doors:
+- **Cheatsheet file** (with or without parser) — community/curated path
+- **Parser in the code map** (with or without cheatsheet) — developer path
+
+The registry merges both discovery paths into a unified source list.
+
+#### Parsers work standalone
+
+A parser without a cheatsheet works — it shows only what it can parse. No cheatsheet required. This allows developers to contribute parsers without curating a full cheatsheet.
+
+### 6.3 Path Resolution
+
+Config paths are resolved in this order:
+
+1. **User override** (from settings, if set)
+2. **Environment variable expansion** (`~`, `$HOME`, `$XDG_CONFIG_HOME`, `%APPDATA%`)
+3. **Cheatsheet `defaultPaths`** for current platform (try each in order)
+4. **Discovery scan** (for apps like Obsidian where paths aren't predictable)
+
+User overrides support:
+- Tilde expansion (`~`)
+- Environment variables (`$HOME`, `$XDG_CONFIG_HOME`, `%APPDATA%`)
+- Absolute paths
+- Per-source, single platform (override applies to current OS only)
+- String for single-path sources, array for multi-path sources (Obsidian vaults)
+
+### 6.4 File Watching
+
+chokidar watches config paths for all active sources with parsers. On file change:
+
+1. Re-parse that single source only
+2. Re-merge with cheatsheet defaults
+3. Update Fuse.js index
+4. Push update to renderer via IPC
+
+File watcher is trusted — no rebuild on window show. chokidar can watch non-existent paths and fire when they appear.
+
+Rebuild triggers:
+- File watcher fires → re-parse single source
+- User enables/disables a source → add/remove from index + watcher
+- User changes path override → stop old watcher, re-detect, start new watcher
+- App startup → full load
+
+### 6.5 Supported Sources (v1)
+
+| Source | Cheatsheet | Parser | Platforms |
+|--------|-----------|--------|-----------|
+| VS Code | Curated (~150-200) | keybindings.json JSONC | all |
+| Ghostty | Curated (~30) | config file | darwin, linux |
+| tmux | Metadata only | config + `tmux list-keys` | darwin, linux |
+| Zsh | Metadata only | .zshrc bindkey + `zsh -f` `bindkey -L` (emacs, or viins/vicmd after `bindkey -v`) | darwin, linux |
+| Bash | Metadata only | .inputrc + .bashrc bind + `bash --norc -i` `bind -p` (emacs) | darwin, linux |
+| Obsidian | Metadata only | hotkeys.json per vault | all |
+| Chrome | Curated (~50-60) | extension shortcuts | all |
+| macOS System | Metadata only | symbolichotkeys.plist | darwin |
+| vim | Curated (~100-150) | .vimrc (vimscript only) | darwin, linux |
+| Finder | Curated (~40-50) | None | darwin |
+
+---
+
+## 7. Commands Engine
+
+### 7.1 Overview
+
+The commands engine dynamically indexes every CLI command available on the user's system, enriched with subcommands and flags from man pages and shell completions. It is a **separate subsystem** from shortcuts, with its own data pipeline and Fuse.js index.
+
+### 7.2 Tiered Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   COMMANDS ENGINE                        │
+│                                                          │
+│  TIER 1 — Immediate (~200ms, on startup)                │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │ Scan PATH directories → command names               │  │
+│  │ `apropos .` (async) → one-line descriptions         │  │
+│  │ Result: ~4,000 entries with name + description      │  │
+│  │ Memory: ~500KB    Fuse.js build: ~30ms              │  │
+│  └────────────────────────────────────────────────────┘  │
+│                                                          │
+│  TIER 3 — Background enrichment (after startup)         │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │ Priority order per command:                         │  │
+│  │   1. Zsh completion files (structured, ~3ms/file)   │  │
+│  │   2. Bash completion files (structured, ~3ms/file)  │  │
+│  │   3. Man pages (structured, ~5ms/file)              │  │
+│  │   4. --help output (last resort, ~100ms, spawn)     │  │
+│  │ First source that yields results wins (no merging)  │  │
+│  │ Results cached to disk per command                  │  │
+│  └────────────────────────────────────────────────────┘  │
+│                                                          │
+│  PERSISTENT CACHE                                       │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │ {userData}/commands-cache/meta.json PATH hash       │  │
+│  │ …/commands-cache/commands-index.json All commands   │  │
+│  │ …/commands-cache/details/{name}.json Per-command    │  │
+│  └────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 7.3 Index Lifecycle
+
+**PATH import:** an app started from Finder or at login gets the minimal launchd PATH (`/usr/bin:/bin:/usr/sbin:/sbin`), without Homebrew, `~/.local/bin`, nvm, etc. At startup, before the commands engine and the parsers run, the main process runs the user's login shell (`$SHELL -ilc`, stdin closed, 3s timeout, async) and merges the PATH it prints in front of the current one (`src/main/shell-env.ts`).
+
+**Descriptions:** `apropos .` (async; a few seconds on macOS), falling back to `whatis -w '*'` (man-db). macOS `whatis` has no `-w`. A name documented in several man sections takes the description from its command section (1, then 8, then 6).
+
+**First launch (cold):**
+1. No cached index exists
+2. Tier 1: scan PATH + apropos → basic index
+3. Save index to disk
+4. Searchable immediately with name + description
+5. Background enrichment worker starts
+
+**Subsequent launches (warm):**
+1. Read cached index from disk (~10-30ms)
+2. Fully searchable immediately, including enriched details
+3. Quick diff: `hash(PATH + directory mtimes)` vs cached hash
+4. Same → done. Different → incremental update (add new, remove old)
+5. Background worker resumes enrichment of any unenriched entries
+
+**Invalidation:**
+- PATH hash comparison on each startup and on window show in commands mode
+- If hash matches → cache is valid
+- If hash differs → rescan, incremental update
+- Per-command detail cache: invalidated when binary mtime changes
+
+### 7.4 Subcommand Drill-In (replaces the expanded index)
+
+The index holds one entry per executable. Subcommand names are a search key of their parent (§8.3), so "commit" finds `git`. Subcommands are explored on demand: drilling into a subcommand row of the detail view reads its man page (`man git-commit`), falling back to `<cmd> <sub> --help` (same sandbox, blocklist and owner checks as §7.5), and caches the result under `cache/details/sub/`; drill-in recurses (`docker compose up`). See `src/main/commands/subcommand-enricher.ts` and [§15 Decisions](#15-decisions).
+
+### 7.5 Enrichment Worker
+
+**Parameters:**
+
+| Parameter | Value |
+|-----------|-------|
+| File read concurrency | 3 parallel |
+| Process spawn concurrency (`--help`) | 1 at a time |
+| Process timeout | 2 seconds, hard kill |
+| Pause when | Main window is visible |
+| Resume when | Window hidden or 5s idle |
+| Batch save | Every 50 commands enriched |
+| Priority | Commands with man pages first |
+| Drill-in | A command opened in the detail view before the worker reached it is enriched at once (`commands:getDetail`), even while paused; its `--help` still waits for the one-at-a-time slot and the worker skips it afterwards |
+| First launch | Enrichment starts immediately |
+
+**Enrichment source discovery:**
+- Man page locations: single `man --path` command at startup
+- Zsh completion locations: single `zsh -c 'echo $FPATH'` at startup
+- Bash completion locations: `pkg-config --variable=completionsdir bash-completion` or fallback to `/usr/share/bash-completion/completions`
+- Both zsh and bash completions supported; zsh checked first (richer format), deduplicated by command name
+
+**`--help` probing policy** (`isTrustedBinary`, `isBlocklisted` in `src/main/commands/parsers/help-parser.ts`). Running `--help` executes the program, so a command (or `command sub …` for subcommand details) is probed only if all of these hold:
+
+1. Shortty is not running as root.
+2. Neither the command name nor the basename of its resolved path (symlinks followed) is on the blocklist below.
+3. The resolved file is owned by root or the current user, and is not writable by group or others (`mode & 022 == 0`).
+4. The resolved file is either a **native executable** (Mach-O, Mach-O universal or ELF magic), anywhere, or a **`#!` script under a trusted install prefix**:
+
+   | Prefix | Why |
+   |--------|-----|
+   | `/usr/`, `/bin/`, `/sbin/`, `/System/`, `/Library/Apple/` | OS-shipped tools (includes `/usr/local/`) |
+   | `/opt/homebrew/`, `/opt/local/` | Homebrew (Apple silicon), MacPorts |
+   | `/nix/store/` | Nix (profiles resolve into the store) |
+   | `~/.cargo/bin/`, `~/.rustup/toolchains/` | Cargo / rustup |
+   | `~/.local/share/uv/tools/` | `uv tool install` (its `~/.local/bin` links resolve here) |
+   | `~/.local/pipx/venvs/` | pipx |
+
+Anything else, notably the user's own scripts in `~/bin`, `~/.local/bin` or a project directory, is never executed: such a script may act on any argument (`deploy.sh --help` may deploy). Those commands are enriched from their man page and the whatis database only. In e2e mode (`SHORTTY_E2E=1`) `$SHORTTY_E2E_DIR/bin/` is also trusted, so the suite's fake `#!` CLIs can be probed ([runbook](runbooks/run-e2e-tests.md)).
+
+Other rules: dotfile/hidden commands (names starting with `.` or `_`) are skipped; at most one probe runs at a time; 2 second timeout, hard kill (SIGKILL to the whole process group).
+
+**`--help` blocklist (hardcoded, `BLOCKLIST`):**
+
+System/destructive: `shutdown`, `reboot`, `halt`, `poweroff`, `init`, `rm`, `mkfs`, `fdisk`, `dd`, `kill`, `killall`, `pkill`
+
+Daemons: `httpd`, `nginx`, `postgres`, `mysqld`, `mongod`, `redis-server`, `dockerd`, `sshd`, `cupsd`
+
+Interactive: `ssh`, `telnet`, `ftp`, `sftp`, `nc`, `ncat`, `python`, `python3`, `node`, `ruby`, `irb`, `lua`, `perl`, `bash`, `zsh`, `sh`, `fish`, `tcsh`, `csh`
+
+macOS security/signing tools (Keychain or admin prompts) and GUI apps: `security`, `codesign`, `xcrun`, `sudo`, `su`, `passwd`, `electron`, … (full list in the source)
+
+Wrappers that execute their arguments, where an implementation without a `--help` flag would run `--help` (or the subcommand words) as a command: `env`, `xargs`, `nohup`, `nice`, `renice`, `caffeinate`, `watch`, `doas`, `time`, `timeout`, `exec`, `chroot`, `sandbox-exec`, `stdbuf`, `script`, `setsid`, `flock`, `taskset`, `pkexec`, `runuser`, `arch`, `parallel`, `entr`, …
+
+**`--help` sandbox** (`src/main/commands/sandbox-exec.ts`): every probe runs in a throwaway temp cwd with stdin closed and output capped at 1 MB. The environment is an allowlist (`PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, `TMPDIR`, `LANG`, `MANPATH`, `LC_*`), so tokens and keys in the user's environment never reach an arbitrary binary; pagers are `cat`, editors are `true`, colours and Homebrew auto-update are off. `man` lookups use the same environment in their own process group (man starts groff and friends), killed after 5 seconds. The startup login-shell PATH import (`src/main/shell-env.ts`) kills the shell's process group on timeout or when it prints more than 1 MB.
+
+**Whatis fallback:**
+If whatis database doesn't exist, Tier 1 index has names with no descriptions. Enrichment naturally fills descriptions from man page NAME sections. No special handling needed.
+
+### 7.6 Cache Location
+
+All persistent data at `app.getPath('userData')`:
+
+```
+~/Library/Application Support/shortty/     (macOS)
+%APPDATA%/shortty/                         (Windows)
+~/.config/shortty/                         (Linux)
+
+Structure:
+├── config.json                  # electron-store (settings)
+├── commands-cache/              # not cache/: that is Chromium's Cache on case-insensitive APFS
+│   ├── meta.json                # PATH hash, timestamps, enrichment stats
+│   ├── commands-index.json      # Tier 1 full inventory
+│   └── details/                 # Per-command enrichment
+│       ├── git.json
+│       ├── docker.json
+│       ├── ...
+│       └── sub/                 # Subcommand details, keyed by bin path + mtime
+```
+
+### 7.7 Platform Differences
+
+| Platform | Tier 1 | Enrichment sources |
+|----------|--------|-------------------|
+| macOS | PATH scan + whatis | zsh completions → bash completions → man pages → --help |
+| Linux | PATH scan + whatis | zsh completions → bash completions → man pages → --help |
+| Windows | PATH scan | --help only (no man pages, no shell completions) |
+
+---
+
+## 8. Search Architecture
+
+### 8.1 Two Fuse.js Instances
+
+| | Shortcuts Index | Commands Index |
+|---|---|---|
+| Data type | `Shortcut` | `Command` (one per executable; subcommand names as a key) |
+| Size | Hundreds to low thousands | Thousands (one per PATH executable) |
+| Updated by | Cheatsheet load + parser merge + file watcher | PATH scan + enrichment worker |
+| Rebuilt when | Source config changes | PATH changes |
+| Queried when | Every search (or when not in prefix mode) | Every search (or when `>` prefix active) |
+
+### 8.2 Shortcut Search Weights (user-configurable)
+
+```
+key / searchKey:   0.4   (default)
+command:           0.4   (default)
+sourceLabel:       0.1   (default)
+context:           0.1   (default)
+threshold:         0.35  (default)
+```
+
+### 8.3 Command Search Weights (fixed in v1)
+
+```
+name:              0.5
+description:       0.3
+subcommands:       0.2
+```
+
+### 8.4 Search Modes
+
+**Default: unified search.** Type anything → results from both shortcuts and commands, visually separated into sections.
+
+**Optional: command prefix mode** (setting, default **off**). When enabled, default search returns shortcuts only. `>` prefix returns commands only. Power user feature.
+
+**Source matching:** source names match space- and punctuation-insensitively, so "vsc" and "vscode" both find VS Code.
+
+**Layout-aware keys:** the shortcut index also searches the key as labelled on the user's keyboard layout (e.g. "ò" on Italian). See [keyboard-layouts.md](keyboard-layouts.md).
+
+### 8.5 Result Sections
+
+Search results display in three fixed-order sections:
+
+1. **Sources** — matching source names. Only appears when query matches a source name.
+2. **Shortcuts** — matching keybindings across all active sources.
+3. **Commands** — matching CLI commands (if commands feature enabled).
+
+**Default limits (configurable in settings):**
+
+| Section | Limit |
+|---------|-------|
+| Sources | 3 |
+| Shortcuts | 8 |
+| Commands | 5 |
+
+Each section shows a selectable "Show all X" row when truncated (Enter expands it). No debouncing — instant search on every keystroke. Command results rank an exact name first, then name prefixes, then the Fuse order.
+
+---
+
+## 9. Settings
+
+### 9.1 App Settings
+
+| Setting | Type | Default | Location |
+|---------|------|---------|----------|
+| Launch at Login | boolean | `false` | General tab |
+| Show in Dock | boolean | `false` | General tab |
+| Show in Menu Bar | boolean | `true` | General tab |
+| Dismiss After Copy | boolean | `true` | General tab |
+| Global Shortcut | string | `CommandOrControl+Shift+Space` | General tab |
+| Window Position | enum | `top-center` | General tab |
+| Theme | enum | `system` | General tab |
+| Disabled Sources | string[] | `[]` | Sources tab |
+| Source Path Overrides | Record | `{}` | Sources tab |
+| Shortcut Search Weights | object | see §8.2 | Search tab |
+| Command Prefix Mode | boolean | `false` | Search tab |
+| Result Limits | object | see §8.5 | Search tab |
+| Commands Enabled | boolean | `true` | Commands tab |
+
+**Visibility safety:** if user disables both Dock and Menu Bar, show confirmation dialog: "You'll only be able to access Shortty via the keyboard shortcut. Are you sure?" Escape hatch: `shortty --reset-settings` CLI flag. It restores `DEFAULT_SETTINGS` (`src/shared/settings.ts`) and exits without opening a window; it refuses (exit code 1) while another instance holds the single-instance lock. Procedure: [runbooks/reset-settings.md](runbooks/reset-settings.md).
+
+Theme values: `light | dark | system`. No additional theming in v1.
+
+### 9.2 Preferences Window Structure
+
+The Preferences window is modelled on macOS System Settings: a sidebar source list with coloured tiles (↑/↓ move between tabs), inset grouped sections, native-sized switches, segmented controls and sliders, light and dark palettes that follow the Theme setting. 600×500, non-resizable, hidden-inset title bar.
+
+| Tab | Contents |
+|-----|----------|
+| **General** | Launch at login, show in dock, show in menu bar, dismiss after copy, global shortcut recorder, window position, theme |
+| **Sources** | All sources with enable/disable toggle, detection status, path overrides per source |
+| **Search** | Shortcut weight sliders, command prefix mode toggle, result section limits |
+| **Commands** | Enable/disable commands feature (room for future enrichment settings) |
+
+### 9.3 Source Activation
+
+All sources appear in Preferences → Sources:
+
+| State | Meaning | Visual |
+|-------|---------|--------|
+| Enabled + Detected | Active, config found, parsing live | Green check |
+| Enabled + Not detected | Active, cheatsheet defaults only | Yellow warning, "cheatsheet only" |
+| Enabled + Cheatsheet only | No parser (e.g., Finder) | Info badge |
+| Disabled | Excluded from search and watchers | Greyed out |
+
+Users can enable sources for apps they don't have installed (browse shortcuts as a learning tool).
+
+### 9.4 Path Override UI
+
+Per source in Preferences → Sources:
+- Show detected path with existence indicator (green check / red X)
+- Show auto-detected path even when override is set (greyed out)
+- Override input: text field + native file picker
+- Environment variable support (`~`, `$HOME`, `$XDG_CONFIG_HOME`, `%APPDATA%`)
+- Validation: warn if path doesn't exist, still allow save
+- Reset button to clear override
+- Multi-path sources (Obsidian): list with add/remove buttons
+
+---
+
+## 10. UX Specification
+
+### 10.1 Core Interaction Model
+
+The panel is a **lookup tool**. Users come with intent.
+
+- **Global hotkey** (`⌘⇧Space` default) summons the panel
+- **Blank on open** — search bar focused, no results displayed, ready for input
+- **Type to search** — results appear instantly in three sections (Sources, Shortcuts, Commands)
+- **Full state reset on every open** — query cleared, back to flat mode
+- **Dismiss** — Esc (in flat mode with an empty query; with a query, Esc clears it first), click outside, blur/focus loss, global hotkey toggle
+
+### 10.2 Navigation Model: Flat → Drill-In
+
+**Flat mode (default):**
+Search across all sources. Results show Sources, Shortcuts, and Commands sections.
+
+**Drill-in to source:**
+Select a source from the Sources section (Enter) → panel scopes to that source. Shows all entries for that source, grouped by category, with no section limit. Search filters within source. Esc (or ← / Backspace on an empty field) returns to flat mode with the previous query, expanded sections and selection restored.
+
+**Drill-in to command:**
+On a command row, Tab or → drills into command detail view. Shows subcommands, flags and arguments. Search filters within details. Tab/→ on a subcommand drills one level deeper (§7.4). Esc returns to the previous level, restored as it was.
+
+### 10.3 Search Behavior
+
+- **Instant** — no debouncing, Fuse.js responds in <5ms
+- **Empty query** — blank panel, no results
+- **Empty results** — a short "No matches for …" line with a hint (e.g. "Type > first to search commands" in prefix mode); the window grows only to 180px for it
+- **Sources in search** — source names are searchable; typing "vsc" shows VS Code in Sources section
+- **Cross-section navigation** — ↑/↓ treats all rows as one flat list, wraps around at boundaries
+
+### 10.4 Entry Anatomy
+
+Rows follow a single-line layout inspired by the Vaise launcher: identity on the left, keys on the right. Every row starts with a **source tile**, a small tinted monogram like a Dock icon (`VS`, `Gh`, `tm`, `>_` for commands; `src/renderer/components/SourceIcon.tsx`), instead of the cheatsheet emoji.
+
+**Shortcut row:**
+- Left: source tile (flat mode only), command name, then the `rawCommand` in muted monospace when it differs
+- Right: context pill if present (small, muted), source label (flat mode only), key combo as key caps
+- Key caps show the keys as labelled on the user's keyboard layout ([keyboard-layouts.md](keyboard-layouts.md)); an unbound shortcut shows "unbound" instead of caps
+
+**Command row:**
+- Shell tile (`>_`), command name in monospace, description, chevron (drillable)
+
+**Source row:**
+- Source tile + name + entry count + chevron
+
+**Footer:** a 36px bar under the results. Left: status ("27 results", "Copied …", or the drilled source and its count). Right: key hints for the selected row (e.g. "Copy keys ↩ · Clear esc", "Copy ↩ · Details ⇥ · Close esc").
+
+**Search bar:** a ⌘⇧Space hotkey hint (the configured global shortcut) and a `?` button that opens the keyboard help.
+
+**Theme:** colours are CSS tokens with light and dark values (`src/renderer/styles/globals.css`) following `prefers-color-scheme`, which Electron drives from the Theme setting through `nativeTheme.themeSource`. Components use the tokens rather than fixed white or black.
+
+### 10.5 Entry Actions
+
+| Key | On Source Row | On Shortcut Row | On Command Row |
+|-----|-------------|-----------------|----------------|
+| Enter | Drill into source | Copy key combo to clipboard | Copy command to clipboard |
+| Tab / → | — | — | Drill into command details |
+| Esc | — | — | Back from detail view |
+
+Enter on a "Show all X" row expands that section. The shortcut copied is the key combo as labelled on the user's keyboard layout (e.g. "⌘Ò" rather than the US "⌘;" on Italian).
+
+### 10.6 Visual Feedback
+
+- **Copy**: row briefly flashes (~300ms) to confirm clipboard write
+- **Dismiss after copy**: configurable setting (default: on)
+
+### 10.7 Keyboard Map
+
+| Key | Flat Search | Drilled Into Source | Command Detail |
+|-----|-------------|--------------------| --------------|
+| `⌘⇧Space` | Toggle panel | Toggle panel | Toggle panel |
+| `Esc` | Clear query, else dismiss | Clear query, else back to flat | Clear query, else back to results |
+| `↑` / `↓` | Navigate rows | Navigate rows | Navigate rows |
+| `Enter` | Action (per row type) | Copy shortcut | Copy subcommand/flag |
+| `Tab` / `→` | Drill into command | Drill into command | Drill into subcommand |
+| `←` / `Backspace` (empty field) | — | Back to flat | Back to results |
+| Any character | Search input | Search within source | Filter within details |
+| `?` icon (or `?` on an empty query) | Show keyboard shortcuts help | — | — |
+
+Tab never moves focus out of the search field; → drills only when the caret is at the end of the query.
+
+### 10.8 Window Behavior
+
+| Property | Value |
+|----------|-------|
+| Size | 750px wide; height collapses to the search bar (72px) when empty, 180px for a no-results line, 580px with results, a detail view or help |
+| Frame | Frameless, no title bar |
+| Position | Configurable: top-center (default), center, mouse; always on the display under the cursor, positioned for the 580px height so growing never leaves the work area |
+| Always on top | Yes |
+| Show in dock | Configurable (default: off) |
+| Show in mission control | No |
+| Background | Native macOS vibrancy (`under-window`), light or dark per Theme |
+| Scrolling | Scroll within the 580px window when results overflow |
+| Instances | One per user (single-instance lock); a second launch shows the running panel |
+| Dismiss | Esc, click outside, blur, global shortcut toggle |
+| State on reopen | Full reset (blank) |
+
+### 10.9 Animations
+
+- **Show**: scale from 0.97 → 1.0 + opacity 0 → 1, 120ms ease-out
+- **Hide**: scale from 1.0 → 0.97 + opacity 1 → 0, 80ms ease-in
+- **Respects `prefers-reduced-motion`**: instant show/hide when enabled
+- Every hide (Esc, copy, blur, hotkey, tray) plays the exit animation: main asks the renderer to animate out and hides on its acknowledgement, with a short upper bound (`src/main/window-hider.ts`)
+
+### 10.10 Result Section Limits
+
+| Section | Default | Configurable |
+|---------|---------|-------------|
+| Sources | 3 | Yes |
+| Shortcuts | 8 | Yes |
+| Commands | 5 | Yes |
+
+"Show all X results" row when truncated. Expanding pushes other sections down.
+
+---
+
+## 11. App Lifecycle
+
+### 11.1 Startup Sequence
+
+```
+0. Single-instance lock; `--reset-settings` handled here (§9.1)
+1. App ready
+   - Import the login-shell PATH (§7.3); both engines wait for it
+   - Register IPC handlers before any await (data handlers wait for the engines)
+2. Read settings from electron-store
+3. Apply settings (theme, dock, menu bar, login, global shortcut)
+4. Create system tray (if menu bar enabled)
+5. Load sources (parallel):
+   ├─ 5a. Shortcuts engine:
+   │   ├─ Load cheatsheet JSONs
+   │   ├─ For each with parser + detected config → parse overrides
+   │   ├─ Merge: cheatsheet defaults + overrides
+   │   ├─ Build Fuse.js shortcuts index
+   │   └─ Start file watchers
+   │
+   └─ 5b. Commands engine (if enabled):
+       ├─ Read cached commands-index.json (if exists)
+       ├─ If cache miss or stale → Tier 1 scan
+       ├─ Build Fuse.js commands index
+       └─ Start background enrichment worker
+6. Window ready for activation
+```
+
+Window is NOT shown on startup. App launches silently into tray/dock.
+
+### 11.2 Shortcuts Rebuild Triggers
+
+| Event | Action |
+|-------|--------|
+| File watcher fires | Re-parse single source, re-merge, update index |
+| User enables source | Load cheatsheet + parse, add to index, start watcher |
+| User disables source | Remove from index, stop watcher |
+| User changes path override | Stop old watcher, re-detect, re-parse, start new watcher |
+| App startup | Full load |
+| Window shown | No rebuild (trust file watcher) |
+
+### 11.3 Commands Rebuild Triggers
+
+| Event | Action |
+|-------|--------|
+| App startup | Read cache → diff PATH hash → incremental update |
+| Window shown (commands mode) | Quick PATH hash check → rebuild only if changed |
+| Enrichment batch complete | Update Fuse.js with new entries |
+| User disables commands | Stop worker, unload index |
+| User re-enables commands | Load cached index, resume enrichment |
+| Manual refresh | Full Tier 1 rescan |
+
+---
+
+## 12. Cross-Cutting Concerns
+
+### 12.1 Error Handling
+
+| Failure | Behavior |
+|---------|----------|
+| Parser throws on malformed config | Log warning, skip source, show remaining |
+| Cheatsheet JSON fails validation | Log error, skip cheatsheet, app works with others |
+| Enrichment worker crashes on a command | Log, skip, mark as `failed`, continue |
+| File watcher error | Log, continue without live updates for that path |
+| `--help` times out | Expected, skip, move on |
+| Entire commands engine fails | Log, disable commands mode, shortcuts still work |
+
+Principle: **never crash the app, never block the user.** Each subsystem fails independently.
+
+### 12.2 Logging
+
+| Aspect | Value |
+|--------|-------|
+| Library | `electron-log` |
+| Location | `app.getPath('userData')/logs/` |
+| Levels | error, warn, info, debug |
+| Default | info (production), debug (dev) |
+| Rotation | 3 files (live + 2 archives), 5MB each |
+| Content | Parser summaries, enrichment progress, watcher events, errors |
+| Excluded | File contents, keybinding data, user data |
+
+### 12.3 Privacy
+
+- All data stays local — no network calls, no telemetry
+- Logs contain summaries, not file contents
+- Cache stores parsed results, not raw config data
+- Clipboard write only on explicit user action (Enter key)
+
+### 12.4 Auto-Update
+
+`electron-updater` with GitHub Releases. App checks for updates on launch, downloads and installs automatically. Implemented in a later phase, not blocking v1 launch.
+
+### 12.5 Distribution
+
+- **v1:** GitHub Releases — DMG + ZIP for macOS; Squirrel (Windows) and deb/rpm (Linux) makers are configured but untested in v1. Procedure: [runbooks/release-macos.md](runbooks/release-macos.md)
+- **Post-v1:** Homebrew Cask formula
+- **Deferred:** Mac App Store (sandboxing conflicts)
+- **Code signing:** Apple Developer account, sign + notarize from v1; enabled only through environment variables (`APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`), unsigned otherwise
+
+---
+
+## 13. Tech Stack
+
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| Framework | Electron | 44 |
+| Build | Electron Forge + Vite plugin | ^8 |
+| Renderer | React + TypeScript | 19 / 5.9 |
+| Styling | Tailwind CSS (`@tailwindcss/vite`) | 4 |
+| Search | Fuse.js | ^7 |
+| File watching | chokidar | ^5 |
+| Settings | electron-store | ^11 |
+| Icons | Lucide React | ^1 |
+| Logging | electron-log | ^5 |
+| Auto-update | electron-updater | not in v1 |
+| Testing | Vitest + React Testing Library | ^5 |
+| End-to-end | Playwright (`_electron`) | 1.63 ([runbook](runbooks/run-e2e-tests.md)) |
+| Linting | ESLint + @typescript-eslint | latest |
+| Unused code | knip | ^6 |
+
+---
+
+## 14. Non-Goals (v1)
+
+- Custom keybinding editing (read-only lookup)
+- Conflict detection between tools
+- Plugin system for community parsers
+- Mac App Store / Windows Store distribution
+- Adobe apps (proprietary formats)
+- Neovim Lua config parsing (vimscript only in v1)
+- Runtime app version detection for cheatsheet filtering
+- Shell completion execution (we index, not execute)
+- Curated CLI cheatsheets (Tier 2) — fully dynamic enrichment only
+
+---
+
+## 15. Decisions
+
+Where v1 deliberately departs from the original plan. Each row is implemented; earlier sections already describe the new behaviour.
+
+| Decision | Original plan | Why |
+|---|---|---|
+| Collapsible window, 750px wide, 72px collapsed, up to 580px (§10.8) | Fixed 680×500 | Spotlight-like: opening shows only the search bar and the window grows with results; the extra width fits the row layout below. |
+| Footer with status and key hints (§10.4) | "No footer, no pills, no hints" | Shows what Enter/Tab/Esc do on the selected row and confirms copies without a modal. |
+| Vaise-style single-line rows, keys on the right (§10.4) | Key pills on the left, command in the middle | Command names are what users scan; right-aligned caps line up in a column. |
+| Source monogram tiles (§10.4) | Cheatsheet emoji icon | Emoji render inconsistently next to text and clash with the vibrancy material. |
+| Light/dark tokens following Theme (§10.4) | Theme setting with no launcher palette | Hard-coded white text was unreadable on light vibrancy. |
+| No-results line with a hint (§10.3) | Blank panel | Confirms the query ran and matched nothing, and points to the `>` prefix when prefix mode is on. |
+| Esc clears the query first (§10.7) | Esc dismisses / goes back | Matches Spotlight and lets users retype without leaving the level. |
+| On-demand subcommand drill-in (§7.4) | Expanded subcommand index (up to ~50k entries) | Smaller index, no blind `--help` on every subcommand, and drill-in recurses to any depth. |
+| Login-shell PATH import (§7.3) | `process.env.PATH` | Apps launched from Finder or at login only see launchd's PATH, which misses Homebrew, nvm, `~/.local/bin`. |
+| `apropos .` for descriptions (§7.3) | `whatis -w '*'` | macOS `whatis` has no `-w`, which left every command without a description. |
+| Env-allowlisted `--help` sandbox (§7.5) | Blocklist and timeout only | Arbitrary binaries must not see tokens or keys from the user's environment, open editors or pagers, or block on stdin. |
+| Layout-aware key display and copy (§10.4, [keyboard-layouts.md](keyboard-layouts.md)) | US key labels; "native keymap" deferred | On non-US layouts the US label is not what the user presses; Chromium's `navigator.keyboard.getLayoutMap()` gives the real labels without a native module. |
+| Single-instance lock (§5.3) | — | A second launch would add a second tray, watcher set and commands engine. |
+| Cheatsheets bundled with `import.meta.glob`, schema checked by tests (§6.1) | JSON files read at runtime, validated at build time | No runtime path to resolve in dev, e2e and the packaged app; a unit test gives the same guarantee as a build step. |
+| Preferences styled like macOS System Settings (§9.2) | Generic sidebar + tabs | Native look and controls on the primary platform. |
+
+Command prefix mode stays **off** by default as originally specified; an interim commit (`874aa74`) had turned it on and `32885a4` restored the §9.1 defaults.

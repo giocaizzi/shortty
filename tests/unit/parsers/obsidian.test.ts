@@ -1,19 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { join } from 'node:path';
 import { ObsidianParser } from '../../../src/main/parsers/obsidian.parser';
+import { FIXTURES, rows, withPlatform } from './parser-helpers';
 
-const FIXTURE_PATH = join(__dirname, '../../../fixtures/obsidian-hotkeys.json');
-
-vi.mock('../../../src/main/platform/paths', () => ({
-  discoverObsidianVaults: () => [FIXTURE_PATH],
-}));
+const FIXTURE_PATH = join(FIXTURES, 'obsidian-hotkeys.json');
+const VAULT_PATH = join(FIXTURES, 'obsidian-vault/Notes/.obsidian/hotkeys.json');
 
 describe('ObsidianParser', () => {
+  withPlatform('darwin');
   let parser: ObsidianParser;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     parser = new ObsidianParser();
-    await parser.isAvailable(); // triggers vault discovery
+    parser.setConfigPaths([FIXTURE_PATH]);
   });
 
   it('has correct metadata', () => {
@@ -21,48 +20,41 @@ describe('ObsidianParser', () => {
     expect(parser.meta.label).toBe('Obsidian');
   });
 
-  it('parses hotkeys from fixture', async () => {
-    const result = await parser.parse();
-    // 4 bound + 1 unbound = 5
-    expect(result.length).toBe(5);
-    expect(result.every((kb) => kb.source === 'obsidian')).toBe(true);
+  it('parses every hotkey with exact key, command and unbound flag', async () => {
+    expect(rows(await parser.parse())).toEqual([
+      ['⌘B', 'Toggle bold', null, false],
+      ['⌘I', 'Toggle italic', null, false],
+      ['⌥⌘←', 'Go back', null, false],
+      ['⇧⌘P', 'Open', null, false],
+      ['', 'Toggle strikethrough', null, true],
+    ]);
   });
 
-  it('normalizes Mod to platform-appropriate modifier', async () => {
-    const result = await parser.parse();
-    const bold = result.find((kb) => kb.rawCommand === 'editor:toggle-bold');
-    // On macOS Mod -> ⌘, on others -> ⌃
-    const expectedMod = process.platform === 'darwin' ? '⌘' : '⌃';
-    expect(bold?.key).toBe(`${expectedMod}B`);
+  it('uses the vault name as context, keeps several hotkeys per command, skips malformed entries', async () => {
+    parser.setConfigPaths([VAULT_PATH]);
+    expect(rows(await parser.parse())).toEqual([
+      ['⌘B', 'Toggle bold', 'Notes', false],
+      ['⌘Return', 'Toggle checklist status', 'Notes', false],
+      ['⇧⌘L', 'Toggle checklist status', 'Notes', false],
+      ['⌘\\', 'Toggle left sidebar', 'Notes', false],
+      ['⌃⌥→', 'Split vertical', 'Notes', false],
+      ['', 'Open settings', 'Notes', true],
+    ]);
   });
 
-  it('handles multiple modifiers', async () => {
-    const result = await parser.parse();
-    const goBack = result.find((kb) => kb.rawCommand === 'app:go-back');
-    expect(goBack?.key).toContain('⌥');
-    expect(goBack?.key).toContain('ArrowLeft');
-  });
-
-  it('detects unbound hotkeys (empty array)', async () => {
-    const result = await parser.parse();
-    const unbound = result.find(
-      (kb) => kb.rawCommand === 'editor:toggle-strikethrough',
-    );
-    expect(unbound?.isUnbound).toBe(true);
-    expect(unbound?.key).toBe('');
-  });
-
-  it('humanizes command IDs', async () => {
-    const result = await parser.parse();
-    const commandPalette = result.find(
-      (kb) => kb.rawCommand === 'command-palette:open',
-    );
-    expect(commandPalette?.command).toBe('Open');
-  });
-
-  it('generates unique IDs', async () => {
+  it('generates unique IDs for a command with several hotkeys', async () => {
+    parser.setConfigPaths([VAULT_PATH]);
     const result = await parser.parse();
     const ids = result.map((kb) => kb.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  describe('on Linux', () => {
+    withPlatform('linux');
+
+    it('maps Mod to Ctrl', async () => {
+      const result = await parser.parse();
+      expect(result[0].key).toBe('⌃B');
+    });
   });
 });

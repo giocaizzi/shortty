@@ -1,0 +1,32 @@
+{
+  "label": "workaround",
+  "date": "2026-10-14T00:58:18.761Z",
+  "host": "darwin-arm64",
+  "counts": {
+    "sources": 10,
+    "shortcuts": 493,
+    "commands": 3
+  },
+  "startupMs": {
+    "runs": [
+      372,
+      308,
+      314
+    ],
+    "median": 314
+  },
+  "startupToEnrichedMs": {
+    "runs": [
+      1272,
+      698,
+      703
+    ],
+    "median": 703
+  },
+  "showToFocusedMs": 39,
+  "searchRenderMs": {
+    "vs": 1.7,
+    "toggle": 3.1,
+    ">gizmo": 0.4
+  }
+}

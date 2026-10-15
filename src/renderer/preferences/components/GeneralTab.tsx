@@ -1,0 +1,183 @@
+import { useId, useState } from 'react';
+import type { AppSettings } from '../../../shared/settings';
+import { DEFAULT_SETTINGS } from '../../../shared/settings';
+import { useKeyboardLayout } from '../../lib/keyboard-layout';
+import { acceleratorToGlyphs } from '../lib/accelerator';
+import { isMacPlatform } from '../lib/platform';
+import type { UpdateSetting } from '../hooks/useSettings';
+import { Keycaps, PaneHeader, Row, Section, Segmented, SwitchRow } from './controls';
+import { ShortcutRecorder } from './ShortcutRecorder';
+
+interface GeneralTabProps {
+  settings: AppSettings;
+  onUpdate: UpdateSetting;
+}
+
+const POSITIONS: { value: AppSettings['windowPosition']; label: string }[] = [
+  { value: 'top-center', label: 'Top Center' },
+  { value: 'center', label: 'Center' },
+  { value: 'mouse', label: 'Near Cursor' },
+];
+
+const THEMES: { value: AppSettings['theme']; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
+
+type VisibilityKey = 'showDockIcon' | 'showMenuBar';
+
+export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
+  const mac = isMacPlatform();
+  const layout = useKeyboardLayout();
+  const [pendingHide, setPendingHide] = useState<VisibilityKey | null>(null);
+  const shortcutLabelId = useId();
+
+  const handleVisibilityToggle = (key: VisibilityKey, newValue: boolean) => {
+    const otherKey: VisibilityKey = key === 'showDockIcon' ? 'showMenuBar' : 'showDockIcon';
+    // The Dock toggle only exists on macOS; elsewhere only the menu bar counts.
+    const otherVisible = mac ? settings[otherKey] : false;
+    if (!newValue && !otherVisible) {
+      setPendingHide(key);
+      return;
+    }
+    void onUpdate(key, newValue);
+  };
+
+  const confirmHide = () => {
+    if (pendingHide) void onUpdate(pendingHide, false);
+    setPendingHide(null);
+  };
+
+  // Main registers the new shortcut before saving it and returns an error
+  // (keeping the old one) when another app or macOS already owns it.
+  const saveShortcut = async (accelerator: string): Promise<string | null> => {
+    const result = await onUpdate('globalShortcut', accelerator);
+    if (result.success) return null;
+    const wanted = acceleratorToGlyphs(accelerator, mac, layout).join('');
+    const kept = acceleratorToGlyphs(settings.globalShortcut, mac, layout).join('');
+    return `Couldn't register ${wanted}. Another app or a system shortcut already uses it. Shortty kept ${kept}.`;
+  };
+
+  return (
+    <div className="pf-pane">
+      <PaneHeader title="General" />
+
+      <Section label="Startup and visibility">
+        <SwitchRow
+          label="Launch at login"
+          description="Start Shortty when you log in."
+          checked={settings.launchAtLogin}
+          onChange={(v) => void onUpdate('launchAtLogin', v)}
+        />
+        {mac && (
+          <SwitchRow
+            label="Show in Dock"
+            description="Keep the Shortty icon in the Dock."
+            checked={settings.showDockIcon}
+            onChange={(v) => handleVisibilityToggle('showDockIcon', v)}
+          />
+        )}
+        <SwitchRow
+          label="Show in menu bar"
+          description="Add a Shortty icon to the menu bar."
+          checked={settings.showMenuBar}
+          onChange={(v) => handleVisibilityToggle('showMenuBar', v)}
+        />
+        <SwitchRow
+          label="Hide after copying"
+          description="Close the launcher once a shortcut or command is copied."
+          checked={settings.dismissAfterCopy}
+          onChange={(v) => void onUpdate('dismissAfterCopy', v)}
+        />
+      </Section>
+
+      <Section label="Activation">
+        <Row
+          label="Activation shortcut"
+          labelId={shortcutLabelId}
+          description="Opens and closes the launcher from any app."
+          control={
+            <ShortcutRecorder
+              value={settings.globalShortcut}
+              defaultValue={DEFAULT_SETTINGS.globalShortcut}
+              mac={mac}
+              layout={layout}
+              onSave={saveShortcut}
+              labelledBy={shortcutLabelId}
+            />
+          }
+        />
+      </Section>
+
+      <Section
+        label="Appearance"
+        footer="Position is where the launcher opens. System appearance follows macOS light and dark mode."
+      >
+        <Row
+          label="Position"
+          control={
+            <Segmented
+              label="Position"
+              value={settings.windowPosition}
+              options={POSITIONS}
+              onChange={(v) => void onUpdate('windowPosition', v)}
+            />
+          }
+        />
+        <Row
+          label="Appearance"
+          control={
+            <Segmented
+              label="Appearance"
+              value={settings.theme}
+              options={THEMES}
+              onChange={(v) => void onUpdate('theme', v)}
+            />
+          }
+        />
+      </Section>
+
+      {pendingHide && (
+        <div
+          className="pf-sheet-backdrop"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setPendingHide(null);
+          }}
+        >
+          <div
+            className="pf-sheet"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="pf-hide-title"
+            aria-describedby="pf-hide-body"
+          >
+            <div className="pf-sheet-icon" aria-hidden="true">
+              <Keycaps keys={acceleratorToGlyphs(settings.globalShortcut, mac, layout)} />
+            </div>
+            <h2 id="pf-hide-title" className="pf-sheet-title">
+              Hide Shortty everywhere?
+            </h2>
+            <p id="pf-hide-body" className="pf-sheet-body">
+              You&apos;ll only be able to open Shortty with the keyboard shortcut. Are you sure?
+              To undo this later, run <code>shortty --reset-settings</code>.
+            </p>
+            <div className="pf-sheet-actions">
+              <button
+                type="button"
+                className="pf-button"
+                autoFocus
+                onClick={() => setPendingHide(null)}
+              >
+                Cancel
+              </button>
+              <button type="button" className="pf-button pf-button-primary" onClick={confirmHide}>
+                Hide Icon
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

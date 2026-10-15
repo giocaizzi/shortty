@@ -1,0 +1,757 @@
+@import 'tailwindcss';
+
+/*
+ * Preferences window: modelled on macOS System Settings (sidebar source list,
+ * inset grouped sections, native-sized controls). Light and dark follow the
+ * system, or the Theme setting through nativeTheme.themeSource.
+ */
+
+:root {
+  color-scheme: light;
+
+  --pf-sidebar: #e7e6e7;
+  --pf-content: #f5f5f5;
+  --pf-group: rgba(0, 0, 0, 0.028);
+  --pf-group-border: rgba(0, 0, 0, 0.06);
+  --pf-separator: rgba(0, 0, 0, 0.075);
+  --pf-text: rgba(0, 0, 0, 0.85);
+  --pf-text-secondary: rgba(0, 0, 0, 0.5);
+  --pf-text-tertiary: rgba(0, 0, 0, 0.28);
+  --pf-accent: #007aff;
+  --pf-accent-ring: rgba(0, 122, 255, 0.45);
+  --pf-on-accent: #ffffff;
+
+  --pf-control: #ffffff;
+  --pf-control-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.16), 0 0.5px 1.5px rgba(0, 0, 0, 0.12);
+  --pf-control-pressed: #f0f0f0;
+  --pf-field: #ffffff;
+  --pf-field-border: rgba(0, 0, 0, 0.13);
+  --pf-track: rgba(0, 0, 0, 0.09);
+  --pf-segment-track: rgba(0, 0, 0, 0.06);
+  --pf-segment-on: #ffffff;
+  --pf-thumb: #ffffff;
+
+  --pf-key-face: #ffffff;
+  --pf-key-edge: rgba(0, 0, 0, 0.2);
+  --pf-key-text: rgba(0, 0, 0, 0.78);
+
+  --pf-ok: #248a3d;
+  --pf-warn: #a85400;
+  --pf-error: #d70015;
+  --pf-info: #0068d6;
+
+  --pf-tile-general: #8e8e93;
+  --pf-tile-sources: #0a84ff;
+  --pf-tile-search: #5e5ce6;
+  --pf-tile-commands: #2c2c2e;
+
+  --pf-backdrop: rgba(0, 0, 0, 0.18);
+  --pf-sheet: #ececec;
+}
+
+/*
+ * Dark palette. PreferencesApp sets data-theme from the Theme setting;
+ * System resolves through prefers-color-scheme.
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --pf-sidebar: #2b2a2b;
+  --pf-content: #1f1e1f;
+  --pf-group: rgba(255, 255, 255, 0.035);
+  --pf-group-border: rgba(255, 255, 255, 0.055);
+  --pf-separator: rgba(255, 255, 255, 0.07);
+  --pf-text: rgba(255, 255, 255, 0.86);
+  --pf-text-secondary: rgba(255, 255, 255, 0.5);
+  --pf-text-tertiary: rgba(255, 255, 255, 0.25);
+  --pf-accent: #0a84ff;
+  --pf-accent-ring: rgba(10, 132, 255, 0.55);
+
+  --pf-control: rgba(255, 255, 255, 0.16);
+  --pf-control-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 0.5px 0 rgba(255, 255, 255, 0.08) inset;
+  --pf-control-pressed: rgba(255, 255, 255, 0.24);
+  --pf-field: rgba(255, 255, 255, 0.05);
+  --pf-field-border: rgba(255, 255, 255, 0.12);
+  --pf-track: rgba(255, 255, 255, 0.14);
+  --pf-segment-track: rgba(255, 255, 255, 0.07);
+  --pf-segment-on: rgba(255, 255, 255, 0.24);
+  --pf-thumb: #d9d9d9;
+
+  --pf-key-face: #3a393b;
+  --pf-key-edge: rgba(0, 0, 0, 0.6);
+  --pf-key-text: rgba(255, 255, 255, 0.86);
+
+  --pf-ok: #30d158;
+  --pf-warn: #ffb340;
+  --pf-error: #ff6961;
+  --pf-info: #64aaff;
+
+  --pf-tile-commands: #48484a;
+
+  --pf-backdrop: rgba(0, 0, 0, 0.35);
+  --pf-sheet: #323133;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--pf-text);
+  background: var(--pf-content);
+  -webkit-font-smoothing: antialiased;
+  cursor: default;
+  user-select: none;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--pf-accent-ring);
+  outline-offset: 1px;
+}
+
+/* ---------- Window frame ---------- */
+
+.pf-window {
+  display: flex;
+  height: 100%;
+}
+
+.pf-sidebar {
+  width: 188px;
+  flex-shrink: 0;
+  padding: 52px 10px 12px;
+  background: var(--pf-sidebar);
+  border-right: 1px solid var(--pf-separator);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  -webkit-app-region: drag;
+}
+
+.pf-nav-item {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+}
+
+.pf-nav-item[aria-current='page'] {
+  background: var(--pf-accent);
+  color: var(--pf-on-accent);
+}
+
+.pf-nav-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  color: #ffffff;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
+}
+
+.pf-nav-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.pf-nav-icon-general { background: var(--pf-tile-general); }
+.pf-nav-icon-sources { background: var(--pf-tile-sources); }
+.pf-nav-icon-search { background: var(--pf-tile-search); }
+.pf-nav-icon-commands { background: var(--pf-tile-commands); }
+
+.pf-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  background: var(--pf-content);
+}
+
+.pf-content::-webkit-scrollbar { width: 8px; }
+.pf-content::-webkit-scrollbar-thumb {
+  background: var(--pf-text-tertiary);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.pf-loading {
+  padding: 60px 20px;
+  color: var(--pf-text-secondary);
+  text-align: center;
+}
+
+/* ---------- Pane ---------- */
+
+.pf-pane {
+  padding: 0 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.pf-pane-title {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 -20px -6px;
+  padding: 0 20px;
+  height: 44px;
+  line-height: 44px;
+  font-size: 15px;
+  font-weight: 700;
+  background: var(--pf-content);
+  -webkit-app-region: drag;
+}
+
+.pf-pane-intro {
+  color: var(--pf-text-secondary);
+  font-size: 12px;
+  max-width: 60ch;
+}
+
+.pf-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pf-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 2px;
+}
+
+.pf-section-footer {
+  font-size: 11px;
+  color: var(--pf-text-secondary);
+  padding: 0 2px;
+  max-width: 64ch;
+}
+
+.pf-group {
+  background: var(--pf-group);
+  border: 1px solid var(--pf-group-border);
+  border-radius: 10px;
+}
+
+.pf-group-dimmed {
+  opacity: 0.45;
+}
+
+/* Rows are separated by an inset hairline, like an NSTableView in a group. */
+.pf-row {
+  position: relative;
+  padding: 9px 12px;
+  min-height: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.pf-row + .pf-row::before,
+.pf-source-body > .pf-row:first-child::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 12px;
+  border-top: 1px solid var(--pf-separator);
+}
+
+.pf-row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pf-row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.pf-row-label {
+  font-size: 13px;
+}
+
+.pf-row-description {
+  font-size: 11px;
+  color: var(--pf-text-secondary);
+  margin-top: 1px;
+}
+
+.pf-row-control {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* ---------- Controls ---------- */
+
+.pf-switch {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--pf-track);
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+  transition: background-color 150ms ease;
+}
+
+.pf-switch[aria-checked='true'] {
+  background: var(--pf-accent);
+}
+
+.pf-switch-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 150ms ease;
+}
+
+.pf-switch[aria-checked='true'] .pf-switch-thumb {
+  transform: translateX(14px);
+}
+
+.pf-switch:disabled {
+  opacity: 0.4;
+}
+
+.pf-button {
+  -webkit-app-region: no-drag;
+  height: 22px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--pf-control);
+  box-shadow: var(--pf-control-shadow);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.pf-button:active {
+  background: var(--pf-control-pressed);
+}
+
+.pf-button:disabled {
+  opacity: 0.5;
+}
+
+.pf-button-primary {
+  background: var(--pf-accent);
+  color: var(--pf-on-accent);
+}
+
+.pf-button-primary:active {
+  background: var(--pf-accent);
+  filter: brightness(0.92);
+}
+
+.pf-segmented {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 7px;
+  background: var(--pf-segment-track);
+}
+
+.pf-segment {
+  position: relative;
+}
+
+.pf-segment input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+}
+
+.pf-segment span {
+  display: block;
+  padding: 2px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.pf-segment input:checked + span {
+  background: var(--pf-segment-on);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.12);
+  font-weight: 500;
+}
+
+.pf-segment input:focus-visible + span {
+  outline: 3px solid var(--pf-accent-ring);
+}
+
+.pf-text-field {
+  -webkit-app-region: no-drag;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--pf-field-border);
+  border-radius: 5px;
+  background: var(--pf-field);
+  font-size: 12px;
+  user-select: text;
+  min-width: 0;
+}
+
+.pf-text-field::placeholder {
+  color: var(--pf-text-tertiary);
+}
+
+.pf-text-field:focus {
+  outline: 3px solid var(--pf-accent-ring);
+  outline-offset: 0;
+  border-color: var(--pf-accent);
+}
+
+.pf-number-field {
+  width: 56px;
+  text-align: right;
+}
+
+.pf-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pf-slider input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 150px;
+  height: 18px;
+  background: transparent;
+}
+
+.pf-slider input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--pf-track);
+}
+
+.pf-slider input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--pf-thumb);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.pf-slider input[type='range']:focus-visible {
+  outline: none;
+}
+
+.pf-slider input[type='range']:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--pf-accent-ring);
+}
+
+.pf-slider-value {
+  width: 30px;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--pf-text-secondary);
+}
+
+/* ---------- Keycaps and the shortcut recorder ---------- */
+
+.pf-keycaps {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.pf-keycap {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--pf-key-face);
+  box-shadow:
+    0 0 0 0.5px var(--pf-key-edge),
+    0 1.5px 0 var(--pf-key-edge);
+  color: var(--pf-key-text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.pf-recorder {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.pf-recorder-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pf-recorder-field {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  height: 32px;
+  padding: 0 6px;
+  border: 1px solid var(--pf-field-border);
+  border-radius: 8px;
+  background: var(--pf-field);
+}
+
+.pf-recorder-field.is-recording {
+  border-color: var(--pf-accent);
+  outline: 3px solid var(--pf-accent-ring);
+  outline-offset: 0;
+  animation: pf-recording 1.4s ease-in-out infinite;
+}
+
+@keyframes pf-recording {
+  50% { outline-color: transparent; }
+}
+
+.pf-recorder-placeholder {
+  color: var(--pf-text-secondary);
+  font-size: 12px;
+}
+
+.pf-recorder-hint {
+  font-size: 11px;
+  color: var(--pf-text-secondary);
+}
+
+.pf-recorder .pf-message {
+  max-width: 280px;
+  text-align: right;
+}
+
+/* ---------- Status ---------- */
+
+.pf-badge {
+  display: inline-block;
+  padding: 0 7px;
+  border-radius: 9px;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+  background: color-mix(in srgb, currentColor 13%, transparent);
+}
+
+.pf-tone-ok { color: var(--pf-ok); }
+.pf-tone-warn { color: var(--pf-warn); }
+.pf-tone-error { color: var(--pf-error); }
+.pf-tone-info { color: var(--pf-info); }
+.pf-tone-muted { color: var(--pf-text-secondary); }
+
+.pf-message {
+  font-size: 11px;
+}
+
+.pf-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pf-progress {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--pf-track);
+  overflow: hidden;
+}
+
+.pf-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--pf-accent);
+  transition: width 300ms ease;
+}
+
+/* ---------- Sources ---------- */
+
+.pf-source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Same monogram tiles as the launcher (SourceIcon); the glyph is drawn by
+   CSS so it stays out of the row's text. */
+.source-icon::after {
+  content: attr(data-glyph);
+}
+
+.pf-source-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pf-source-body > .pf-row {
+  padding-left: 48px;
+}
+
+.pf-paths-label {
+  font-size: 11px;
+  color: var(--pf-text-secondary);
+}
+
+.pf-path-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pf-path-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pf-exists {
+  width: 12px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* RTL box + LTR text: overflow is cut at the start, keeping the file name. */
+.pf-path {
+  direction: rtl;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  font-size: 11.5px;
+  user-select: text;
+}
+
+.pf-override {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.pf-override-line {
+  display: flex;
+  gap: 6px;
+}
+
+.pf-override-line .pf-text-field {
+  flex: 1;
+}
+
+/* ---------- Alert sheet ---------- */
+
+.pf-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: var(--pf-backdrop);
+}
+
+.pf-sheet {
+  width: 270px;
+  padding: 18px 16px 16px;
+  border-radius: 12px;
+  background: var(--pf-sheet);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.25), 0 12px 40px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.pf-sheet-icon {
+  margin-bottom: 4px;
+}
+
+.pf-sheet-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pf-sheet-body {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.pf-sheet-body code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 10.5px;
+}
+
+.pf-sheet-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.pf-sheet-actions .pf-button {
+  flex: 1;
+  height: 26px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-switch,
+  .pf-switch-thumb,
+  .pf-progress-fill {
+    transition: none;
+  }
+
+  .pf-recorder-field.is-recording {
+    animation: none;
+  }
+}

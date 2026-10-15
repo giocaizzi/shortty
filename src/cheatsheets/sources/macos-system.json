@@ -1,0 +1,12 @@
+{
+  "id": "macos-system",
+  "label": "macOS System",
+  "icon": "🍎",
+  "platforms": ["darwin"],
+  "parser": "macos-system",
+  "mergeMode": "replace",
+  "defaultPaths": {
+    "darwin": ["~/Library/Preferences/com.apple.symbolichotkeys.plist", "~/Library/Preferences/.GlobalPreferences.plist"]
+  },
+  "shortcuts": []
+}

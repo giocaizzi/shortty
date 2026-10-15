@@ -1,0 +1,32 @@
+{
+  "label": "baseline",
+  "date": "2026-10-14T00:58:42.042Z",
+  "host": "darwin-arm64",
+  "counts": {
+    "sources": 9,
+    "shortcuts": 5,
+    "commands": 3
+  },
+  "startupMs": {
+    "runs": [
+      323,
+      306,
+      310
+    ],
+    "median": 310
+  },
+  "startupToEnrichedMs": {
+    "runs": [
+      2230,
+      693,
+      696
+    ],
+    "median": 696
+  },
+  "showToFocusedMs": 39,
+  "searchRenderMs": {
+    "vs": 0.5,
+    "toggle": 0.9,
+    ">gizmo": 0.5
+  }
+}

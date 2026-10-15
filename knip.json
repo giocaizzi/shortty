@@ -2,10 +2,12 @@
   "entry": [
     "src/main/index.ts",
     "src/preload/preload.ts",
+    "src/renderer/preferences/main.tsx",
     "forge.config.ts",
     "vite.main.config.ts",
     "vite.preload.config.ts",
     "vite.renderer.config.mts",
+    "vite.preferences.config.mts",
     "tests/**/*.{test,spec}.{ts,tsx}"
   ],
   "ignoreDependencies": [
@@ -13,6 +15,8 @@
     "@electron-forge/shared-types"
   ],
   "ignoreBinaries": [
-    "plutil"
+    "plutil",
+    "man",
+    "col"
   ]
 }

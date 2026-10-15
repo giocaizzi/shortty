@@ -1,0 +1,13 @@
+{
+  "id": "bash",
+  "label": "Bash",
+  "icon": "🐚",
+  "platforms": ["darwin", "linux"],
+  "parser": "bash",
+  "mergeMode": "additive",
+  "defaultPaths": {
+    "darwin": ["~/.inputrc", "~/.bashrc"],
+    "linux": ["~/.inputrc", "~/.bashrc"]
+  },
+  "shortcuts": []
+}

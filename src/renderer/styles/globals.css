@@ -1,11 +1,107 @@
 @import 'tailwindcss';
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/*
+ * Launcher design tokens.
+ *
+ * The panel sits on the native macOS vibrancy material, whose appearance
+ * follows nativeTheme (System / Light / Dark in Preferences). nativeTheme also
+ * drives prefers-color-scheme in this renderer, so the tokens below switch with
+ * it. Components use the Tailwind names from @theme (text-fg-2, bg-fill-selected,
+ * ...) and never hard-code white or black.
+ */
+:root {
+  color-scheme: light;
+
+  --fg: rgba(0, 0, 0, 0.86);
+  --fg-2: rgba(0, 0, 0, 0.62);
+  --fg-3: rgba(0, 0, 0, 0.45);
+  --fg-4: rgba(0, 0, 0, 0.28);
+
+  --separator: rgba(0, 0, 0, 0.08);
+  --fill-hover: rgba(0, 0, 0, 0.035);
+  --fill-selected: rgba(0, 0, 0, 0.075);
+  --fill-quiet: rgba(0, 0, 0, 0.05);
+  --panel-tint: rgba(255, 255, 255, 0.32);
+  --panel-solid: rgb(242, 242, 245);
+  --scrim: rgba(246, 246, 248, 0.72);
+  --sheet: rgba(255, 255, 255, 0.92);
+  --sheet-border: rgba(0, 0, 0, 0.08);
+
+  --accent: #007aff;
+  --success: #248a3d;
+  --success-fill: rgba(52, 199, 89, 0.2);
+  --warning: #b25000;
+  --warning-fill: rgba(255, 149, 0, 0.14);
+
+  /* Key caps: a lit top face over a darker rim, like a physical key. */
+  --kbd-face: linear-gradient(180deg, #ffffff 0%, #f4f4f6 100%);
+  --kbd-border: rgba(0, 0, 0, 0.13);
+  --kbd-rim: rgba(0, 0, 0, 0.16);
+  --kbd-fg: rgba(0, 0, 0, 0.72);
+  --kbd-selected-face: linear-gradient(180deg, #ffffff 0%, #fbfbfc 100%);
+
+  --scrollbar: rgba(0, 0, 0, 0.14);
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --fg: rgba(255, 255, 255, 0.92);
+    --fg-2: rgba(255, 255, 255, 0.64);
+    --fg-3: rgba(255, 255, 255, 0.44);
+    --fg-4: rgba(255, 255, 255, 0.26);
+
+    --separator: rgba(255, 255, 255, 0.08);
+    --fill-hover: rgba(255, 255, 255, 0.045);
+    --fill-selected: rgba(255, 255, 255, 0.1);
+    --fill-quiet: rgba(255, 255, 255, 0.065);
+    --panel-tint: rgba(22, 22, 26, 0.28);
+    --panel-solid: rgb(30, 30, 33);
+    --scrim: rgba(24, 24, 28, 0.66);
+    --sheet: rgba(44, 44, 48, 0.94);
+    --sheet-border: rgba(255, 255, 255, 0.09);
+
+    --accent: #0a84ff;
+    --success: #30d158;
+    --success-fill: rgba(48, 209, 88, 0.2);
+    --warning: #ffb340;
+    --warning-fill: rgba(255, 159, 10, 0.16);
+
+    --kbd-face: linear-gradient(180deg, rgba(255, 255, 255, 0.17) 0%, rgba(255, 255, 255, 0.1) 100%);
+    --kbd-border: rgba(255, 255, 255, 0.1);
+    --kbd-rim: rgba(0, 0, 0, 0.45);
+    --kbd-fg: rgba(255, 255, 255, 0.86);
+    --kbd-selected-face: linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.14) 100%);
+
+    --scrollbar: rgba(255, 255, 255, 0.14);
+  }
+}
+
+@theme inline {
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-fg-3: var(--fg-3);
+  --color-fg-4: var(--fg-4);
+  --color-separator: var(--separator);
+  --color-fill-hover: var(--fill-hover);
+  --color-fill-selected: var(--fill-selected);
+  --color-fill-quiet: var(--fill-quiet);
+  --color-scrim: var(--scrim);
+  --color-sheet: var(--sheet);
+  --color-sheet-border: var(--sheet-border);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-success-fill: var(--success-fill);
+  --color-warning: var(--warning);
+  --color-warning-fill: var(--warning-fill);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Tailwind's preflight already resets margins, padding and box-sizing.
+   Anything unlayered here beats every utility, so keep this block minimal. */
 html,
 body,
 #root {
@@ -13,20 +109,29 @@ body,
   width: 100%;
   overflow: hidden;
   background: transparent;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
-    'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--fg);
+  cursor: default;
+  user-select: none;
 }
 
 body {
+  font-size: 13px;
   background: transparent !important;
 }
 
-/* Custom scrollbar */
+/* Light wash over the vibrancy material, for contrast on busy wallpapers. */
+.panel-bg {
+  background: var(--panel-tint);
+}
+
+input::placeholder {
+  color: var(--fg-4);
+}
+
 ::-webkit-scrollbar {
-  width: 4px;
+  width: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -34,34 +139,57 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
+  background: var(--scrollbar);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+/* The tile glyph is drawn by CSS so it stays out of the row's text
+   (innerText, copy, screen readers): the row reads "VS Code", not "VSVS Code". */
+.source-icon::after {
+  content: attr(data-glyph);
 }
 
-/* macOS-style key caps */
+/* Key caps. KeyCombo renders one <kbd> per chord; every other key glyph in
+   the launcher (search-bar hotkey, footer hints, help sheet) uses the same cap. */
 kbd {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.5em;
-  height: 1.5em;
-  padding: 0 0.35em;
-  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 11px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   font-weight: 500;
   line-height: 1;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.04em;
   white-space: nowrap;
+  color: var(--kbd-fg);
+  background: var(--kbd-face);
+  border: 0.5px solid var(--kbd-border);
+  border-radius: 6px;
+  box-shadow: 0 1px 0 var(--kbd-rim);
+  font-variant-numeric: tabular-nums;
 }
 
-/* Animations */
+[aria-selected='true'] kbd {
+  background: var(--kbd-selected-face);
+}
+
+/* Small caps for hints (search bar, footer). */
+kbd.kbd-sm {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 11px;
+  border-radius: 5px;
+  color: var(--fg-3);
+}
+
+/* Panel show/hide (docs/spec.md §10.9). App re-applies .panel-enter on every
+   window:shown and .panel-exit before a dismiss it starts itself. */
 @keyframes panel-show {
   from {
     opacity: 0;
@@ -85,16 +213,44 @@ kbd {
 }
 
 .panel-enter {
-  animation: panel-show 120ms ease-out forwards;
+  animation: panel-show 120ms ease-out both;
+  transform-origin: 50% 0;
 }
 
 .panel-exit {
-  animation: panel-hide 80ms ease-in forwards;
+  animation: panel-hide 80ms ease-in both;
+  transform-origin: 50% 0;
+}
+
+/* Copy confirmation on the row (~300ms). */
+@keyframes copy-flash {
+  0%,
+  40% {
+    background-color: var(--success-fill);
+  }
+  100% {
+    background-color: var(--fill-selected);
+  }
+}
+
+.copy-flash {
+  animation: copy-flash 300ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .panel-enter,
-  .panel-exit {
+  .panel-exit,
+  .copy-flash {
     animation: none;
+  }
+
+  .panel-exit {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .panel-bg {
+    background: var(--panel-solid);
   }
 }
