@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { sandboxEnv } from '../sandbox-exec';
-import type { ArgumentDetail, CommandDetail, FlagDetail, SubcommandDetail } from '../../../shared/types';
+import type { ArgumentDetail, CommandDetail, FlagDetail, HelpExtras, SubcommandDetail } from '../../../shared/types';
 import {
   splitManSections,
   parseFlagsFromText,
@@ -10,7 +10,10 @@ import {
   extractSynopsis,
   normalizeText,
   deduplicateFlags,
+  joinWrapped,
+  stripDeprecated,
 } from './parse-utils';
+import { parseAliases, parseArgumentEntries, parseEnvironment, parseExamples, parseSeeAlso } from './help-extras';
 
 const MAN_TIMEOUT_MS = 5000;
 
@@ -69,7 +72,9 @@ function fetchManPage(name: string): Promise<string> {
 function extractNameDescription(sections: Map<string, string>): string | undefined {
   const nameSection = sections.get('NAME');
   if (!nameSection) return undefined;
-  const match = nameSection.match(/\S+\s+[-\u2013\u2014]\s+(.+)/);
+  // gcloud wraps it: "gcloud compute instances create - create Compute Engine virtual machine\n instances"
+  const paragraph = nameSection.trim().split(/\n\s*\n/)[0];
+  const match = joinWrapped(paragraph.split('\n').map(l => l.trim())).match(/\S+\s+[-–—]\s+(.+)/);
   return match?.[1]?.trim();
 }
 
@@ -84,6 +89,9 @@ function findSection(sections: Map<string, string>, ...candidates: string[]): st
 /** A plausible subcommand name: lowercase word, not prose ("affect.") or placeholders ("{start}"). */
 const SUBCOMMAND_NAME_RE = /^[a-z0-9][\w+-]*(?:\.[\w+-]+)*$/;
 
+/** Sections that document flags: OPTIONS, GLOBAL FLAGS, OPTIONS INHERITED FROM PARENT COMMANDS... */
+const FLAG_SECTION_RE = /\b(?:OPTIONS|FLAGS)\b/;
+
 function extractSubcommands(
   sections: Map<string, string>,
   commandName: string,
@@ -91,31 +99,43 @@ function extractSubcommands(
 ): CommandDetail[] {
   const subcommands: CommandDetail[] = [];
   const seen = new Set<string>();
-  const add = (name: string, description: string) => {
+  const add = (name: string, description: string, group?: string) => {
     if (!SUBCOMMAND_NAME_RE.test(name) || seen.has(name)) return;
     seen.add(name);
-    subcommands.push({ name: `${commandName} ${name}`, description });
+    const [text, deprecated] = stripDeprecated(description);
+    const entry: CommandDetail = { name: `${commandName} ${name}`, description: text };
+    if (group) entry.group = group;
+    if (deprecated) entry.deprecated = true;
+    subcommands.push(entry);
   };
 
-  // Format 1: sections titled "COMMANDS", "SUBCOMMANDS", "ESSENTIAL COMMANDS", ...
+  // Format 1: sections titled "COMMANDS", "SUBCOMMANDS", "ESSENTIAL COMMANDS", gcloud "GROUPS", ...
   for (const [title, body] of sections) {
-    if (!/\b(?:SUB)?COMMANDS?\b/.test(title)) continue;
+    if (!/\b(?:SUB)?COMMANDS?\b|^GROUPS$/.test(title) || FLAG_SECTION_RE.test(title)) continue;
     const lines = body.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       // Table row: "   name     description"
       const row = line.match(/^\s{2,8}(\S+)\s{2,}(\S.*)$/);
       if (row) {
-        add(row[1], row[2].trim());
+        add(row[1], row[2].trim(), title);
         continue;
       }
-      // Entry with its description on the next, deeper-indented line (ronn/brew):
+      // Entry with its description on the next, deeper-indented line (ronn/brew, gcloud):
       // "   install [options] formula\n       Install formula."
-      const entry = line.match(/^( {2,4})([a-z0-9][\w.+-]*)(?:,| |$)/);
+      const entry = line.match(/^( {2,5})([a-z0-9][\w.+-]*)(?:,| |$)/);
       if (entry) {
         const next = lines[i + 1] ?? '';
         const nextIndent = next.match(/^( *)/)?.[1].length ?? 0;
-        if (next.trim() && nextIndent > entry[1].length) add(entry[2], next.trim());
+        if (next.trim() && nextIndent > entry[1].length) {
+          // The description paragraph may wrap (gcloud): keep its first sentence
+          const paragraph: string[] = [];
+          for (let j = i + 1; j < lines.length && lines[j].trim() && (lines[j].match(/^( *)/)?.[1].length ?? 0) === nextIndent; j++) {
+            paragraph.push(lines[j].trim());
+          }
+          const text = joinWrapped(paragraph);
+          add(entry[2], text.match(/^(.+?[.!?])(?:\s|$)/)?.[1] ?? text, title);
+        }
       }
     }
   }
@@ -136,14 +156,40 @@ function extractSubcommands(
 }
 
 /**
+ * Flags of one section, grouped by its subsection headings (indented 3
+ * columns: ffmpeg's "Main options", "Video Options", ...).
+ */
+function parseSectionFlags(title: string, body: string): FlagDetail[] {
+  const flags: FlagDetail[] = [];
+  let group = title;
+  let chunk: string[] = [];
+  const flush = () => {
+    flags.push(...parseFlagsFromText(chunk.join('\n'), group));
+    chunk = [];
+  };
+  for (const line of body.split('\n')) {
+    const sub = line.match(/^ {3}([A-Z][^\s-].{0,58})$/);
+    if (sub && !/[.:,;]$/.test(sub[1])) {
+      flush();
+      group = sub[1].trim();
+      continue;
+    }
+    chunk.push(line);
+  }
+  flush();
+  // gcloud "REQUIRED FLAGS"
+  if (/\bREQUIRED\b/.test(title)) for (const flag of flags) flag.required = true;
+  return flags;
+}
+
+/**
  * Flags from OPTIONS-like sections plus DESCRIPTION, where BSD (mdoc) pages
  * document their options ("The options are as follows:").
  */
 function extractManFlags(sections: Map<string, string>): FlagDetail[] {
   const flags: FlagDetail[] = [];
-  for (const name of ['OPTIONS', 'FLAGS', 'OPTIONS AND ARGUMENTS', 'GLOBAL OPTIONS']) {
-    const section = sections.get(name);
-    if (section) flags.push(...parseFlagsFromText(section));
+  for (const [title, body] of sections) {
+    if (FLAG_SECTION_RE.test(title)) flags.push(...parseSectionFlags(title, body));
   }
 
   // DESCRIPTION holds all options on BSD pages, and the mode flags on bsdtar's.
@@ -161,7 +207,11 @@ function extractManFlags(sections: Map<string, string>): FlagDetail[] {
   return deduplicateFlags(flags);
 }
 
-export interface ParsedMan {
+function sectionsMatching(sections: Map<string, string>, re: RegExp): string {
+  return [...sections].filter(([title]) => re.test(title)).map(([, body]) => body).join('\n\n');
+}
+
+export interface ParsedMan extends HelpExtras {
   description?: string;
   synopsis?: string;
   longDescription?: string;
@@ -190,9 +240,10 @@ export function parseManContent(content: string, commandName: string): ParsedMan
   const optionsSection = findSection(sections, 'OPTIONS', 'FLAGS', 'OPTIONS AND ARGUMENTS');
   const flags = extractManFlags(sections);
 
-  // ARGUMENTS from SYNOPSIS, resolved against OPTIONS
-  let args: ArgumentDetail[] = [];
-  if (synopsis) {
+  // ARGUMENTS: a POSITIONAL ARGUMENTS list (gcloud) is authoritative;
+  // otherwise from SYNOPSIS, resolved against OPTIONS
+  let args = parseArgumentEntries(sections.get('POSITIONAL ARGUMENTS') ?? '');
+  if (args.length === 0 && synopsis) {
     args = parseArgumentsFromSynopsis(synopsis);
     if (args.length > 0 && optionsSection) {
       args = resolveArgumentDescriptions(args, optionsSection);
@@ -202,7 +253,16 @@ export function parseManContent(content: string, commandName: string): ParsedMan
   // SUBCOMMANDS
   const subcommands = extractSubcommands(sections, commandName, content);
 
-  return { description, synopsis, longDescription, subcommands, flags, arguments: args };
+  const result: ParsedMan = { description, synopsis, longDescription, subcommands, flags, arguments: args };
+  const examples = parseExamples(sectionsMatching(sections, /^EXAMPLES?$/), commandName);
+  if (examples.length > 0) result.examples = examples;
+  const environment = parseEnvironment(sectionsMatching(sections, /^ENVIRONMENT(?: VARIABLES)?$/));
+  if (environment.length > 0) result.environment = environment;
+  const aliases = parseAliases(sections.get('ALIASES') ?? '', commandName);
+  if (aliases.length > 0) result.aliases = aliases;
+  const seeAlso = parseSeeAlso(sections.get('SEE ALSO') ?? '');
+  if (seeAlso.length > 0) result.seeAlso = seeAlso;
+  return result;
 }
 
 export async function parseManPage(commandName: string): Promise<ParsedMan | null> {

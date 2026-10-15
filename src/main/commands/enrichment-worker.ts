@@ -1,8 +1,15 @@
-import type { Command } from '../../shared/types';
+import type { Command, HelpExtras } from '../../shared/types';
 import log from '../logger';
 import { parseManPage } from './parsers/man-parser';
 import { parseHelp, isBlocklisted } from './parsers/help-parser';
 import type { CommandCache } from './cache';
+
+/** The optional sections a parser found (examples, environment, ...), without empty keys. */
+function extras({ aliases, examples, environment, seeAlso }: HelpExtras): HelpExtras {
+  return Object.fromEntries(
+    Object.entries({ aliases, examples, environment, seeAlso }).filter(([, v]) => v !== undefined),
+  );
+}
 
 type EnrichmentCallback = (updated: Command[]) => void;
 
@@ -115,6 +122,7 @@ export class EnrichmentWorker {
         subcommands: manResult.subcommands,
         flags: manResult.flags,
         arguments: manResult.arguments,
+        ...extras(manResult),
         enrichment: 'full',
         enrichedFrom: 'man',
         enrichedAt: new Date().toISOString(),
@@ -128,12 +136,13 @@ export class EnrichmentWorker {
         return {
           ...cmd,
           // A man page with only a NAME line (npm) still gives the best one-liner
-          description: cmd.description || manResult?.description || '',
+          description: cmd.description || manResult?.description || helpResult.description || '',
           synopsis: helpResult.synopsis,
           longDescription: helpResult.longDescription,
           subcommands: helpResult.subcommands,
           flags: helpResult.flags,
           arguments: helpResult.arguments,
+          ...extras(helpResult),
           enrichment: 'full',
           enrichedFrom: 'help',
           enrichedAt: new Date().toISOString(),
