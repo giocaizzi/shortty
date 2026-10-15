@@ -140,3 +140,21 @@ describe('ParserRegistry (bundled cheatsheets + fixture configs)', () => {
     expect(registry.getWatchPaths().get('vscode')).toEqual([join(FIXTURES, 'later.json')]);
   });
 });
+
+describe('ParserRegistry on Windows', () => {
+  withPlatform('win32');
+  let registry: ParserRegistry;
+
+  beforeAll(async () => {
+    registry = new ParserRegistry();
+    await registry.initialize(['vscode', 'chrome', 'obsidian']);
+  });
+
+  it('registers only the sources that run on Windows', () => {
+    const ids = registry.getAllSources().map((s) => s.id);
+    expect(ids).toContain('vscode');
+    for (const id of ['ghostty', 'tmux', 'zsh', 'bash', 'macos-system', 'finder']) {
+      expect(ids, id).not.toContain(id);
+    }
+  });
+});

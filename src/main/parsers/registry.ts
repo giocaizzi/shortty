@@ -99,6 +99,7 @@ export class ParserRegistry {
       if (this.sources.has(id)) continue;
 
       const parser = new ParserClass();
+      if (!parser.meta.platforms.includes(platform)) continue;
       const source: SourceInfo = {
         id,
         label: parser.meta.label,
