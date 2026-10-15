@@ -16,9 +16,10 @@ vi.mock('../../../src/renderer/context/SettingsContext', () => ({
 }));
 
 const italian = makeLayout(layoutMapOf('it'));
+const active = vi.hoisted(() => ({ layout: null as unknown }));
 vi.mock('../../../src/renderer/lib/keyboard-layout', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/renderer/lib/keyboard-layout')>();
-  return { ...actual, useKeyboardLayout: () => italian };
+  return { ...actual, useKeyboardLayout: () => active.layout ?? italian };
 });
 
 function shortcut(id: string, combo: string, command: string, code?: string): Shortcut {
@@ -59,5 +60,29 @@ describe('useSearch on an Italian keyboard', () => {
 
   it('"+" finds ⌘+', () => {
     expect(search('+')).toEqual(['5']);
+  });
+});
+
+describe('useSearch on Windows', () => {
+  const palette = shortcut('6', 'ctrl+shift+p', 'Show All Commands');
+  const list = [...shortcuts, palette, shortcut('7', 'ctrl+p', 'Go to File')];
+
+  function winSearch(query: string): string[] {
+    active.layout = makeLayout(layoutMapOf('us'), 'win32');
+    try {
+      const { result } = renderHook(() => useSearch(list, [], []));
+      act(() => result.current.setQuery(query));
+      return result.current.results.shortcuts.map((s) => s.id);
+    } finally {
+      active.layout = null;
+    }
+  }
+
+  it.each(['ctrl+shift+p', 'ctrl shift p', 'Ctrl+Shift+P', '⌃⇧P'])('"%s" ranks Ctrl+Shift+P first', (query) => {
+    expect(winSearch(query)[0]).toBe('6');
+  });
+
+  it('"+" still finds only ⌘+', () => {
+    expect(winSearch('+')).toEqual(['5']);
   });
 });

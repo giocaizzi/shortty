@@ -101,6 +101,20 @@ describe('recordChord (Windows/Linux)', () => {
       accelerator: 'Super+Space',
     });
   });
+
+  it.each([
+    [chord('Tab', { altKey: true }), 'Windows uses Alt+Tab for switching windows. Choose another shortcut.'],
+    [chord('F4', { altKey: true }), 'Windows uses Alt+F4 for closing windows. Choose another shortcut.'],
+    [chord('Escape', { ctrlKey: true, shiftKey: true }), 'Windows uses Ctrl+Shift+Esc for Task Manager. Choose another shortcut.'],
+    [chord('Delete', { ctrlKey: true, altKey: true }), 'Windows uses Ctrl+Alt+Delete for the security screen. Choose another shortcut.'],
+    [chord('KeyE', { metaKey: true }), 'Windows uses Win+E for the system. Choose another shortcut.'],
+  ])('refuses shortcuts Windows reserves', (c, reason) => {
+    expect(recordChord(c, false, true)).toEqual({ kind: 'invalid', reason });
+  });
+
+  it('allows them on Linux', () => {
+    expect(recordChord(chord('Tab', { altKey: true }), false)).toEqual({ kind: 'ok', accelerator: 'Alt+Tab' });
+  });
 });
 
 describe('acceleratorToGlyphs', () => {
@@ -128,6 +142,11 @@ describe('acceleratorToGlyphs', () => {
 
   it('draws named keys as glyphs', () => {
     expect(acceleratorToGlyphs('Alt+Return', true)).toEqual(['⌥', '↩']);
+  });
+
+  it('names named keys with words on other platforms', () => {
+    expect(acceleratorToGlyphs('Alt+Return', false)).toEqual(['Alt', 'Enter']);
+    expect(acceleratorToGlyphs('Control+Escape', false)).toEqual(['Ctrl', 'Esc']);
   });
 });
 

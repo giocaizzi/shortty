@@ -14,9 +14,17 @@ vi.mock('../../src/renderer/lib/keyboard-layout', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/renderer/lib/keyboard-layout')>();
   const { layoutMapOf } = await import('../../src/renderer/lib/keyboard-layouts.data');
   const italian = actual.makeLayout(layoutMapOf('it'));
+  const pc = new Map<string, ReturnType<typeof actual.makeLayout>>();
   return {
     ...actual,
-    useKeyboardLayout: () => (layoutState.italian ? italian : actual.US_KEYBOARD),
+    useKeyboardLayout: () => {
+      const base = layoutState.italian ? italian : actual.US_KEYBOARD;
+      const platform = window.electronAPI?.platform;
+      if (platform !== 'win32' && platform !== 'linux') return base;
+      const key = `${platform}:${layoutState.italian}`;
+      if (!pc.has(key)) pc.set(key, { ...base, platform });
+      return pc.get(key)!;
+    },
   };
 });
 
@@ -303,6 +311,21 @@ describe('App help, copy and dismiss', () => {
     await screen.findAllByTestId('shortcut-row');
     press(input, 'Enter');
     expect(writeText).toHaveBeenCalledWith('⌘Ò');
+  });
+
+  it('copies Ctrl/Alt/Win labels off macOS', async () => {
+    const n = formatKeyCombo('ctrl+shift+p');
+    const palette = makeShortcut({
+      id: 'palette', command: 'Command Palette', key: n.displayKey, searchKey: n.searchKey, strokes: n.strokes,
+    });
+    const input = setup({}, COMMANDS, {
+      getAllKeybindings: vi.fn().mockResolvedValue([palette]),
+      platform: 'win32' as unknown as ReturnType<typeof vi.fn>,
+    });
+    await type(input, 'ctrl+shift+p');
+    await screen.findAllByTestId('shortcut-row');
+    press(input, 'Enter');
+    expect(writeText).toHaveBeenCalledWith('Ctrl+Shift+P');
   });
 
   it('leaves keys to an IME composition: no copy, dismiss or selection move', async () => {

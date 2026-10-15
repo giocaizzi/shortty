@@ -8,6 +8,7 @@ import {
   recordChord,
 } from '../lib/accelerator';
 import { Keycaps, Message } from './controls';
+import { isWindowsPlatform } from '../lib/platform';
 
 type SaveShortcut = (accelerator: string) => Promise<string | null>;
 
@@ -57,7 +58,7 @@ export function ShortcutRecorder({
     if (!recording) return;
     e.preventDefault();
     e.stopPropagation();
-    const result = recordChord(e, mac);
+    const result = recordChord(e, mac, isWindowsPlatform());
     switch (result.kind) {
       case 'modifiers':
         setHeld(heldModifierGlyphs(e, mac));

@@ -5,3 +5,7 @@
 export function isMacPlatform(): boolean {
   return window.electronAPI.platform === 'darwin';
 }
+
+export function isWindowsPlatform(): boolean {
+  return window.electronAPI.platform === 'win32';
+}

@@ -6,6 +6,7 @@ import {
   layoutSearchText,
   makeLayout,
   resolveStroke,
+  resolveStrokes,
 } from '../../../src/renderer/lib/keyboard-layout';
 import { detectLayout, layoutMapOf } from '../../../src/renderer/lib/keyboard-layouts.data';
 import { GhosttyParser } from '../../../src/main/parsers/ghostty.parser';
@@ -221,5 +222,59 @@ describe('layoutSearchText', () => {
 
   it('is empty without strokes', () => {
     expect(layoutSearchText(undefined, US_KEYBOARD)).toBe('');
+  });
+});
+
+describe('Windows and Linux labels', () => {
+  const win = makeLayout(layoutMapOf('us'), 'win32');
+  const linux = makeLayout(layoutMapOf('us'), 'linux');
+  const itWin = makeLayout(layoutMapOf('it'), 'win32');
+  const strokes = (combo: string) => formatKeyCombo(combo).strokes;
+  const text = (combo: string, layout: KeyboardLayout) =>
+    resolveStrokes(strokes(combo), layout).map((s) => s.text).join(' ');
+
+  it.each([
+    ['ctrl+shift+p', 'Ctrl+Shift+P'],
+    ['cmd+opt+shift+ctrl+k', 'Ctrl+Alt+Shift+Win+K'],
+    ['alt+enter', 'Alt+Enter'],
+    ['ctrl+escape', 'Ctrl+Esc'],
+    ['ctrl+pageup', 'Ctrl+PgUp'],
+    ['shift+tab', 'Shift+Tab'],
+    ['ctrl+backspace', 'Ctrl+Backspace'],
+    ['alt+up', 'Alt+↑'],
+    ['f5', 'F5'],
+  ])('%s -> %s on Windows', (combo, expected) => {
+    expect(text(combo, win)).toBe(expected);
+  });
+
+  it('keeps the separator between the strokes of a sequence', () => {
+    expect(resolveStrokes([...strokes('ctrl+k'), ...strokes('ctrl+s')], win).map((s) => s.text)).toEqual([
+      'Ctrl+K',
+      'Ctrl+S',
+    ]);
+  });
+
+  it('names the Windows key Super on Linux', () => {
+    expect(text('cmd+shift+p', linux)).toBe('Shift+Super+P');
+  });
+
+  it('keeps macOS glyphs on macOS', () => {
+    expect(text('ctrl+shift+p', US_KEYBOARD)).toBe('⌃⇧P');
+  });
+
+  it('labels physical keys and AltGr typing hints with words', () => {
+    expect(resolveStroke(S.physBracket, itWin).text).toBe('Win+È');
+    expect(resolveStroke(S.charBracket, itWin).hint).toBe('Type “[” with AltGr+È on your keyboard.');
+    expect(resolveStroke(S.charSlash, itWin).hint).toBe('Type “/” with Shift+7 on your keyboard.');
+  });
+
+  it('indexes word, spaced and glyph forms on every platform', () => {
+    for (const layout of [win, US_KEYBOARD]) {
+      const words = layoutSearchText(strokes('ctrl+shift+p'), layout);
+      expect(words).toContain('Ctrl Shift P');
+      expect(words).toContain('⌃⇧P');
+    }
+    expect(layoutSearchText(strokes('cmd+p'), linux)).toContain('Super P');
+    expect(layoutSearchText([S.charBracket], itWin)).toContain('è');
   });
 });

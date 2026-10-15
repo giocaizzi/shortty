@@ -46,7 +46,7 @@ interface Shortcut {
   sourceLabel: string;       // Display name: "VS Code", "Ghostty", etc.
   key: string;               // Display format with glyphs (US-based): "⌘⇧T"
   searchKey: string;         // Search format: "cmd shift t"
-  strokes?: KeyStroke[];     // Structured keys, resolved per keyboard layout in the renderer (docs/keyboard-layouts.md)
+  strokes?: KeyStroke[];     // Structured keys, resolved per keyboard layout and OS in the renderer (docs/keyboard-layouts.md)
   command: string;           // Human-readable action: "Reopen Closed Editor"
   rawCommand: string;        // Original command ID: "workbench.action.reopenClosedEditor"
   context?: string;          // Mode/state: "editorFocus", "normal", "prefix"
@@ -766,7 +766,7 @@ Tiles have a fixed size, so rows never jump when an icon arrives. In e2e runs au
 | Tab / → | — | — | Drill into command details |
 | Esc | — | — | Back from detail view |
 
-Enter on a "Show all X" row expands that section. The shortcut copied is the key combo as labelled on the user's keyboard layout (e.g. "⌘Ò" rather than the US "⌘;" on Italian).
+Enter on a "Show all X" row expands that section. The shortcut copied is the key combo as labelled on the user's keyboard layout (e.g. "⌘Ò" rather than the US "⌘;" on Italian), with Windows/Linux labels off macOS ("Ctrl+Shift+P").
 
 ### 10.6 Visual Feedback
 
