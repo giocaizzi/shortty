@@ -19,12 +19,12 @@ vi.mock('electron', () => ({
   }),
   Menu: { buildFromTemplate: vi.fn((template: unknown) => template) },
   nativeImage: { createFromPath: (p: string) => createFromPath(p) },
-  app: { isPackaged: false, getAppPath: () => '/app', quit: vi.fn() },
+  app: { isPackaged: false, getAppPath: () => '/app', getVersion: () => '0.2.1', quit: vi.fn() },
 }));
 
 const { syncTray, destroyTray, isTrayVisible, setTrayUpdate } = await import('../../../src/main/tray');
 
-const callbacks = { onToggle: vi.fn(), onPreferences: vi.fn(), onInstallUpdate: vi.fn() };
+const callbacks = { onToggle: vi.fn(), onPreferences: vi.fn(), onAbout: vi.fn(), onInstallUpdate: vi.fn() };
 
 describe('syncTray (Show in Menu Bar)', () => {
   beforeEach(() => {
@@ -90,6 +90,16 @@ describe('tray on Linux', () => {
   it('uses the colour app icon as PNG', () => {
     freshTray();
     expect(createFromPath.mock.calls[0][0]).toMatch(/icon\.png$/);
+  });
+});
+
+describe('tray version and About', () => {
+  it('shows the running version and opens About', () => {
+    freshTray();
+    const items = trays[0].setContextMenu.mock.lastCall?.[0] as { label?: string; enabled?: boolean; click?: () => void }[];
+    expect(items.find((i) => i.label === 'Version 0.2.1')?.enabled).toBe(false);
+    items.find((i) => i.label === 'About Shortty')?.click?.();
+    expect(callbacks.onAbout).toHaveBeenCalledOnce();
   });
 });
 

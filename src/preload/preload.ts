@@ -7,6 +7,8 @@ import type {
   SubcommandDetail,
   SourceStatus,
   UpdateStatus,
+  AppInfo,
+  AboutLink,
 } from '../shared/types';
 import type { AppSettings } from '../shared/settings';
 
@@ -98,6 +100,22 @@ const electronAPI = {
 
   openPreferences(): void {
     ipcRenderer.send(IPC_CHANNELS.OPEN_PREFERENCES);
+  },
+
+  getAppInfo(): Promise<AppInfo> {
+    return ipcRenderer.invoke(IPC_CHANNELS.APP_GET_INFO);
+  },
+
+  /** Open release notes, the repo, a new issue or the license in the browser. */
+  openAboutLink(link: AboutLink): void {
+    ipcRenderer.send(IPC_CHANNELS.APP_OPEN_LINK, link);
+  },
+
+  /** Main asks Preferences to switch tab (About from the tray or app menu). */
+  onShowTab(cb: (tab: string) => void): () => void {
+    const handler = (_event: Electron.IpcRendererEvent, tab: string) => cb(tab);
+    ipcRenderer.on(IPC_CHANNELS.PREFS_SHOW_TAB, handler);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.PREFS_SHOW_TAB, handler);
   },
 
   getAllCommands(): Promise<Command[]> {

@@ -1,12 +1,13 @@
-import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useSettings } from './hooks/useSettings';
 import { useAppliedTheme } from './hooks/useAppliedTheme';
 import { GeneralTab } from './components/GeneralTab';
 import { SourcesTab } from './components/SourcesTab';
 import { SearchTab } from './components/SearchTab';
 import { CommandsTab } from './components/CommandsTab';
+import { AboutTab } from './components/AboutTab';
 
-type Tab = 'general' | 'sources' | 'search' | 'commands';
+type Tab = 'general' | 'sources' | 'search' | 'commands' | 'about';
 
 /** 16x16 white glyphs drawn on the coloured sidebar tiles. */
 const ICONS: Record<Tab, ReactNode> = {
@@ -49,6 +50,12 @@ const ICONS: Record<Tab, ReactNode> = {
       />
     </svg>
   ),
+  about: (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="8" cy="4.2" r="1.3" fill="currentColor" />
+      <path stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M8 7.3v5.2" />
+    </svg>
+  ),
 };
 
 const TABS: { id: Tab; label: string }[] = [
@@ -56,11 +63,25 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'sources', label: 'Sources' },
   { id: 'search', label: 'Search' },
   { id: 'commands', label: 'Commands' },
+  { id: 'about', label: 'About' },
 ];
+
+function asTab(value: string): Tab | null {
+  return TABS.some((t) => t.id === value) ? (value as Tab) : null;
+}
 
 export function PreferencesApp() {
   const { settings, loading, updateSetting } = useSettings();
-  const [activeTab, setActiveTab] = useState<Tab>('general');
+  // Opened on a tab (About from the tray or app menu): #about in the URL, or a message once open.
+  const [activeTab, setActiveTab] = useState<Tab>(() => asTab(window.location.hash.slice(1)) ?? 'general');
+  useEffect(
+    () =>
+      window.electronAPI.onShowTab((tab) => {
+        const next = asTab(tab);
+        if (next) setActiveTab(next);
+      }),
+    [],
+  );
   const navRef = useRef<HTMLElement>(null);
   useAppliedTheme(settings?.theme);
 
@@ -110,6 +131,7 @@ export function PreferencesApp() {
             {activeTab === 'commands' && (
               <CommandsTab settings={settings} onUpdate={updateSetting} />
             )}
+            {activeTab === 'about' && <AboutTab settings={settings} onUpdate={updateSetting} />}
           </>
         )}
       </main>

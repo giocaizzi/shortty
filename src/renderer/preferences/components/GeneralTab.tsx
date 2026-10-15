@@ -9,7 +9,7 @@ import type { UpdateSetting } from '../hooks/useSettings';
 import { Keycaps, PaneHeader, Row, Section, Segmented, SwitchRow } from './controls';
 import { ShortcutRecorder } from './ShortcutRecorder';
 
-interface GeneralTabProps {
+export interface GeneralTabProps {
   settings: AppSettings;
   onUpdate: UpdateSetting;
 }
@@ -55,8 +55,8 @@ function updateStatusText({ state, version }: UpdateStatus): string {
   }
 }
 
-/** Updates row: current version, status and the one action that fits it. */
-function UpdatesSection({ settings, onUpdate }: GeneralTabProps) {
+/** Updates row: current version, status and the one action that fits it (also on About). */
+export function UpdatesSection({ settings, onUpdate }: GeneralTabProps) {
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const platform = window.electronAPI.platform;
 

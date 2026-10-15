@@ -11,6 +11,7 @@ import { isSettingKey, validateSetting } from './settings-validation';
 import type { CommandsEngine } from './commands/engine';
 import { isE2E } from './e2e';
 import { createIconService, defaultBundleSearch } from './icons';
+import { appInfo, openAboutLink } from './about';
 
 let registered = false;
 
@@ -119,6 +120,9 @@ export function registerIpcHandlers(
   ipcMain.on(IPC_CHANNELS.OPEN_PREFERENCES, () => {
     callbacks.openPreferences();
   });
+
+  ipcMain.handle(IPC_CHANNELS.APP_GET_INFO, () => appInfo());
+  ipcMain.on(IPC_CHANNELS.APP_OPEN_LINK, (_event, link: unknown) => openAboutLink(link));
 
   // Commands handlers
   ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_ALL, async () => {
