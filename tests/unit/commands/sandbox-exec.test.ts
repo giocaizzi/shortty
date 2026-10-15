@@ -192,16 +192,19 @@ describe.runIf(!posix)('runSandboxed on Windows (real processes)', () => {
 
   it('DIAG powershell', async () => {
     const bin = file('diag.ps1', 'Write-Output "ps ok"\r\n');
-    const t0 = Date.now();
-    const full = await runSandboxed(bin, [], { timeoutMs: 15000, env: { ...process.env } });
-    console.log('DIAG full', Date.now() - t0, JSON.stringify(full));
-    const t1 = Date.now();
-    const bare = await runSandboxed(bin, [], { timeoutMs: 15000 });
-    console.log('DIAG bare', Date.now() - t1, JSON.stringify(bare));
-    const t2 = Date.now();
-    const cmd = await runSandboxed('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', 'Write-Output hi'], { timeoutMs: 15000 });
-    console.log('DIAG command', Date.now() - t2, JSON.stringify(cmd));
-  }, 60000); // PowerShell takes seconds to start on a cold runner
+    const ok = async (extra: NodeJS.ProcessEnv) => (await runSandboxed(bin, [], { timeoutMs: 4000, env: extra })).output.includes('ps ok');
+    const base = sandboxEnv();
+    const missing = Object.keys(process.env).filter((k) => !(k in base));
+    console.log('DIAG missing', JSON.stringify(missing));
+    const pick = (keys: string[]) => Object.fromEntries(keys.map((k) => [k, process.env[k]]));
+    console.log('DIAG all-missing ok', await ok(pick(missing)));
+    let needed = [...missing];
+    for (const k of missing) {
+      const without = needed.filter((n) => n !== k);
+      if (await ok(pick(without))) needed = without;
+    }
+    console.log('DIAG needed', JSON.stringify(needed));
+  }, 300000); // PowerShell takes seconds to start on a cold runner
 
   it('kills the whole tree at the timeout', async () => {
     const bin = file('hang.cmd', '@echo off\r\nping -n 30 127.0.0.1 > nul\r\n');
