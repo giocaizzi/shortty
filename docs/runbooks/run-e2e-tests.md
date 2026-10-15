@@ -18,6 +18,7 @@ API and drives it with the keyboard, the way a user does. Specs live in
 ```bash
 make e2e                          # build, then run every spec (~40 s on Apple silicon)
 make e2e-benchmark LABEL=baseline # build, then write docs/wip/benchmark/<LABEL>-*
+make readme-screenshots           # build, then regenerate docs/assets/readme-*.png (tmux, vim, kubectl)
 ```
 
 Single spec or test, after a build (`make package`):
@@ -88,6 +89,7 @@ saves it before a test and restores it after.
 | `SHORTTY_E2E_FIXME=1` | Run tests marked as known bugs instead of reporting them as fixme (to check a fix) |
 | `SHORTTY_E2E_KEEP=1` | Keep each test's temp dir for inspection |
 | `SHORTTY_E2E_BENCHMARK=<label>` | Enable `benchmark.spec.ts` (set by `make e2e-benchmark`) |
+| `SHORTTY_E2E_README=1` | Enable `readme.spec.ts`: README screenshots from real captured kubectl/tmux help (set by `make readme-screenshots`) |
 | `SHORTTY_E2E_SHOTS=<dir>` | Make `preferences.spec.ts` save a screenshot of every Preferences tab, and `command-detail.spec.ts` of the command detail sections, light and dark, to `<dir>` (outside `test-results/`, which each run clears) |
 
 ## Writing tests

@@ -344,6 +344,29 @@ export async function launchShortty(
 }
 
 /** Wait until the commands engine finished enriching the fake PATH. */
+const BACKDROPS: Record<'dark' | 'light', string> = { dark: '#1f1f23', light: '#ececef' };
+
+/**
+ * Screenshot a window to `file`. The real panel is transparent with macOS
+ * vibrancy composited by the OS, which page screenshots cannot capture (text
+ * on nothing), so paint an opaque backdrop close to the vibrancy material.
+ */
+export async function screenshot(win: Page, file: string, scheme: 'dark' | 'light' = 'dark'): Promise<void> {
+  await win.emulateMedia({ colorScheme: scheme });
+  await win.evaluate((color) => {
+    let style = document.getElementById('screenshot-backdrop');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'screenshot-backdrop';
+      document.head.appendChild(style);
+    }
+    style.textContent = `html, body { background: ${color} !important; }`;
+  }, BACKDROPS[scheme]);
+  // Let the show animation (120ms) finish.
+  await win.waitForTimeout(200);
+  await win.screenshot({ path: file });
+}
+
 export async function waitForEnrichment(shortty: Shortty): Promise<void> {
   await expect
     .poll(
