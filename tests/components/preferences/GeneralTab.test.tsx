@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { GeneralTab } from '../../../src/renderer/preferences/components/GeneralTab';
 import type { UpdateSetting } from '../../../src/renderer/preferences/hooks/useSettings';
 import { DEFAULT_SETTINGS, type AppSettings } from '../../../src/shared/settings';
@@ -193,5 +193,56 @@ describe('GeneralTab', () => {
         expect(onUpdate).toHaveBeenCalledWith('globalShortcut', DEFAULT_SETTINGS.globalShortcut),
       );
     });
+  });
+});
+
+describe('GeneralTab updates row', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('shows the version and status, and checks on demand', async () => {
+    const { api } = installMockApi();
+    renderTab();
+    expect(await screen.findByText('Shortty 0.1.0')).toBeInTheDocument();
+    expect(screen.getByText('Up to date.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Check Now' }));
+    expect(api.checkForUpdates).toHaveBeenCalled();
+  });
+
+  it('follows status pushes: available opens the download, ready restarts', async () => {
+    const { api, emitUpdateStatus } = installMockApi();
+    renderTab();
+    await screen.findByText('Up to date.');
+
+    act(() => emitUpdateStatus({ current: '0.1.0', state: 'available', version: '0.2.0' }));
+    expect(screen.getByText('Version 0.2.0 is available.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Download…' }));
+    expect(api.installUpdate).toHaveBeenCalledTimes(1);
+
+    act(() => emitUpdateStatus({ current: '0.1.0', state: 'ready', version: '0.2.0' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Restart to Update' }));
+    expect(api.installUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  it('cannot check in development builds', async () => {
+    const { api } = installMockApi();
+    api.getUpdateStatus.mockResolvedValue({ current: '0.1.0', state: 'disabled' });
+    renderTab();
+    expect(await screen.findByRole('button', { name: 'Check Now' })).toBeDisabled();
+  });
+
+  it('writes the auto-update switch on macOS and Windows', async () => {
+    installMockApi({}, 'win32');
+    const { onUpdate } = renderTab();
+    fireEvent.click(await screen.findByRole('switch', { name: 'Download updates automatically' }));
+    expect(onUpdate).toHaveBeenCalledWith('autoUpdate', false);
+  });
+
+  it('has no auto-update switch on Linux (notify only)', async () => {
+    installMockApi({}, 'linux');
+    renderTab();
+    await screen.findByText('Shortty 0.1.0');
+    expect(screen.queryByRole('switch', { name: 'Download updates automatically' })).not.toBeInTheDocument();
   });
 });

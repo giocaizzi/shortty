@@ -1,6 +1,7 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { AppSettings } from '../../../shared/settings';
 import { DEFAULT_SETTINGS } from '../../../shared/settings';
+import type { UpdateStatus } from '../../../shared/types';
 import { useKeyboardLayout } from '../../lib/keyboard-layout';
 import { acceleratorToGlyphs } from '../lib/accelerator';
 import { isMacPlatform, resetSettingsCommand } from '../lib/platform';
@@ -32,6 +33,83 @@ const THEMES: { value: AppSettings['theme']; label: string }[] = [
 ];
 
 type VisibilityKey = 'showDockIcon' | 'showMenuBar';
+
+function updateStatusText({ state, version }: UpdateStatus): string {
+  switch (state) {
+    case 'disabled':
+      return 'Updates are checked in installed builds only.';
+    case 'idle':
+      return 'Not checked yet.';
+    case 'checking':
+      return 'Checking…';
+    case 'up-to-date':
+      return 'Up to date.';
+    case 'available':
+      return `Version ${version} is available.`;
+    case 'downloading':
+      return 'Downloading the update…';
+    case 'ready':
+      return `${version ? `Version ${version}` : 'The update'} is ready. Restart to update.`;
+    case 'error':
+      return "Couldn't check for updates.";
+  }
+}
+
+/** Updates row: current version, status and the one action that fits it. */
+function UpdatesSection({ settings, onUpdate }: GeneralTabProps) {
+  const [status, setStatus] = useState<UpdateStatus | null>(null);
+  const platform = window.electronAPI.platform;
+
+  useEffect(() => {
+    window.electronAPI.getUpdateStatus().then(setStatus).catch(() => undefined);
+    return window.electronAPI.onUpdateStatus(setStatus);
+  }, []);
+
+  if (!status) return null;
+  const { state } = status;
+  const button =
+    state === 'ready' ? (
+      <button type="button" className="pf-button pf-button-primary" onClick={() => void window.electronAPI.installUpdate()}>
+        Restart to Update
+      </button>
+    ) : state === 'available' ? (
+      <button type="button" className="pf-button" onClick={() => void window.electronAPI.installUpdate()}>
+        Download…
+      </button>
+    ) : (
+      <button
+        type="button"
+        className="pf-button"
+        disabled={state === 'disabled' || state === 'checking' || state === 'downloading'}
+        onClick={() => void window.electronAPI.checkForUpdates()}
+      >
+        Check Now
+      </button>
+    );
+
+  // Squirrel installs updates only on macOS and Windows (docs/spec.md §12.4).
+  const autoPossible = platform === 'darwin' || platform === 'win32';
+  return (
+    <Section
+      label="Updates"
+      footer={
+        autoPossible
+          ? `Automatic updates need ${platform === 'darwin' ? 'a signed build' : 'the installer build'}; otherwise Shortty tells you about new versions and links to the download.`
+          : 'Shortty tells you about new versions and links to the download.'
+      }
+    >
+      <Row label={`Shortty ${status.current}`} description={updateStatusText(status)} control={button} />
+      {autoPossible && (
+        <SwitchRow
+          label="Download updates automatically"
+          description="Off: only tell me when a new version is out."
+          checked={settings.autoUpdate}
+          onChange={(v) => void onUpdate('autoUpdate', v)}
+        />
+      )}
+    </Section>
+  );
+}
 
 export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
   const mac = isMacPlatform();
@@ -156,6 +234,8 @@ export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
           }
         />
       </Section>
+
+      <UpdatesSection settings={settings} onUpdate={onUpdate} />
 
       {pendingHide && (
         <div
