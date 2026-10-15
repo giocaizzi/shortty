@@ -7,7 +7,7 @@ Releases are automated by `.github/workflows/release.yml`. macOS builds are sign
 
 ## Cut a release
 
-1. Merge feature and fix PRs to `main`. On every push, release-please updates one open PR titled `chore(release): X.Y.Z` with the version bump (`package.json`, `.release-please-manifest.json`) and `CHANGELOG.md`. `feat` bumps the minor version, `fix` the patch, `BREAKING CHANGE:` the major (minor while 0.x).
+1. Merge feature and fix PRs to `main`. On every push, release-please updates one open PR titled `chore(release): X.Y.Z` with the version bump (`package.json`, `.release-please-manifest.json`) and `CHANGELOG.md`. `feat` bumps the minor version, `fix` the patch, `BREAKING CHANGE:` the major (minor while 0.x). To pick the version yourself, end the PR description with a `Release-As: X.Y.Z` line: it must be in the last block of footers (with `Co-Authored-By:`), with nothing after it, or release-please ignores it.
 2. Review the Release PR's changelog, then merge it (auto-merge once CI passes).
 3. The merge tags `vX.Y.Z` and creates the GitHub Release. The `Build (macOS)`, `Build (Windows)` and `Build (Linux)` jobs then run `make make` and attach:
 
