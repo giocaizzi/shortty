@@ -131,6 +131,8 @@ describe('SourcesTab', () => {
     const field = await customPathField();
     expect(field).toHaveValue('/custom/ghostty');
 
+    // Focus first: the field may still have it when Reset is clicked.
+    fireEvent.focus(field);
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
     expect(onUpdate).toHaveBeenCalledTimes(1);
     expect(onUpdate).toHaveBeenCalledWith('sourcePathOverrides', { vim: '~/.vimrc2' });
