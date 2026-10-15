@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { rotateLogFiles } from '../../../src/main/logger';
+import log, { rotateLogFiles } from '../../../src/main/logger';
 
 let dir: string;
 
@@ -24,5 +24,11 @@ describe('rotateLogFiles', () => {
     expect(readdirSync(dir).sort()).toEqual(['main.1.log', 'main.2.log', 'main.log']);
     expect(readFileSync(path.join(dir, 'main.1.log'), 'utf8')).toBe('d');
     expect(readFileSync(path.join(dir, 'main.2.log'), 'utf8')).toBe('c');
+  });
+});
+
+describe('logger under tests', () => {
+  it('never writes the real log file', () => {
+    expect(log.transports.file.level).toBe(false);
   });
 });
