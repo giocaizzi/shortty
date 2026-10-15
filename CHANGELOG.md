@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.1](https://github.com/giocaizzi/shortty/compare/v0.2.0...v0.2.1) (2026-10-15)
+
+
+### Added
+
+* **about:** show the running version and an About tab everywhere ([#76](https://github.com/giocaizzi/shortty/issues/76)) ([9e1f9b1](https://github.com/giocaizzi/shortty/commit/9e1f9b138655e1626092770e7d1b49780f631ce0))
+
+
+### Fixed
+
+* **test:** give the stdin sandbox test room on a loaded host ([#73](https://github.com/giocaizzi/shortty/issues/73)) ([cab7be5](https://github.com/giocaizzi/shortty/commit/cab7be555d3b45eae30057f629e39ba65dfcb847))
+
+
+### Documentation
+
+* **release:** explain where the Release-As footer must go ([#77](https://github.com/giocaizzi/shortty/issues/77)) ([52b3bd5](https://github.com/giocaizzi/shortty/commit/52b3bd5653f2d0c0b30b9b041c662279a9afa5a7))
+
 ## [0.2.0](https://github.com/giocaizzi/shortty/compare/v0.1.0...v0.2.0) (2026-10-15)
 
 
