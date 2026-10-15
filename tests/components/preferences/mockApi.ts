@@ -2,7 +2,7 @@ import { vi } from 'vitest';
 import type { ElectronAPI } from '../../../src/preload/preload';
 import type { AppSettings } from '../../../src/shared/settings';
 import { DEFAULT_SETTINGS } from '../../../src/shared/settings';
-import type { SourceStatus } from '../../../src/shared/types';
+import type { SourceStatus, UpdateStatus } from '../../../src/shared/types';
 
 /**
  * In-memory stand-in for window.electronAPI: setSetting writes to `store` and
@@ -14,6 +14,7 @@ export function installMockApi(
 ) {
   const store: AppSettings = structuredClone({ ...DEFAULT_SETTINGS, ...initial });
   const listeners = new Set<(s: AppSettings) => void>();
+  const statusListeners = new Set<(s: UpdateStatus) => void>();
 
   const api = {
     getSources: vi.fn(async () => []),
@@ -43,6 +44,13 @@ export function installMockApi(
     getSubcommandDetail: vi.fn(async () => null),
     getCommandsStats: vi.fn(async () => ({ total: 0, enriched: 0, running: false })),
     rebuildIndex: vi.fn(async () => undefined),
+    getUpdateStatus: vi.fn(async (): Promise<UpdateStatus> => ({ current: '0.1.0', state: 'up-to-date' })),
+    checkForUpdates: vi.fn(async () => undefined),
+    installUpdate: vi.fn(async () => undefined),
+    onUpdateStatus: vi.fn((cb: (s: UpdateStatus) => void) => {
+      statusListeners.add(cb);
+      return () => statusListeners.delete(cb);
+    }),
     setWindowHeight: vi.fn(),
     platform,
     hideWindow: vi.fn(),
@@ -58,7 +66,12 @@ export function installMockApi(
   } satisfies ElectronAPI;
 
   window.electronAPI = api;
-  return { api, store, emit: (s: AppSettings) => listeners.forEach((l) => l(s)) };
+  return {
+    api,
+    store,
+    emit: (s: AppSettings) => listeners.forEach((l) => l(s)),
+    emitUpdateStatus: (s: UpdateStatus) => statusListeners.forEach((l) => l(s)),
+  };
 }
 
 export function makeSource(overrides: Partial<SourceStatus> = {}): SourceStatus {

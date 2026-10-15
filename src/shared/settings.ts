@@ -28,6 +28,8 @@ export interface AppSettings {
   commandPrefixMode: boolean;
   resultLimits: ResultLimits;
   commandsEnabled: boolean;
+  /** Download and install updates where the platform allows it; off = only tell. */
+  autoUpdate: boolean;
 }
 
 /** Defaults from docs/spec.md §9.1. */
@@ -56,4 +58,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
     commands: 5,
   },
   commandsEnabled: true,
+  autoUpdate: true,
 };

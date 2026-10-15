@@ -1,6 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
-import type { Shortcut, ParserMeta, Command, SubcommandDetail, SourceStatus } from '../shared/types';
+import type {
+  Shortcut,
+  ParserMeta,
+  Command,
+  SubcommandDetail,
+  SourceStatus,
+  UpdateStatus,
+} from '../shared/types';
 import type { AppSettings } from '../shared/settings';
 
 // Exit-animation listeners (see onWindowWillHide). The preload answers every
@@ -157,6 +164,25 @@ const electronAPI = {
   /** Drop the commands cache and index commands and shortcut sources again. */
   rebuildIndex(): Promise<void> {
     return ipcRenderer.invoke(IPC_CHANNELS.PREFS_REBUILD_INDEX);
+  },
+
+  getUpdateStatus(): Promise<UpdateStatus> {
+    return ipcRenderer.invoke(IPC_CHANNELS.UPDATES_GET_STATUS);
+  },
+
+  checkForUpdates(): Promise<void> {
+    return ipcRenderer.invoke(IPC_CHANNELS.UPDATES_CHECK);
+  },
+
+  /** Restart into a downloaded update, or open the newer release's page. */
+  installUpdate(): Promise<void> {
+    return ipcRenderer.invoke(IPC_CHANNELS.UPDATES_INSTALL);
+  },
+
+  onUpdateStatus(cb: (status: UpdateStatus) => void): () => void {
+    const handler = (_event: Electron.IpcRendererEvent, status: UpdateStatus) => cb(status);
+    ipcRenderer.on(IPC_CHANNELS.UPDATES_ON_STATUS, handler);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.UPDATES_ON_STATUS, handler);
   },
 
   /** Native open dialog for a config file or folder; null when cancelled. */

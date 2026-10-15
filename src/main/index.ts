@@ -6,8 +6,11 @@ import {
   globalShortcut,
   ipcMain,
   Menu,
+  autoUpdater,
   nativeTheme,
+  net,
   screen,
+  shell,
 } from 'electron';
 import path from 'node:path';
 import os from 'node:os';
@@ -23,7 +26,7 @@ import {
   repairSettings,
   resetSettings,
 } from './settings-store';
-import { syncTray, destroyTray, isTrayVisible } from './tray';
+import { syncTray, destroyTray, isTrayVisible, setTrayUpdate } from './tray';
 import { openPreferencesWindow, preferencesLocation } from './preferences-window';
 import { guardWebContents, type AppLocations } from './navigation-guard';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
@@ -40,6 +43,7 @@ import { importLoginShellPath } from './shell-env';
 import { buildAppMenuTemplate } from './app-menu';
 import { focusLauncher, launcherMaterial, SOLID_PANEL_CSS } from './launcher-window';
 import { loginItemSettings } from './login-item';
+import { Updater, canAutoUpdate, fetchLatestVersion } from './updates';
 
 // `shortty --reset-settings` (docs/spec.md §9.1 escape hatch): restore defaults and quit.
 const resetRequested = process.argv.includes('--reset-settings');
@@ -88,9 +92,31 @@ app.on('web-contents-created', (_event, contents) => {
 /** Upper bound for the renderer's exit animation (80ms, docs/spec.md §10.9) plus IPC. */
 const HIDE_ANIMATION_TIMEOUT_MS = 120;
 
+const updater = new Updater({
+  enabled: app.isPackaged && !isE2E,
+  currentVersion: app.getVersion(),
+  platform: process.platform,
+  arch: process.arch,
+  canAutoUpdate: () => canAutoUpdate(),
+  fetchLatestVersion: () => fetchLatestVersion(net.fetch),
+  autoUpdater,
+  openExternal: (url) => void shell.openExternal(url),
+  // quitAndInstall closes the windows before before-quit fires.
+  beforeInstall: () => {
+    quitting = true;
+  },
+  onStatus: (status) => {
+    setTrayUpdate(status);
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send(IPC_CHANNELS.UPDATES_ON_STATUS, status);
+    }
+  },
+});
+
 const trayCallbacks = {
   onToggle: () => toggleWindow(),
   onPreferences: () => openPreferences(),
+  onInstallUpdate: () => updater.install(),
 };
 
 function launcherAlive(): BrowserWindow | null {
@@ -342,6 +368,10 @@ function applySettingsChange(newSettings: AppSettings, oldSettings: AppSettings)
 
   // The global shortcut is applied by changeGlobalShortcut() before saving.
 
+  if (newSettings.autoUpdate !== oldSettings.autoUpdate) {
+    void updater.start(newSettings.autoUpdate, 0);
+  }
+
   // Commands engine toggle
   if (newSettings.commandsEnabled !== oldSettings.commandsEnabled) {
     log.info(`Commands engine ${newSettings.commandsEnabled ? 'enabled' : 'disabled'}`);
@@ -483,7 +513,14 @@ async function startup(): Promise<void> {
   // "No handler registered"; data handlers wait for the engines.
   registerIpcHandlers(
     parserRegistry,
-    { openPreferences, changeGlobalShortcut, rebuildIndex },
+    {
+      openPreferences,
+      changeGlobalShortcut,
+      rebuildIndex,
+      getUpdateStatus: () => updater.getStatus(),
+      checkForUpdates: () => updater.check(),
+      installUpdate: () => updater.install(),
+    },
     () => commandsEngine,
     { shortcuts: shortcutsReady, commands: commandsReady },
   );
@@ -493,6 +530,7 @@ async function startup(): Promise<void> {
   // Apply initial settings (theme, dock, menu bar, login item, shortcut)
   applyInitialSettings();
   setupSettingsChangeListener();
+  void updater.start(getSetting('autoUpdate'));
 
   await Promise.all([shortcutsReady, commandsReady]);
 
@@ -525,6 +563,7 @@ app.on('will-quit', () => {
   // registered, and globalShortcut throws before ready.
   if (app.isReady()) globalShortcut.unregisterAll();
   stopWatching();
+  updater.stop();
   destroyTray();
   commandsEngine?.stop();
 });

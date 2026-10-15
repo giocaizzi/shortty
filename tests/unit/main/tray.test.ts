@@ -4,6 +4,7 @@ import { withPlatform } from '../../helpers';
 interface FakeTray {
   destroy: ReturnType<typeof vi.fn>;
   on: ReturnType<typeof vi.fn>;
+  setContextMenu: ReturnType<typeof vi.fn>;
 }
 const trays: FakeTray[] = [];
 const createFromPath = vi.fn<(path: string) => object>(() => ({}));
@@ -16,14 +17,14 @@ vi.mock('electron', () => ({
     this.on = vi.fn();
     trays.push(this as unknown as FakeTray);
   }),
-  Menu: { buildFromTemplate: vi.fn(() => ({})) },
+  Menu: { buildFromTemplate: vi.fn((template: unknown) => template) },
   nativeImage: { createFromPath: (p: string) => createFromPath(p) },
   app: { isPackaged: false, getAppPath: () => '/app', quit: vi.fn() },
 }));
 
-const { syncTray, destroyTray, isTrayVisible } = await import('../../../src/main/tray');
+const { syncTray, destroyTray, isTrayVisible, setTrayUpdate } = await import('../../../src/main/tray');
 
-const callbacks = { onToggle: vi.fn(), onPreferences: vi.fn() };
+const callbacks = { onToggle: vi.fn(), onPreferences: vi.fn(), onInstallUpdate: vi.fn() };
 
 describe('syncTray (Show in Menu Bar)', () => {
   beforeEach(() => {
@@ -89,5 +90,30 @@ describe('tray on Linux', () => {
   it('uses the colour app icon as PNG', () => {
     freshTray();
     expect(createFromPath.mock.calls[0][0]).toMatch(/icon\.png$/);
+  });
+});
+
+describe('tray update item', () => {
+  const labels = () =>
+    (trays[0].setContextMenu.mock.lastCall?.[0] as { label?: string }[]).map((i) => i.label);
+
+  it('offers the newer release, then a restart once it is downloaded', () => {
+    freshTray();
+    expect(labels()[0]).toBe('Show/Hide');
+
+    setTrayUpdate({ current: '0.1.0', state: 'available', version: '0.2.0' });
+    expect(labels()[0]).toBe('Update Available (v0.2.0)...');
+
+    setTrayUpdate({ current: '0.1.0', state: 'ready', version: '0.2.0' });
+    const item = (trays[0].setContextMenu.mock.lastCall?.[0] as { label?: string; click?: () => void }[])[0];
+    expect(item?.label).toBe('Restart to Update');
+    item?.click?.();
+    expect(callbacks.onInstallUpdate).toHaveBeenCalled();
+  });
+
+  it('shows nothing while checking or up to date', () => {
+    setTrayUpdate({ current: '0.1.0', state: 'up-to-date' });
+    freshTray();
+    expect(labels()[0]).toBe('Show/Hide');
   });
 });

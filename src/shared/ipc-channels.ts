@@ -41,4 +41,12 @@ export const IPC_CHANNELS = {
   PREFS_PICK_PATH: 'prefs:pickPath',
   PREFS_CHECK_PATHS: 'prefs:checkPaths',
   PREFS_REBUILD_INDEX: 'prefs:rebuildIndex',
+
+  // Updates (src/main/updates.ts)
+  UPDATES_GET_STATUS: 'updates:getStatus',
+  UPDATES_CHECK: 'updates:check',
+  /** Restart into a downloaded update, or open the release page of a newer one. */
+  UPDATES_INSTALL: 'updates:install',
+  /** main -> renderer: the update status changed. */
+  UPDATES_ON_STATUS: 'updates:onStatus',
 } as const;
