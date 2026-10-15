@@ -69,9 +69,30 @@ describe('enrichSubcommand', () => {
     expect(cache.writeSubcommandDetail).not.toHaveBeenCalled();
 
     mockMan.mockResolvedValue({
-      name: 'git commit', description: 'Record changes', subcommands: [], flags: [], arguments: [],
+      name: 'git commit', description: 'Record changes', subcommands: [], flags: [{ short: '-m', description: '' }], arguments: [],
     });
     expect((await enrichSubcommand(base, 'git commit', cache)).enrichment).toBe('full');
+  });
+
+  it('a man page without subcommands is compared with --help (gh auth)', async () => {
+    const cache = fakeCache();
+    const base = { bin: '/opt/homebrew/bin/x', mtime: 1 };
+    mockMan.mockResolvedValue({
+      name: 'x auth', description: 'Authenticate', subcommands: [], flags: [{ long: '--host', description: '' }], arguments: [],
+    });
+    mockHelp.mockResolvedValue({
+      name: 'x auth', description: '', subcommands: [{ name: 'x auth login', description: 'Log in' }], flags: [], arguments: [],
+    });
+    const detail = await enrichSubcommand(base, 'x auth', cache);
+    expect(detail).toMatchObject({
+      description: 'Authenticate', subcommands: [{ name: 'x auth login' }], flags: [{ long: '--host' }],
+    });
+
+    // one that lists subcommands is used as is
+    mockHelp.mockClear();
+    mockMan.mockResolvedValue({ name: 'x pr', description: '', subcommands: [{ name: 'x pr list', description: '' }], flags: [], arguments: [] });
+    await enrichSubcommand(base, 'x pr', cache);
+    expect(mockHelp).not.toHaveBeenCalled();
   });
 
   it('uses a cached detail without spawning anything', async () => {

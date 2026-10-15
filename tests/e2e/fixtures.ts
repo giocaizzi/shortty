@@ -75,7 +75,59 @@ const FAKE_BINS: Record<string, string> = {
   widgetctl: WIDGETCTL_HELP,
 };
 
-export const FAKE_COMMANDS = Object.keys(FAKE_BINS).sort();
+/**
+ * A fake CLI four levels deep (`nestor compute instances create`), whose
+ * --help depends on the subcommand path, like gcloud or az. `compute` and
+ * `compute-legacy` make "compute" an ambiguous word.
+ */
+const NESTOR_SCRIPT = `case "$*" in
+"compute instances create --help") cat <<'EOF'
+Usage: nestor compute instances create [options] <name>
+
+Create a virtual machine instance.
+
+Options:
+  -z, --zone      Zone of the instance
+  -m, --machine   Machine type
+EOF
+;;
+"compute instances --help") cat <<'EOF'
+Usage: nestor compute instances <command>
+
+Manage virtual machine instances.
+
+Commands:
+  create     Create an instance
+  delete     Delete an instance
+EOF
+;;
+"compute --help") cat <<'EOF'
+Usage: nestor compute <command>
+
+Manage compute resources.
+
+Commands:
+  disks      Manage disks
+  instances  Manage instances
+EOF
+;;
+*) cat <<'EOF'
+Usage: nestor <command>
+
+Nestor is a fake nested CLI used by the Shortty e2e suite.
+
+Commands:
+  compute          Manage compute resources
+  compute-legacy   Old compute API
+  storage          Manage storage
+EOF
+;;
+esac`;
+
+/** Fake executables whose output depends on their arguments (name → script body). */
+const FAKE_SCRIPTS: Record<string, string> = { nestor: NESTOR_SCRIPT };
+
+export const FAKE_COMMANDS = [...Object.keys(FAKE_BINS), ...Object.keys(FAKE_SCRIPTS)].sort();
 
 function writeFakeBin(dir: string, name: string, help: string): void {
   const file = path.join(dir, name);
@@ -118,8 +170,19 @@ export function createHermeticEnv(
     copyFileSync(path.join(FIXTURES, fixture), dest);
   }
 
+  // A fake app bundle, so icon autofind has something to find without
+  // reading the machine's real /Applications (src/main/icons.ts).
+  const chromeApp = path.join(home, 'Applications', 'Google Chrome.app', 'Contents');
+  mkdirSync(chromeApp, { recursive: true });
+  writeFileSync(
+    path.join(chromeApp, 'Info.plist'),
+    '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict>' +
+      '<key>CFBundleIdentifier</key><string>com.google.Chrome</string>' +
+      '<key>CFBundlePackageType</key><string>APPL</string></dict></plist>\n',
+  );
+
   for (const [name, help] of Object.entries(FAKE_BINS)) writeFakeBin(bin, name, help);
-  for (const [name, body] of Object.entries(extraBins)) {
+  for (const [name, body] of Object.entries({ ...FAKE_SCRIPTS, ...extraBins })) {
     writeFileSync(path.join(bin, name), `#!/bin/sh\nPATH=/usr/bin:/bin\n${body}\n`);
     chmodSync(path.join(bin, name), 0o755);
   }

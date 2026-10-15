@@ -2,6 +2,7 @@
   "id": "finder",
   "label": "Finder",
   "icon": "📁",
+  "app": { "bundleId": "com.apple.finder", "name": "Finder" },
   "platforms": ["darwin"],
   "parser": null,
   "lastVerified": { "version": "15.0", "date": "2026-04-01" },

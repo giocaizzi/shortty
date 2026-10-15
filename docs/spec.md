@@ -235,7 +235,7 @@ A `schema.json` file validates cheatsheet structure. All cheatsheet files must p
 
 The cheatsheets are bundled into the main-process build with Vite's `import.meta.glob('../../cheatsheets/sources/*.json', { eager: true })` (`src/main/cheatsheets/loader.ts`), so dev, e2e and the packaged app read the same data with no runtime path to resolve. Tests can still point the loader at a directory.
 
-The `icon` field is kept as metadata; the UI draws a monogram tile per source instead (§10.4).
+The `icon` field is kept as metadata; the UI draws a source tile instead (§10.4). The optional `app` field (`{ "bundleId": "com.google.Chrome", "name": "Google Chrome" }`) names the macOS app whose real icon represents the source.
 
 ### 6.2 Parser System
 
@@ -434,7 +434,7 @@ The commands engine dynamically indexes every CLI command available on the user'
 
 ### 7.4 Subcommand Drill-In (replaces the expanded index)
 
-The index holds one entry per executable. Subcommand names are a search key of their parent (§8.3), so "commit" finds `git`. Subcommands are explored on demand: drilling into a subcommand row of the detail view reads its man page (`man git-commit`), falling back to `<cmd> <sub> --help` (same sandbox, blocklist and owner checks as §7.5), and caches the result under `cache/details/sub/`; drill-in recurses (`docker compose up`). See `src/main/commands/subcommand-enricher.ts` and [§15 Decisions](#15-decisions).
+The index holds one entry per executable. Subcommand names are a search key of their parent (§8.3), so "commit" finds `git`. Subcommands are explored on demand: drilling into a subcommand row of the detail view reads its man page (`man git-commit`); unless that page lists subcommands, `<cmd> <sub> --help` runs too (same sandbox, blocklist and owner checks as §7.5) and the richer result wins (the man/help rule in §7.5). A subcommand without a page of its own is looked up as a command block in the parent's page (tmux documents `new-session` inside `man tmux`). The result is cached under `cache/details/sub/`; drill-in recurses (`docker compose up`). See `src/main/commands/subcommand-enricher.ts` and [§15 Decisions](#15-decisions).
 
 ### 7.5 Enrichment Worker
 
@@ -452,6 +452,10 @@ The index holds one entry per executable. Subcommand names are a search key of t
 | Drill-in | A command opened in the detail view before the worker reached it is enriched at once (`commands:getDetail`), even while paused; its `--help` still waits for the one-at-a-time slot and the worker skips it afterwards |
 | First launch | Enrichment starts immediately |
 
+**Man page vs `--help`** (`needsHelp`, `pickRicher` in `src/main/commands/parsers/parse-utils.ts`, shared by commands and subcommands). A man page that lists subcommands is used as is, without spawning anything. Otherwise `--help` also runs (when the probing policy below allows it) and the richer result wins: one that lists subcommands, else the one with more flags, the man page on a tie (ffmpeg's man page, 171 flags, beats its 42-flag `--help`; helm's page has flags but no commands, jq's yields no flags). The winner takes the other's flag list when that one is longer, and fills its missing description, synopsis and extras from it. The cost is one extra serialized `--help` for trusted binaries whose man page lists no subcommands; OS binaries are never probed, so they stay man-only.
+
+**Per-tool help words** (`HELP_WORDS` in `help-parser.ts`): a few CLIs do not list their commands in `--help`, so the probe asks the documented way instead: `aws help` / `aws <cmd> … help` (aws's `--help` is an error; its help goes through the pager, which is `cat`), `bq help` and `poetry list` at the top level (their subcommands still get `--help`). Fixed words per command name; the policy below applies unchanged.
+
 **Enrichment source discovery:**
 - Man page locations: single `man --path` command at startup
 - Zsh completion locations: single `zsh -c 'echo $FPATH'` at startup
@@ -462,7 +466,8 @@ The index holds one entry per executable. Subcommand names are a search key of t
 
 1. Shortty is not running as root.
 2. Neither the command name nor the basename of its resolved path (symlinks followed) is on the blocklist below.
-3. The resolved file is owned by root or the current user, and is not writable by group or others (`mode & 022 == 0`).
+3. Neither the path on PATH nor the resolved file is in the OS's own directories (`/usr/bin`, `/usr/sbin`, `/usr/libexec`, `/bin`, `/sbin`, `/System`, `/Library/Apple`, `/Library/Developer`, Xcode): those are described from their man pages only. Probing them launched Xcode download prompts (the `/usr/bin` developer-tool shims), Keychain dialogs and GUI helpers.
+3b. The resolved file is owned by root or the current user, and is not writable by group or others (`mode & 022 == 0`).
 4. The resolved file is either a **native executable** (Mach-O, Mach-O universal or ELF magic), anywhere, or a **`#!` script under a trusted install prefix**:
 
    | Prefix | Why |
@@ -490,7 +495,7 @@ macOS security/signing tools (Keychain or admin prompts) and GUI apps: `security
 
 Wrappers that execute their arguments, where an implementation without a `--help` flag would run `--help` (or the subcommand words) as a command: `env`, `xargs`, `nohup`, `nice`, `renice`, `caffeinate`, `watch`, `doas`, `time`, `timeout`, `exec`, `chroot`, `sandbox-exec`, `stdbuf`, `script`, `setsid`, `flock`, `taskset`, `pkexec`, `runuser`, `arch`, `parallel`, `entr`, …
 
-**`--help` sandbox** (`src/main/commands/sandbox-exec.ts`): every probe runs in a throwaway temp cwd with stdin closed and output capped at 1 MB. The environment is an allowlist (`PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, `TMPDIR`, `LANG`, `MANPATH`, `LC_*`), so tokens and keys in the user's environment never reach an arbitrary binary; pagers are `cat`, editors are `true`, colours and Homebrew auto-update are off. `man` lookups use the same environment in their own process group (man starts groff and friends), killed after 5 seconds. The startup login-shell PATH import (`src/main/shell-env.ts`) kills the shell's process group on timeout or when it prints more than 1 MB.
+**`--help` sandbox** (`src/main/commands/sandbox-exec.ts`): every probe runs in a throwaway temp cwd with stdin closed and output capped at 1 MB; `TMUX_TMPDIR` points at that cwd, so a probe such as `tmux new-session --help` can never reach the user's running tmux server. The environment is an allowlist (`PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, `TMPDIR`, `LANG`, `MANPATH`, `LC_*`), so tokens and keys in the user's environment never reach an arbitrary binary; pagers are `cat`, editors are `true`, colours and Homebrew auto-update are off. `man` lookups use the same environment in their own process group (man starts groff and friends), killed after 5 seconds. The startup login-shell PATH import (`src/main/shell-env.ts`) kills the shell's process group on timeout or when it prints more than 1 MB.
 
 **Whatis fallback:**
 If whatis database doesn't exist, Tier 1 index has names with no descriptions. Enrichment naturally fills descriptions from man page NAME sections. No special handling needed.
@@ -523,6 +528,29 @@ Structure:
 | macOS | PATH scan + whatis | zsh completions → bash completions → man pages → --help |
 | Linux | PATH scan + whatis | zsh completions → bash completions → man pages → --help |
 | Windows | PATH scan | --help only (no man pages, no shell completions) |
+
+### 7.8 What Is Parsed
+
+`src/main/commands/parsers/` turns a man page (`man-parser.ts`) or `--help` output (`help-parser.ts`) into a `Command` / `SubcommandDetail` (`src/shared/types.ts`). Every field beyond name, description, synopsis, subcommands, flags and arguments is optional and only set when the output documents it:
+
+| Field | Taken from |
+|-------|-----------|
+| `description`, `longDescription` | Man `NAME` / `DESCRIPTION`; the first prose paragraph of `--help` (also under poetry/pip `Description:`, az `Group` / `Command`) |
+| `synopsis`, `arguments` | `SYNOPSIS` / `Usage:`; argument descriptions from `Arguments:` / `POSITIONAL ARGUMENTS` lists |
+| `subcommands[].group` | The section the entry is listed under: `Management Commands:`, gh `CORE COMMANDS`, gcloud `GROUPS` vs `COMMANDS`, az `Subgroups:` vs `Commands:`. Groups are drillable like commands |
+| `subcommands[].deprecated` | `(DEPRECATED)`, `--DEPRECATED--`, az `[Deprecated]` (the marker is removed from the text) |
+| `flags[].group` | The section title: `Global Flags:`, `INHERITED FLAGS`, `OPTIONS INHERITED FROM PARENT COMMANDS`, az `Global Arguments`, ffmpeg's man subsections (`Main options`, `Video Options`) |
+| `flags[].default` | `(default "open")`, `(default: 'x')`, `[default: json]`, az `Default: RSA.`, kubectl `--chunk-size=500:`, gcloud `; default="warning"`, tsc `default: es5` |
+| `flags[].choices` | `{a\|b}` / `[a\|b]` in the text or as the argument (`{json,yaml}`, `[yes\|ask\|no]`), `[possible values: …]`, `Possible values:` lists, az `Allowed values:`, gcloud `must be one of:` (inline or as a term list), absl `<a\|b>:` |
+| `flags[].required` / `deprecated` | `(required)`, `[required]`, az `[Required]`, gcloud `REQUIRED FLAGS`; `(DEPRECATED)`, `[deprecated]` |
+| `examples` | `EXAMPLES` / `Examples:` sections: a command line (`$ cmd`, a line starting with the program, or piping into it) with the comment or sentence before it as its description, or the indented text below it (BSD man pages). `\` continuations and az's hard-wrapped lines are joined |
+| `environment` | `ENVIRONMENT` / `ENVIRONMENT VARIABLES` sections (`NAME  text`, `NAME` over its text, names sharing one text) and clap's per-flag `[env: NAME=]` |
+| `aliases` | `ALIASES` / `Aliases:` sections, minus the command's own name |
+| `seeAlso` | Man `SEE ALSO` references and links; `LEARN MORE` / `See also` lines |
+
+Command lists come from `COMMANDS`-like sections (also aws's `AVAILABLE SERVICES` / `AVAILABLE COMMANDS` "o name" bullets, openssl's `COMMAND SUMMARY` tag lists, including names that fill the tag column like `cms CMS …`), `git-<name>(1)` cross-references, and tmux-style command blocks: a `name [flags] args` line over an `(alias: x)` line, anywhere in the page (only blocks with an alias line count, since tmux lays out its copy-mode commands the same way). The block also gives that subcommand's detail: its usage as synopsis, the flags named in it (`[-AdDEPX]`, `[-c start-directory]`, without descriptions), the alias and the first paragraph. In `--help` command sections, clap's names without a description (`  create  `) and comma lists wrapped over several lines (bq's `remove-iam-policy-` / `binding`) are kept.
+
+Formats covered by golden tests (`tests/unit/commands/golden*.test.ts`, fixtures in `fixtures/commands/`): GNU and BSD man pages, ronn (brew), gcloud's man-style `--help` (pager set to `cat`), az/knack (its first-run "Welcome to Azure CLI" banner is skipped), cobra (gh, kubectl, docker, helm, gitleaks, chezmoi), clap (uv, fd, bws, deno), click, argparse, optparse (pip), cleo (poetry), absl (bq), commander (bw), yargs-style (pnpm), Go `flag` (actionlint, go), Haskell optparse (hadolint), terraform, openssl, ffmpeg, java and tsc single-dash options. Also covered: aws's man-style `help` (its `AWS()  AWS()` page header), `bq help`, `poetry list`, tmux's command blocks and openssl's `COMMAND SUMMARY`. Known gaps: openssl's multi-column `--help` table (its man page lists the commands instead), tmux commands documented without an alias line (`kill-server`), commands a CLI hides from its list (`gitleaks detect`, deprecated in 8.x), prose-only help (`go build`), `/usr/bin` stubs without a man page (`java`, never probed), rsync's usage-only `--help`, words hard-wrapped mid-token in az's narrow description column.
 
 ---
 
@@ -670,6 +698,17 @@ Select a source from the Sources section (Enter) → panel scopes to that source
 **Drill-in to command:**
 On a command row, Tab or → drills into command detail view. Shows subcommands, flags and arguments. Search filters within details. Tab/→ on a subcommand drills one level deeper (§7.4). Esc returns to the previous level, restored as it was.
 
+**Typed drill-down:**
+Typing a command line drills by itself, as deep as the subcommands go (`>gh auth lo` → gh › auth filtering "lo"; `>gcloud compute instances create`, `>az vm create`). The rules (`src/renderer/App.tsx`, `typedStep`):
+
+- The first word after `>` is matched against the command names (prefix mode only); at a detail level, the first word of the filter is matched against the last word of each subcommand name (`gh auth` → `auth`). Matching is exact and case-sensitive.
+- An exact match drills when a space follows it, or at once when no other name at that level starts with it: `>gh auth` opens gh › auth without a space, while `>git commit` keeps filtering git (there are `commit-graph` and `commit-tree`) until the space. Typing on (`commit-t`) keeps filtering the parent. Tab/→ still drills on the selected row as before.
+- Each drill becomes a breadcrumb chip; what follows the word becomes the filter of the new level, and is resolved again, so the last partial word filters the deepest level reached (`>git commit --am` filters commit's flags). A filter never starts with a space.
+- Details that arrive later continue the resolution: an unenriched command is enriched on demand and a subcommand's details load on demand (`useSubcommandDetail`, which drops answers for a level the user has left). Meanwhile the view shows "Loading...". A paste or fast typing therefore ends in the same state as slow typing.
+- A word that is not a subcommand (or a level with no subcommands) stops the descent: the rest of the text filters that level, with no error.
+- The level left behind keeps the text up to the drilled word (`>gh`, `auth`): Backspace on an empty filter, ← at the start and Esc on an empty filter go back one level and put that word back to edit. A restored query is not re-resolved, so going back never drills straight in again; editing it does.
+- Nothing drills during an IME composition; the text resolves when it is committed.
+
 ### 10.3 Search Behavior
 
 - **Instant** — no debouncing, Fuse.js responds in <5ms
@@ -680,7 +719,13 @@ On a command row, Tab or → drills into command detail view. Shows subcommands,
 
 ### 10.4 Entry Anatomy
 
-Rows follow a single-line layout inspired by the Vaise launcher: identity on the left, keys on the right. Every row starts with a **source tile**, a small tinted monogram like a Dock icon (`VS`, `Gh`, `tm`, `>_` for commands; `src/renderer/components/SourceIcon.tsx`), instead of the cheatsheet emoji.
+Rows follow a single-line layout inspired by the Vaise launcher: identity on the left, keys on the right. Every row starts with a **source tile** (`src/renderer/components/SourceIcon.tsx`), instead of the cheatsheet emoji. The tile is, in order of preference:
+
+1. **The real app icon**, autofound on macOS: main (`src/main/icons.ts`) finds the bundle of the cheatsheet's `app` by bundle id with Spotlight (`mdfind`, argv only, 2 s timeout), else by name in `/Applications`, `~/Applications`, `/System/Applications` and `/System/Library/CoreServices`, and renders it with Quick Look (`nativeImage.createThumbnailFromPath`, 64 px; `app.getFileIcon` stops at 32 px on macOS and its `large` size aborts the process). Commands whose binary resolves (after symlinks) into an `.app` get that app's icon (`code` → Visual Studio Code). The renderer asks through `icons:get` with a known source id or command name only, never a path; main caches hits and misses for the session, and the renderer sends one request per icon.
+2. **A brand glyph** from `simple-icons` (`src/renderer/lib/brand-icons.ts`): for sources whose app is missing or that are CLIs (tmux, vim, zsh, bash), and for ~150 common CLIs (`git`, `gh`, `docker`, `kubectl`, `terraform`, `gcloud`, `node`, `uv`, `brew`, `psql`, …; version suffixes like `python3.12` or `psql-17` are stripped). For commands a curated glyph wins over the app bundle, because a binary's bundle is not always its brand (`kubectl` ships inside Docker.app). The glyph takes the brand colour on a quiet tile; a colour under 3:1 contrast on the current theme is mixed toward the foreground colour.
+3. **A tinted monogram** like a Dock icon (`VS`, `Gh`, `tm`, `>_` for other commands); an unknown source gets its initial on a hue derived from its id.
+
+Tiles have a fixed size, so rows never jump when an icon arrives. In e2e runs autofind skips Spotlight and looks only in the fake HOME's `Applications`, where the fixtures put a fake `Google Chrome.app`.
 
 **Shortcut row:**
 - Left: source tile (flat mode only), command name, then the `rawCommand` in muted monospace when it differs
@@ -910,6 +955,7 @@ Where v1 deliberately departs from the original plan. Each row is implemented; e
 | Footer with status and key hints (§10.4) | "No footer, no pills, no hints" | Shows what Enter/Tab/Esc do on the selected row and confirms copies without a modal. |
 | Vaise-style single-line rows, keys on the right (§10.4) | Key pills on the left, command in the middle | Command names are what users scan; right-aligned caps line up in a column. |
 | Source monogram tiles (§10.4) | Cheatsheet emoji icon | Emoji render inconsistently next to text and clash with the vibrancy material. |
+| Real app icons, then brand glyphs, then monograms (§10.4) | Cheatsheet emoji icon | Users recognise their apps and tools by logo. App icons come from the installed apps (nothing bundled); glyphs come from `simple-icons`, which is CC0. Brand marks are used only to identify the tool they belong to, with no endorsement implied. Logos simple-icons does not carry (VS Code, Finder, Azure, AWS, OpenAI, Java) fall back to the app icon or the monogram. |
 | Light/dark tokens following Theme (§10.4) | Theme setting with no launcher palette | Hard-coded white text was unreadable on light vibrancy. |
 | No-results line with a hint (§10.3) | Blank panel | Confirms the query ran and matched nothing, and points to the `>` prefix when prefix mode is on. |
 | Esc clears the query first (§10.7) | Esc dismisses / goes back | Matches Spotlight and lets users retype without leaving the level. |

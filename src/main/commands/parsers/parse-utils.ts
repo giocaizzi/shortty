@@ -1,4 +1,4 @@
-import type { FlagDetail, ArgumentDetail } from '../../../shared/types';
+import type { FlagDetail, ArgumentDetail, HelpExtras } from '../../../shared/types';
 
 /**
  * Split man page or structured text into named sections.
@@ -61,6 +61,9 @@ function expandTabs(line: string): string {
   return out;
 }
 
+/** absl (bq): "--api_version: API version to use." */
+const ABSL_RE = /^(-{1,2}[\w[\]-]+(?:,\s*-{1,2}[\w[\]-]+)*):\s+(\S.*)$/;
+
 /** A line that starts a flag entry: optional indent, then -x / --xx (or fzf-style +x,). */
 const FLAG_START_RE = /^(\s{0,8})(?:--?[^\s-]|\+[A-Za-z],?\s)/;
 
@@ -73,48 +76,69 @@ function isProseLine(trimmed: string): boolean {
   return !/\s{2,}/.test(trimmed) && /(?:[,;]|[^.]\.)$/.test(trimmed) && trimmed.split(/\s+/).length >= 3;
 }
 
+interface PendingFlag {
+  short?: string;
+  long?: string;
+  arg?: string;
+  default?: string;
+  descLines: string[];
+  /** Description lines with their indentation, for choice lists. */
+  rawLines: string[];
+  blankSeen?: boolean;
+}
+
 /**
  * Stateful line-by-line flag parser. Handles multi-line descriptions,
  * complex arg patterns (-U<n>, --chmod=(+|-)x, --[no-]all, --file <path>,
  * -C DIRECTORY), and various flag formats (GNU, BSD, cobra, clap, kubectl).
+ * `group` is the help section the flags come from ("Global Flags").
  */
-export function parseFlagsFromText(text: string): FlagDetail[] {
+export function parseFlagsFromText(text: string, group?: string): FlagDetail[] {
   const flags: FlagDetail[] = [];
   const lines = normalizeText(text).split('\n');
 
-  let current: { short?: string; long?: string; arg?: string; descLines: string[] } | null = null;
+  let current: PendingFlag | null = null;
   let flagIndent = 0;
 
   for (const line of lines) {
     const flagMatch = line.match(FLAG_START_RE);
-    if (flagMatch && !isProseLine(line.trim())) {
-      if (current) flags.push(finishFlag(current));
+    // A flag-looking line at the description's indent continues it
+    // (gcloud: "--flatten=abc.def flattens abc.def[].ghi references...")
+    const descIndent = current?.rawLines[0]?.match(/^\s*/)?.[0].length;
+    const inDescription = descIndent !== undefined && descIndent > flagIndent && (line.match(/^\s*/)?.[0].length ?? 0) >= descIndent;
+    if (flagMatch && !inDescription && (!isProseLine(line.trim()) || ABSL_RE.test(line.trim()))) {
+      if (current) flags.push(finishFlag(current, group));
 
       flagIndent = flagMatch[1].length;
-      const parsed = parseFlagLine(line.trim());
-      current = { ...parsed, descLines: [] };
-      if (parsed.inlineDesc) current.descLines.push(parsed.inlineDesc);
+      const { inlineDesc, ...parsed } = parseFlagLine(line.trim());
+      current = { ...parsed, descLines: [], rawLines: [] };
+      if (inlineDesc) current.descLines.push(inlineDesc);
       continue;
     }
 
     if (!current) continue;
 
     // Blank line: may be a paragraph break inside a multi-paragraph description
-    if (line.trim() === '') continue;
+    if (line.trim() === '') {
+      current.blankSeen = true;
+      continue;
+    }
 
-    // Continuation line: indented deeper than the flag itself
+    // Continuation line: indented deeper than the flag itself, or (tsc) at
+    // column 0 right below it
     const leadingSpaces = line.match(/^(\s*)/)?.[1]?.length ?? 0;
-    if (leadingSpaces > flagIndent) {
+    if (leadingSpaces > flagIndent || (flagIndent === 0 && !current.blankSeen)) {
       current.descLines.push(line.trim());
+      current.rawLines.push(line);
       continue;
     }
 
     // Anything else ends the current flag
-    flags.push(finishFlag(current));
+    flags.push(finishFlag(current, group));
     current = null;
   }
 
-  if (current) flags.push(finishFlag(current));
+  if (current) flags.push(finishFlag(current, group));
 
   return deduplicateFlags(flags);
 }
@@ -123,6 +147,7 @@ interface ParsedFlagLine {
   short?: string;
   long?: string;
   arg?: string;
+  default?: string;
   inlineDesc?: string;
 }
 
@@ -156,21 +181,43 @@ function splitOutsideBrackets(text: string): string[] {
   return tokens;
 }
 
+/**
+ * "-name", "-agentlib:<libname>", "-var-file=filename", "-cp": a multi-letter
+ * option with one dash. "-fFILE" / "-XPOST" (a letter then capitals) are a
+ * short option with an attached argument instead.
+ */
+function singleDashLong(tok: string): { name: string; arg?: string } | null {
+  const m = tok.match(/^(-[A-Za-z][\w-]*?)(?:[:=]?([[<:=].*))?$/);
+  if (!m || m[1].length < 3 || /^-[A-Za-z][A-Z]+$/.test(m[1])) return null;
+  return { name: m[1], arg: m[2]?.replace(/^[:=]/, '') || undefined };
+}
+
 /** Parse a single flag line like "-n, --dry-run  Don't actually add" */
 function parseFlagLine(line: string): ParsedFlagLine {
   const result: ParsedFlagLine = {};
 
   // kubectl style: "-A, --all-namespaces=false:" (value is the default, desc on next line)
   const kubectlStyle = /^-.*=.*:$/.test(line) && !/\s{2,}/.test(line);
-  const work = kubectlStyle ? line.slice(0, -1) : line;
+  let work = kubectlStyle ? line.slice(0, -1) : line;
+  if (kubectlStyle) {
+    const value = work.match(/=([^=]*)$/)?.[1].replace(/^(['"])(.*)\1$/, '$2');
+    if (value && value !== '[]') result.default = value;
+  }
+  // gcloud: --verbosity=VERBOSITY; default="warning"
+  const gcloudDefault = work.match(/;\s*default=(?:"([^"]*)"|(\S+))\s*$/);
+  if (gcloudDefault) {
+    result.default = gcloudDefault[1] ?? gcloudDefault[2];
+    work = work.slice(0, gcloudDefault.index);
+  }
 
-  // Flag tokens end at the first 2+ space gap; the rest is the description
-  const gap = work.match(/^(.*?\S)\s{2,}(\S.*)$/);
+  // Flag tokens end at the first 2+ space gap (absl: at "--name: "); the rest is the description
+  const absl = work.match(ABSL_RE);
+  const gap = absl ?? work.match(/^(.*?\S)\s{2,}(\S.*)$/);
   const tokenPart = gap ? gap[1] : work;
   const descParts: string[] = gap ? [gap[2].trim()] : [];
 
   const tokens = splitOutsideBrackets(tokenPart)
-    .flatMap(t => t.split(/\|(?=[-+])/))
+    .flatMap(t => t.split(/\|(?=[-+])|,(?=-)/))
     .map(t => (t.length > 2 && t.endsWith(',') ? t.slice(0, -1) : t))
     .filter(Boolean);
 
@@ -181,7 +228,7 @@ function parseFlagLine(line: string): ParsedFlagLine {
       leftover.push(tok);
       continue;
     }
-    if (/^--[^\s-]/.test(tok) || /^--\[/.test(tok)) {
+    if (/^--[\w[]/.test(tok)) {
       // --name, --name=<arg>, --name[=<arg>], --[no-]name, --name...
       const m = tok.match(/^(--(?:\[[\w-]+\])?[^\s=[]+?)(\.\.\.)?(\[?=.*)?$/);
       const name = m?.[1] ?? tok;
@@ -190,9 +237,11 @@ function parseFlagLine(line: string): ParsedFlagLine {
       if (argPart && !result.arg && !kubectlStyle) {
         result.arg = argPart.startsWith('[=') ? `[${argPart.slice(2)}` : argPart.slice(1);
       }
-    } else if (/^-[A-Za-z][A-Za-z0-9-]+$/.test(tok) && !/^-[A-Za-z][A-Z]/.test(tok) && tok.length > 3) {
-      // single-dash long option (find -name, java -version)
-      if (!result.long) result.long = tok;
+    } else if (singleDashLong(tok)) {
+      // single-dash long option (find -name, java -version, -agentlib:<lib>, ffmpeg -ab <bitrate>)
+      const { name, arg } = singleDashLong(tok)!;
+      if (!result.long) result.long = name;
+      if (arg && !result.arg) result.arg = arg;
     } else if (/^[-+][^\s-]/.test(tok)) {
       // -x, -x<arg>, -x[<arg>], +x (fzf)
       if (!result.short) {
@@ -213,18 +262,178 @@ function parseFlagLine(line: string): ParsedFlagLine {
   return result;
 }
 
-function finishFlag(current: { short?: string; long?: string; arg?: string; descLines: string[] }): FlagDetail {
-  let description = current.descLines.join(' ').replace(/\s+/g, ' ').trim();
-  // Truncate long descriptions
-  if (description.length > 300) {
-    description = description.slice(0, 297) + '...';
+/** Join wrapped lines; a word split at a hyphen ("auto-" + "approved") is rejoined without a space. */
+export function joinWrapped(lines: string[]): string {
+  let out = '';
+  for (const line of lines) {
+    if (!out) out = line;
+    else if (/[A-Za-z0-9]-$/.test(out) && /^[A-Za-z0-9]/.test(line)) out += line;
+    else out += ' ' + line;
   }
-  return {
-    short: current.short,
-    long: current.long,
-    arg: current.arg,
-    description,
-  };
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+function splitList(list: string): string[] {
+  return list
+    .split(/\s*,\s*|\s+or\s+|\s+and\s+/)
+    .map(v => v.trim().replace(/^["'`]|["'`]$/g, ''))
+    .filter(v => v && /^[\w.:/@+-]+$/.test(v));
+}
+
+/** A choice list given as the argument itself: "{json,yaml}", "[yes|ask|no]", "<none|all>". */
+function choicesFromArg(arg: string | undefined): string[] | undefined {
+  const m = arg?.match(/^[{[<(]([\w.-]+(?:[|,][\w.-]+)+)[}\]>)]$/);
+  const values = m?.[1].split(/[|,]/);
+  // "[KEY,...]" is a placeholder list, not choices
+  return values?.every(v => /[a-z0-9]/.test(v)) ? values : undefined;
+}
+
+/**
+ * Choices listed under "X must be one of:" or "Possible values:" lines:
+ * gcloud's one-word terms indented one column deeper, "◆ SCSI" bullets,
+ * clap's "- auto: Automatically detect".
+ */
+function choicesFromLines(rawLines: string[]): string[] | undefined {
+  const start = rawLines.findIndex(l => /(?:must be one of|of the following|[Pp]ossible values):\s*$/.test(l));
+  if (start === -1) return undefined;
+  const base = rawLines[start].match(/^\s*/)?.[0].length ?? 0;
+  // A list under a nested key (gcloud --create-disk "interface ... one of:") is not the flag's
+  if (base > Math.min(...rawLines.map(l => l.match(/^\s*/)?.[0].length ?? 0))) return undefined;
+  const choices: string[] = [];
+  for (const line of rawLines.slice(start + 1)) {
+    const indent = line.match(/^\s*/)?.[0].length ?? 0;
+    const trimmed = line.trim();
+    const bullet = trimmed.match(/^(?:[◆▸•*]|-)\s+([\w.:/+-]+?):?(?:\s|$)/);
+    if (bullet && indent >= base) choices.push(bullet[1]);
+    else if (indent === base + 1 && /^[\w.-]+$/.test(trimmed)) choices.push(trimmed);
+    else if (indent <= base) break;
+  }
+  return choices.length > 0 ? choices : undefined;
+}
+
+/** [pattern, keep the matched text in the description] */
+const DEFAULT_PATTERNS: [RegExp, boolean][] = [
+  // cobra/Go flag: (default "open"), (default 30); absl/psql: (default: 'x')
+  [/\s*\(default:?\s+(?!is\b|to\b|value\b|behaviou?r\b)(?:"([^"]*)"|'([^']*)'|([^)]*?))\)/, false],
+  // clap/click: [default: json]
+  [/\s*\[default:\s*([^\]]*)\]/, false],
+  // az: "Default: Standard."
+  [/\s*\bDefault:\s+(\S+?)\.?(?=\s|$)/, false],
+];
+
+const CHOICE_PATTERNS: [RegExp, boolean][] = [
+  // clap: [possible values: a, b]; yargs: [choices: "a", "b"]
+  [/\s*\[(?:possible values|choices):\s*([^\]]*)\]/, false],
+  // az: "Allowed values: false, true."
+  [/\s*\bAllowed values:\s+(.+?)\.(?=\s|$)/, false],
+  // gcloud states them in prose: "VERBOSITY must be one of: debug, info, warning."
+  [/\bmust be one of:\s+([\w.-]+(?:,\s*[\w.-]+)+)\./, true],
+];
+
+const DEPRECATED_RE = /^\(DEPRECATED\)\s*|^--DEPRECATED--\s*|^DEPRECATED[:.]\s*|^\[deprecated\]\s*|\s*\((?:deprecated|DEPRECATED)\)|\s*\[deprecated\]/;
+
+/** Remove a deprecation marker from a description: [text, deprecated]. */
+export function stripDeprecated(description: string): [string, boolean] {
+  const m = description.match(DEPRECATED_RE);
+  return m ? [description.replace(m[0], ' ').trim(), true] : [description, false];
+}
+
+/**
+ * Pull documented extras out of a flag description: default value, allowed
+ * values, required and deprecated markers. Pure annotations ("[default: x]",
+ * "(required)") are removed from the text; prose that states them is kept.
+ */
+function annotateFlag(flag: FlagDetail, rawLines: string[]): FlagDetail {
+  let description = flag.description;
+  const result: FlagDetail = { ...flag };
+
+  // az markers before the description: "[Required] : Name of the VM"
+  const marker = description.match(/^\[(Required|Preview|Experimental|Deprecated)\]\s*/);
+  if (marker) {
+    if (marker[1] === 'Required') result.required = true;
+    if (marker[1] === 'Deprecated') result.deprecated = true;
+    description = description.slice(marker[0].length);
+  }
+  description = description.replace(/^:\s+/, '');
+  // absl enum: "<none|query_max_slots>: Specifies an alpha feature"
+  const enumPrefix = description.match(/^<([\w.-]+(?:\|[\w.-]+)+)>:\s*/);
+  if (enumPrefix) {
+    result.choices = enumPrefix[1].split('|');
+    description = description.slice(enumPrefix[0].length);
+  }
+
+  for (const [re, keep] of DEFAULT_PATTERNS) {
+    const m = description.match(re);
+    if (!m) continue;
+    const value = (m[1] ?? m[2] ?? m[3] ?? '').trim();
+    if (value && result.default === undefined) result.default = value;
+    if (!keep) description = description.replace(m[0], '');
+    break;
+  }
+
+  // Prose lists are searched in the flag's own lines, not in nested keys' (gcloud --network-interface)
+  const indents = rawLines.map(l => l.match(/^\s*/)?.[0].length ?? 0);
+  const ownText = rawLines.length > 0 ? rawLines.filter((_, i) => indents[i] === Math.min(...indents)).join(' ') : description;
+  for (const [re, keep] of CHOICE_PATTERNS) {
+    const m = description.match(re);
+    if (!m || (keep && !re.test(joinWrapped([ownText])))) continue;
+    const values = splitList(m[1]);
+    if (values.length > 1) result.choices = values;
+    if (!keep) description = description.replace(m[0], '');
+    break;
+  }
+  const listed = choicesFromLines(rawLines);
+  // clap's long help lists them as "Possible values: - no: Force colors off ..."
+  if (listed) description = description.replace(/\s*Possible values:\s+-\s.*$/, '');
+  result.choices ??= listed
+    ?? description.match(/\{([\w.-]+(?:\|[\w.-]+)+)\}/)?.[1].split('|')
+    // hadolint: "The output format for the results [tty | json | checkstyle]"
+    ?? description.match(/\[([\w.-]+(?:\s*\|\s*[\w.-]+)+)\]/)?.[1].split(/\s*\|\s*/)
+    ?? choicesFromArg(flag.arg);
+
+  const required = /\s*[([](?:required|REQUIRED)[)\]]/;
+  if (required.test(description)) {
+    result.required = true;
+    description = description.replace(required, '');
+  }
+
+  const [text, deprecated] = stripDeprecated(description);
+  if (deprecated) result.deprecated = true;
+
+  result.description = text.replace(/\s+/g, ' ').trim();
+  for (const key of ['default', 'choices', 'required', 'deprecated', 'group'] as const) {
+    if (result[key] === undefined) delete result[key];
+  }
+  return result;
+}
+
+function finishFlag(current: PendingFlag, group?: string): FlagDetail {
+  // tsc: "type: boolean", "default: false", "one of: es5, es6" lines under the description
+  let fieldDefault: string | undefined;
+  let fieldChoices: string[] | undefined;
+  const descLines = current.descLines.filter((line) => {
+    // a field line, not prose: "one of: PREMIUM, STANDARD. The default value is PREMIUM."
+    const m = /\.(\s|$)/.test(line) ? null : line.match(/^(type|default|one of|one or more):\s+(.*)$/);
+    if (!m) return true;
+    if (m[1] === 'default' && m[2] !== 'undefined') fieldDefault = m[2].replace(/`/g, '');
+    if (m[1].startsWith('one')) fieldChoices = splitList(m[2]);
+    return false;
+  });
+  const flag = annotateFlag(
+    {
+      short: current.short,
+      long: current.long,
+      arg: current.arg,
+      description: joinWrapped(descLines),
+      default: current.default ?? fieldDefault,
+      choices: fieldChoices,
+      group,
+    },
+    current.rawLines,
+  );
+  // Truncate long descriptions (after the annotations are taken out)
+  if (flag.description.length > 300) flag.description = flag.description.slice(0, 297) + '...';
+  return flag;
 }
 
 /**
@@ -438,4 +647,46 @@ export function extractUsageLine(helpOutput: string): string | undefined {
   }
 
   return undefined;
+}
+
+interface ParsedDoc extends HelpExtras {
+  description?: string;
+  synopsis?: string;
+  longDescription?: string;
+  subcommands: unknown[];
+  flags: FlagDetail[];
+  arguments: ArgumentDetail[];
+}
+
+function hasContent(doc: ParsedDoc | null): doc is ParsedDoc {
+  return Boolean(doc && (doc.subcommands.length > 0 || doc.flags.length > 0 || doc.arguments.length > 0));
+}
+
+/**
+ * Whether `--help` should run after this man page result: unless the page
+ * already lists subcommands, `--help` may be richer (helm's page has its
+ * flags but no commands, jq's yields no flags) - docs/spec.md §7.5.
+ */
+export function needsHelp(man: ParsedDoc | null): boolean {
+  return !hasContent(man) || man.subcommands.length === 0;
+}
+
+/**
+ * The richer of a man page and a `--help` result: a man page that lists
+ * subcommands wins, then a help that does; otherwise the one documenting
+ * more flags (ffmpeg's man page over its short --help), the man page on a
+ * tie. The winner takes the other's flags when it has more, and fills its
+ * missing text and extras from it. Null when neither documents anything.
+ */
+export function pickRicher<T extends ParsedDoc>(man: T | null, help: T | null): { from: 'man' | 'help'; doc: T } | null {
+  if (!hasContent(help)) return hasContent(man) ? { from: 'man', doc: man } : null;
+  if (!hasContent(man)) return { from: 'help', doc: help };
+  const helpWins = man.subcommands.length === 0
+    && (help.subcommands.length > 0 || help.flags.length > man.flags.length);
+  const [doc, other] = helpWins ? [help, man] : [man, help];
+  const merged: T = { ...doc, flags: other.flags.length > doc.flags.length ? other.flags : doc.flags };
+  for (const key of ['description', 'synopsis', 'longDescription', 'aliases', 'examples', 'environment', 'seeAlso'] as const) {
+    if (!merged[key] && other[key]) Object.assign(merged, { [key]: other[key] });
+  }
+  return { from: helpWins ? 'help' : 'man', doc: merged };
 }

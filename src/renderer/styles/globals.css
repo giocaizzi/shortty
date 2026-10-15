@@ -151,6 +151,27 @@ input::placeholder {
   content: attr(data-glyph);
 }
 
+/* Brand glyph tiles (SourceIcon): the glyph takes the brand colour, mixed
+   toward the foreground on the theme where it would be too faint
+   (data-weak-on, from brand-icons.ts). */
+.brand-tile {
+  color: var(--brand);
+  background: var(--fill-quiet);
+  box-shadow: inset 0 0 0 0.5px var(--separator);
+}
+
+@media (prefers-color-scheme: light) {
+  .brand-tile[data-weak-on='light'] {
+    color: color-mix(in oklab, var(--brand) 45%, var(--fg));
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .brand-tile[data-weak-on='dark'] {
+    color: color-mix(in oklab, var(--brand) 45%, var(--fg));
+  }
+}
+
 /* Key caps. KeyCombo renders one <kbd> per chord; every other key glyph in
    the launcher (search-bar hotkey, footer hints, help sheet) uses the same cap. */
 kbd {

@@ -2,6 +2,7 @@
   "id": "macos-system",
   "label": "macOS System",
   "icon": "🍎",
+  "app": { "bundleId": "com.apple.systempreferences", "name": "System Settings" },
   "platforms": ["darwin"],
   "parser": "macos-system",
   "mergeMode": "replace",

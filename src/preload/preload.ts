@@ -121,6 +121,11 @@ const electronAPI = {
     return ipcRenderer.invoke(IPC_CHANNELS.COMMANDS_GET_STATS);
   },
 
+  /** App icon of a known source id or command name, as a data URL; null when none. */
+  getIcon(kind: 'source' | 'command', name: string): Promise<string | null> {
+    return ipcRenderer.invoke(IPC_CHANNELS.ICONS_GET, kind, name);
+  },
+
   setWindowHeight(height: number): void {
     ipcRenderer.send(IPC_CHANNELS.SET_WINDOW_HEIGHT, height);
   },

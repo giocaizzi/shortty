@@ -1,0 +1,68 @@
+GH-AUTH(1)                     GitHub CLI manual                    GH-AUTH(1)
+
+
+
+NAME
+       gh-auth - Authenticate gh and git with GitHub
+
+
+
+SYNOPSIS
+       gh auth <command> [flags]
+
+
+
+AVAILABLE COMMANDS
+       gh-auth-login(1)
+              Log in to a GitHub account
+
+
+       gh-auth-logout(1)
+              Log out of a GitHub account
+
+
+       gh-auth-refresh(1)
+              Refresh stored authentication credentials
+
+
+       gh-auth-setup-git(1)
+              Setup git with GitHub CLI
+
+
+       gh-auth-status(1)
+              Display active account and authentication state on each known
+              GitHub host
+
+
+       gh-auth-switch(1)
+              Switch active GitHub account
+
+
+       gh-auth-token(1)
+              Print the authentication token gh uses for a hostname and
+              account
+
+
+
+EXIT CODES
+       0: Successful execution
+
+
+       1: Error
+
+
+       2: Command canceled
+
+
+       4: Authentication required
+
+
+       NOTE: Specific commands may have additional exit codes. Refer to the
+       command's help for more information.
+
+
+
+SEE ALSO
+       gh(1)
+
+GitHub CLI 2.102.0                 Sep 2026                         GH-AUTH(1)

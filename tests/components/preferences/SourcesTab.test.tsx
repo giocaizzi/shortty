@@ -44,12 +44,12 @@ describe('SourcesTab', () => {
     expect(within(nth(cards, 2)).getByText(/no config file/)).toBeInTheDocument();
   });
 
-  it('shows the launcher monogram tile, not the cheatsheet emoji', async () => {
+  it('shows the launcher source tile, not the cheatsheet emoji', async () => {
     setup([makeSource()]);
     const [card] = await screen.findAllByTestId('source-card');
     const tile = card.querySelector('[data-source-icon]');
     expect(tile).toHaveAttribute('data-source-icon', 'ghostty');
-    expect(tile).toHaveAttribute('data-glyph', 'Gh');
+    expect(tile).toHaveAttribute('data-brand', 'Ghostty');
     expect(card).not.toHaveTextContent('👻');
   });
 

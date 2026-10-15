@@ -1,7 +1,7 @@
 import { open, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join, sep } from 'node:path';
-import type { ArgumentDetail, CommandDetail, FlagDetail, SubcommandDetail } from '../../../shared/types';
+import type { ArgumentDetail, CommandDetail, FlagDetail, HelpExtras, SubcommandDetail } from '../../../shared/types';
 import {
   parseFlagsFromText,
   parseArgumentsFromSynopsis,
@@ -9,7 +9,19 @@ import {
   extractUsageLine,
   normalizeText,
   deduplicateFlags,
+  joinWrapped,
+  stripDeprecated,
 } from './parse-utils';
+import {
+  describeArguments,
+  parseAliases,
+  parseArgumentEntries,
+  parseEnvironment,
+  parseExamples,
+  parseSeeAlso,
+  takeFlagEnvironment,
+} from './help-extras';
+import { parseManContent } from './man-parser';
 import { runSandboxed } from '../sandbox-exec';
 
 const BLOCKLIST = new Set([
@@ -66,6 +78,17 @@ function trustedScriptPrefixes(): string[] {
   return prefixes;
 }
 
+/**
+ * The OS's own directories: never probed with --help, only described from
+ * their man pages. Apple's binaries there include Xcode shims that offer
+ * to download tools, dtrace scripts, Java stubs, keychain and disk-image
+ * tools, and helpers that open GUI apps when they ignore --help.
+ */
+const SYSTEM_PREFIXES = [
+  '/usr/bin/', '/usr/sbin/', '/usr/libexec/', '/bin/', '/sbin/',
+  '/System/', '/Library/Apple/', '/Library/Developer/', '/Applications/Xcode',
+];
+
 const NATIVE_MAGICS = [
   'feedface', 'feedfacf', 'cefaedfe', 'cffaedfe', // Mach-O 32/64, both byte orders
   'cafebabe', 'bebafeca', // Mach-O universal (fat)
@@ -88,7 +111,7 @@ async function readMagic(path: string): Promise<Buffer | null> {
 
 /**
  * Whether `binPath --help` may be run (docs/spec.md §7.5):
- * never as root; only files owned by root or the current user and not
+ * never as root; never in the OS's own directories; only files owned by root or the current user and not
  * writable by group or others; native executables anywhere, `#!` scripts
  * only under trusted install prefixes; never a blocklisted program reached
  * through a symlink with another name.
@@ -98,6 +121,7 @@ async function isTrustedBinary(binPath: string): Promise<boolean> {
   try {
     const real = await realpath(binPath);
     if (isBlocklisted(basename(real))) return false;
+    if (SYSTEM_PREFIXES.some((prefix) => real.startsWith(prefix) || binPath.startsWith(prefix))) return false;
     const s = await stat(real);
     if (s.uid !== 0 && s.uid !== process.getuid?.()) return false;
     if ((s.mode & 0o022) !== 0) return false;
@@ -114,6 +138,24 @@ async function isTrustedBinary(binPath: string): Promise<boolean> {
   }
 }
 
+/**
+ * CLIs whose `--help` does not list their commands, by command name: the
+ * words that print their help instead, after the subcommand path
+ * (docs/spec.md §7.5). aws's `--help` is an error, its help is
+ * `aws [<command> ...] help` (pager set to cat); poetry and bq list their
+ * commands with `poetry list` / `bq help` at the top level only.
+ */
+const HELP_WORDS: Record<string, { top: string[]; sub: string[] }> = {
+  aws: { top: ['help'], sub: ['help'] },
+  bq: { top: ['help'], sub: ['--help'] },
+  poetry: { top: ['list'], sub: ['--help'] },
+};
+
+function helpArgs(commandName: string, subcommandParts: string[] = []): string[] {
+  const words = HELP_WORDS[commandName];
+  return [...subcommandParts, ...(words ? (subcommandParts.length > 0 ? words.sub : words.top) : ['--help'])];
+}
+
 /** Run `bin args` sandboxed and return its output, or null if it hung or could not run. */
 async function captureHelp(bin: string, args: string[]): Promise<string | null> {
   try {
@@ -126,7 +168,10 @@ async function captureHelp(bin: string, args: string[]): Promise<string | null> 
   }
 }
 
-type SectionKind = 'commands' | 'flags' | 'usage' | 'other';
+
+type SectionKind =
+  | 'commands' | 'flags' | 'usage' | 'arguments' | 'examples' | 'environment'
+  | 'aliases' | 'seeAlso' | 'summary' | 'other';
 
 interface HelpSection {
   title: string;
@@ -134,18 +179,27 @@ interface HelpSection {
   lines: string[];
 }
 
-/** "Commands:", "Global options:", "Basic Commands (Beginner):" */
-const COLON_HEADER_RE = /^([A-Za-z][\w ()/,'.-]{0,60}?):\s*$/;
+/** "Commands:", "Global options:", "Basic Commands (Beginner):", " Examples:" (bw) */
+const COLON_HEADER_RE = /^\s{0,2}([A-Za-z][\w ()/,'.-]{0,60}?):\s*$/;
 /** "CORE COMMANDS", "FLAGS" (cobra/gh), "  SEARCH" (fzf) */
 const CAPS_HEADER_RE = /^\s{0,2}([A-Z][A-Z0-9 /&()-]{2,}?)\s*$/;
+/** az (knack): "Arguments", "Global Arguments", "Examples" at column 0, content indented below */
+const TITLE_HEADER_RE = /^([A-Z][a-z]+(?: [A-Z][a-z]+){0,4})\s*$/;
 /** "Usage: tool [OPTIONS]" — usage statement on the header line itself */
 const INLINE_USAGE_RE = /^\s{0,2}(?:[Uu]sage|USAGE):\s+\S/;
 
 function classifySection(title: string): SectionKind {
   if (/^usage$/i.test(title)) return 'usage';
+  if (/^(?:group|command)$/i.test(title)) return 'summary';
   if (/help topics/i.test(title)) return 'other';
-  if (/\b(?:sub)?commands?\b/i.test(title)) return 'commands';
+  if (/\bexamples?\b/i.test(title)) return 'examples';
+  if (/\benvironment\b/i.test(title)) return 'environment';
+  if (/^aliases$/i.test(title)) return 'aliases';
+  if (/^(?:learn more|see also)$/i.test(title)) return 'seeAlso';
+  // Before commands: "COMMAND LINE FLAGS", "OPTIONS INHERITED FROM PARENT COMMANDS"
   if (/\b(?:options?|flags)\b/i.test(title)) return 'flags';
+  if (/\b(?:sub)?(?:commands?|groups)\b/i.test(title)) return 'commands';
+  if (/\barguments\b/i.test(title)) return 'arguments';
   return 'other';
 }
 
@@ -156,8 +210,14 @@ function classifySection(title: string): SectionKind {
  */
 function splitHelpSections(lines: string[]): HelpSection[] {
   const sections: HelpSection[] = [{ title: '', kind: 'other', lines: [] }];
-  for (const line of lines) {
-    const header = line.match(COLON_HEADER_RE) ?? line.match(CAPS_HEADER_RE);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    let header = line.match(COLON_HEADER_RE) ?? line.match(CAPS_HEADER_RE);
+    if (!header) {
+      // A Title Case line is a header only when indented content follows it
+      const next = lines.slice(i + 1).find(l => l.trim());
+      if (next && /^\s/.test(next)) header = line.match(TITLE_HEADER_RE);
+    }
     if (header) {
       const title = header[1].trim();
       sections.push({ title, kind: classifySection(title), lines: [] });
@@ -169,15 +229,31 @@ function splitHelpSections(lines: string[]): HelpSection[] {
     }
     sections[sections.length - 1].lines.push(line);
   }
+  // "Arguments" lists flags in az, positionals elsewhere; an argparse
+  // "positional arguments" section holding "{a,b,c}" lists subcommands
+  for (const section of sections) {
+    // ffmpeg's "Print help / information / capabilities:", fzf's "DISPLAY MODE" list options too
+    const content = section.lines.filter(l => l.trim());
+    if (section.kind === 'other' && section.title && content.length > 0
+      && content.some(l => /^\s{0,4}--?[A-Za-z]/.test(l))) section.kind = 'flags';
+    if (section.kind !== 'arguments') continue;
+    if (section.lines.some(l => /^\s+\{[\w,-]+\}\s*$/.test(l))) section.kind = 'commands';
+    else if (section.lines.some(l => /^\s{1,8}--?\w/.test(l))) section.kind = 'flags';
+  }
   return sections;
 }
 
-/** "  run        Run a command", "  auth:   Authenticate", "  ai*   Docker AI", "  ls, list   List" */
-const ENTRY_RE = /^\s{1,8}([A-Za-z0-9][\w.+-]*)\*?((?:,\s*[\w.+-]+)*)(?::\s+|\s{2,})(\S.*)$/;
+/**
+ * "  run        Run a command", "  auth:   Authenticate", "  ai*   Docker AI", "  ls, list   List",
+ * az: "  config [Experimental] : Manage Azure CLI configuration."
+ */
+const ENTRY_RE = /^\s{1,8}([A-Za-z0-9][\w.+-]*)\*?((?:,\s*[\w.+-]+)*)(?:\s+\[(Preview|Experimental|Deprecated)\])?(?:\s+[<[][^\s\]>]*[\]>](?:\.\.\.)?)*(?:\s*:\s+|\s{2,}(?::\s+)?)(\S.*)$/;
 /** clap long help: name alone on its line, description on the following, deeper-indented line */
 const BARE_ENTRY_RE = /^(\s{1,8})([a-z0-9][\w.+-]*)\s*$/;
+/** clap: a name padded to the description column, with no description */
+const PADDED_ENTRY_RE = /^\s{1,8}([a-z0-9][\w.+-]*)\s{2,}$/;
 /** npm: "    access, adduser, audit, bugs," */
-const COMMA_LIST_RE = /^\s+[\w.-]+(?:,\s*[\w.-]+)+,?\s*$/;
+const COMMA_LIST_RE = /^\s{1,8}[\w.-]+(?:,\s*[\w.-]+)+,?\s*$/;
 
 function isPlausibleSubcommand(name: string): boolean {
   if (name.length > 40) return false;
@@ -192,7 +268,7 @@ function mostCommonDescColumn(lines: string[]): number | undefined {
   for (const line of lines) {
     const m = line.match(ENTRY_RE);
     if (m) {
-      const col = line.length - m[3].length;
+      const col = line.length - m[4].length;
       counts.set(col, (counts.get(col) ?? 0) + 1);
     }
   }
@@ -210,25 +286,45 @@ function mostCommonDescColumn(lines: string[]): number | undefined {
 function extractSubcommands(sections: HelpSection[], commandName: string): CommandDetail[] {
   const subcommands: CommandDetail[] = [];
   const seen = new Set<string>();
-  const add = (name: string, description: string) => {
-    if (!isPlausibleSubcommand(name) || seen.has(name)) return;
+  let group: string | undefined;
+  const add = (name: string, description: string, marker?: string): CommandDetail | undefined => {
+    if (!isPlausibleSubcommand(name) || seen.has(name)) return undefined;
     seen.add(name);
-    subcommands.push({ name: `${commandName} ${name}`, description });
+    const [text, deprecated] = stripDeprecated(description);
+    const entry: CommandDetail = { name: `${commandName} ${name}`, description: text };
+    if (group) entry.group = group;
+    if (deprecated || marker === 'Deprecated') entry.deprecated = true;
+    subcommands.push(entry);
+    return entry;
   };
 
   for (const section of sections) {
     if (section.kind !== 'commands') continue;
+    group = section.title || undefined;
     const { lines } = section;
     const descColumn = mostCommonDescColumn(lines);
+    let last: CommandDetail | undefined;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (/^\s*[-$#]/.test(line)) continue;
-
-      const entry = line.match(ENTRY_RE);
-      if (entry) {
-        add(entry[1], entry[3].trim());
+      if (/^\s*[-$#]/.test(line)) {
+        last = undefined;
         continue;
       }
+
+      const entry = line.match(ENTRY_RE);
+      // "  Tip: Managing secrets is easier with..." is prose, not a "name: description" entry
+      if (entry && !(/^[A-Z][a-z]/.test(entry[1]) && line.includes(`${entry[1]}:`))) {
+        last = add(entry[1], entry[4].trim(), entry[3]);
+        continue;
+      }
+
+      // Description wrapped onto the next line, at the description column (az)
+      const indent = line.match(/^\s*/)![0].length;
+      if (last && descColumn !== undefined && line.trim() && indent === descColumn) {
+        last.description = joinWrapped([last.description, line.trim()]);
+        continue;
+      }
+      last = undefined;
 
       // A name that fills its column leaves a single space before the
       // description: "  edit-config-template Edit the configuration file template"
@@ -239,9 +335,21 @@ function extractSubcommands(sections: HelpSection[], commandName: string): Comma
       }
 
       if (COMMA_LIST_RE.test(line)) {
-        for (const name of line.split(',')) {
+        // The list may wrap, splitting a name at its hyphen (bq: "remove-iam-policy-" / "binding,")
+        const list = [line.trim()];
+        while (/[,-]$/.test(list[list.length - 1]) && /^\s+[\w.-]+(?:,\s*[\w.-]+)*,?\s*$/.test(lines[i + 1] ?? '')) {
+          list.push(lines[++i].trim());
+        }
+        for (const name of joinWrapped(list).split(',')) {
           if (name.trim()) add(name.trim(), '');
         }
+        continue;
+      }
+
+      // clap pads a name without a description: "  create  "
+      const padded = line.match(PADDED_ENTRY_RE);
+      if (padded) {
+        add(padded[1], '');
         continue;
       }
 
@@ -250,7 +358,8 @@ function extractSubcommands(sections: HelpSection[], commandName: string): Comma
         const next = lines[i + 1] ?? '';
         const nextIndent = next.match(/^(\s*)/)?.[1].length ?? 0;
         if (next.trim() && nextIndent > bare[1].length) {
-          add(bare[2], next.trim());
+          // poetry's namespaces: " cache" over "  cache clear   Clear Poetry's caches."
+          add(bare[2], next.trim().startsWith(`${bare[2]} `) ? '' : next.trim());
           i++;
         }
       }
@@ -268,11 +377,11 @@ function extractHelpFlags(sections: HelpSection[], output: string): FlagDetail[]
     return parseFlagsFromText(output);
   }
 
-  return deduplicateFlags(flagSections.flatMap(s => parseFlagsFromText(s.lines.join('\n'))));
+  return deduplicateFlags(flagSections.flatMap(s => parseFlagsFromText(s.lines.join('\n'), s.title || undefined)));
 }
 
 /** "tmux: unknown option -- -", "ls: unrecognized option `--help'" */
-const ERROR_LINE_RE = /^\S+: (?:unknown|illegal|unrecognized|invalid) (?:option|flag|argument)/i;
+const ERROR_LINE_RE = /^\S+: (?:(?:unknown|illegal|unrecognized|invalid) (?:option|flag|argument)|\[?error\b)/i;
 
 /**
  * Description: the first prose paragraph before the first commands/flags
@@ -292,7 +401,8 @@ function extractHelpDescription(sections: HelpSection[], commandName: string): s
       if (statement.some(l => /^\s*-/.test(l))) return undefined;
       if (blank === -1) continue;
       lines = lines.slice(blank);
-    } else if (section.title) {
+    } else if (section.title && !/^description$/i.test(section.title)) {
+      // poetry and pip put it under "Description:"
       continue;
     }
     const desc = firstProseParagraph(lines, program);
@@ -321,11 +431,26 @@ function firstProseParagraph(lines: string[], program: string): string | undefin
     // Usage-like lines: "npm <command>", "npm install   install all the dependencies"
     if (trimmed === program) continue;
     if (trimmed.startsWith(`${program} `) && (/^\S+\s+[<[]/.test(trimmed) || /\S\s{2,}\S/.test(trimmed))) continue;
-    // Indented tables / examples
-    if (/^\s{2,}/.test(first)) continue;
+    // Indented tables / examples; click and terraform indent plain prose too
+    const prose = /[.!?]$/.test(paragraph[paragraph.length - 1].trim())
+      && !paragraph.some(l => /\S\s{2,}\S/.test(l) || /^\s*[$#-]/.test(l));
+    if (/^\s{2,}/.test(first) && !prose) continue;
     return extractFirstParagraph(paragraph.join('\n'), 500);
   }
   return null;
+}
+
+/**
+ * az's "Group" / "Command" section: "    az vm create : Create an Azure VM."
+ * followed by more description lines.
+ */
+function extractSummary(sections: HelpSection[]): { description?: string; longDescription?: string } {
+  const section = sections.find(s => s.kind === 'summary');
+  if (!section) return {};
+  const text = joinWrapped(section.lines.map(l => l.trim()).filter(Boolean));
+  const m = text.match(/^\S.*? : (.*)$/);
+  if (!m) return {};
+  return { description: firstSentence(m[1]), longDescription: extractFirstParagraph(m[1], 500) };
 }
 
 /** npm prints "npm <command>" as its first line instead of a "Usage:" line. */
@@ -343,7 +468,30 @@ function firstSentence(text: string | undefined): string {
   return (match ? match[1] : text).trim();
 }
 
-export interface ParsedHelp {
+/**
+ * Output that is a rendered man page (gcloud prints NAME / SYNOPSIS /
+ * DESCRIPTION... even through a pager set to cat, aws's `help` too).
+ */
+function isManStyle(text: string): boolean {
+  const first = text.split('\n').find(l => l.trim())?.trim();
+  // aws starts with the page header: "AWS()          AWS()"
+  const header = first === 'NAME' || /^\S+\(\w*\)\s.*\S\(\w*\)$/.test(first ?? '');
+  return header && /^NAME\s*$/m.test(text) && /^SYNOPSIS\s*$/m.test(text);
+}
+
+/**
+ * Banners some CLIs print before their help on first run. az: "Welcome to
+ * Azure CLI!" and a telemetry notice, up to its "Group"/"Command" header.
+ */
+function stripBanner(text: string): string {
+  if (!/^\s*Welcome to Azure CLI!/.test(text)) return text;
+  const header = text.search(/^(?:Group|Command)\s*$/m);
+  return header === -1 ? text : text.slice(header);
+}
+
+export interface ParsedHelp extends HelpExtras {
+  /** One-line description, when the help states one apart from the long text (az, gcloud). */
+  description?: string;
   synopsis?: string;
   longDescription?: string;
   subcommands: CommandDetail[];
@@ -351,25 +499,50 @@ export interface ParsedHelp {
   arguments: ArgumentDetail[];
 }
 
+function sectionText(sections: HelpSection[], kind: SectionKind): string {
+  return sections.filter(s => s.kind === kind).map(s => s.lines.join('\n')).join('\n\n');
+}
+
 /** Parse captured `--help` output (pure; no process spawning). */
 export function parseHelpOutput(output: string, commandName: string): ParsedHelp | null {
-  const text = normalizeText(output);
+  const text = stripBanner(normalizeText(output));
+  if (isManStyle(text)) {
+    const man = parseManContent(text, commandName);
+    if (!man || (man.subcommands.length === 0 && man.flags.length === 0 && man.arguments.length === 0)) return null;
+    return man;
+  }
+
   const sections = splitHelpSections(text.split('\n'));
   const synopsis = extractUsageLine(text) ?? firstLineUsage(text, commandName);
-  const longDescription = extractHelpDescription(sections, commandName);
+  const summary = extractSummary(sections);
+  const longDescription = summary.longDescription ?? extractHelpDescription(sections, commandName);
   const subcommands = extractSubcommands(sections, commandName);
   const flags = extractHelpFlags(sections, text);
-  const args = synopsis ? parseArgumentsFromSynopsis(synopsis) : [];
+  const args = describeArguments(
+    synopsis ? parseArgumentsFromSynopsis(synopsis) : [],
+    parseArgumentEntries(sectionText(sections, 'arguments')),
+  );
 
   if (subcommands.length === 0 && flags.length === 0 && args.length === 0) return null;
-  return { synopsis, longDescription, subcommands, flags, arguments: args };
+
+  const result: ParsedHelp = { synopsis, longDescription, subcommands, flags, arguments: args };
+  if (summary.description) result.description = summary.description;
+  const examples = parseExamples(sectionText(sections, 'examples'), commandName);
+  if (examples.length > 0) result.examples = examples;
+  const environment = [...parseEnvironment(sectionText(sections, 'environment')), ...takeFlagEnvironment(flags)];
+  if (environment.length > 0) result.environment = environment;
+  const aliases = parseAliases(sectionText(sections, 'aliases'), commandName);
+  if (aliases.length > 0) result.aliases = aliases;
+  const seeAlso = parseSeeAlso(sectionText(sections, 'seeAlso'));
+  if (seeAlso.length > 0) result.seeAlso = seeAlso;
+  return result;
 }
 
 export async function parseHelp(commandName: string, binPath: string): Promise<ParsedHelp | null> {
   if (isBlocklisted(commandName)) return null;
   if (!(await isTrustedBinary(binPath))) return null;
 
-  const output = await captureHelp(binPath, ['--help']);
+  const output = await captureHelp(binPath, helpArgs(commandName));
   if (output === null) return null;
   return parseHelpOutput(output, commandName);
 }
@@ -387,11 +560,12 @@ export async function parseSubcommandHelp(
   if (subcommandParts.length === 0 || !subcommandParts.every(p => SUBCOMMAND_TOKEN_RE.test(p))) return null;
   if (!(await isTrustedBinary(baseBinPath))) return null;
 
-  const output = await captureHelp(baseBinPath, [...subcommandParts, '--help']);
+  const output = await captureHelp(baseBinPath, helpArgs(baseName, subcommandParts));
   if (output === null) return null;
 
   const parsed = parseHelpOutput(output, qualifiedName);
   if (!parsed) return null;
 
-  return { name: qualifiedName, description: firstSentence(parsed.longDescription), ...parsed };
+  const { description, ...rest } = parsed;
+  return { name: qualifiedName, description: description ?? firstSentence(rest.longDescription), ...rest };
 }

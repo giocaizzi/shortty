@@ -503,7 +503,9 @@ app.on('before-quit', () => {
 });
 
 app.on('will-quit', () => {
-  globalShortcut.unregisterAll();
+  // A quit before ready (second instance, an early close) has nothing
+  // registered, and globalShortcut throws before ready.
+  if (app.isReady()) globalShortcut.unregisterAll();
   stopWatching();
   destroyTray();
   commandsEngine?.stop();

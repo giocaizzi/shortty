@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { test, expect, createHermeticEnv, launchShortty } from './fixtures';
+import { test, expect, createHermeticEnv, launchShortty, FAKE_COMMANDS } from './fixtures';
 
 const ROOT = path.resolve(__dirname, '../..');
 // In Node, the electron package exports the path of its binary.
@@ -39,7 +39,7 @@ test.describe('main-process lifecycle', () => {
       );
       expect(sources.length).toBeGreaterThan(0);
       expect(Array.isArray(shortcuts)).toBe(true);
-      expect(commands.map((c) => c.name).sort()).toEqual(['gizmo', 'gizmo-lite', 'widgetctl']);
+      expect(commands.map((c) => c.name).sort()).toEqual(FAKE_COMMANDS);
     } finally {
       await app.close();
       rmSync(hermetic.dir, { recursive: true, force: true });

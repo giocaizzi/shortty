@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FlagDetail } from '../../../src/shared/types';
-import { parseManContent } from '../../../src/main/commands/parsers/man-parser';
+import { parseCommandBlock, parseManContent } from '../../../src/main/commands/parsers/man-parser';
 import { parseHelpOutput } from '../../../src/main/commands/parsers/help-parser';
 import { extractUsageLine } from '../../../src/main/commands/parsers/parse-utils';
 import { assertDefined } from '../../helpers';
@@ -129,7 +129,7 @@ describe('golden: git (custom layout + man cross-references)', () => {
     const result = parse('git/man-commit.txt');
     assertDefined(result);
     expect(result.description).toBe('Record changes to the repository');
-    expect(flag('git/man-commit.txt', { short: '-m' })).toEqual({
+    expect(flag('git/man-commit.txt', { short: '-m' })).toMatchObject({
       short: '-m',
       long: '--message',
       arg: '<msg>',
@@ -140,7 +140,7 @@ describe('golden: git (custom layout + man cross-references)', () => {
   });
 
   it('git commit -h: --[no-] options and optional attached args', () => {
-    expect(flag('git/commit-help.txt', { short: '-m' })).toEqual({
+    expect(flag('git/commit-help.txt', { short: '-m' })).toMatchObject({
       short: '-m', long: '--[no-]message', arg: '<message>', description: 'commit message',
     });
     expect(flag('git/commit-help.txt', { short: '-S' })).toMatchObject({ long: '--[no-]gpg-sign', arg: '[<key-id>]', description: 'GPG sign commit' });
@@ -170,7 +170,7 @@ describe('golden: Go cobra (gh, docker, kubectl, chezmoi)', () => {
 
   it('gh pr --help: "name: description" with a single space', () => {
     expect(sub('gh/pr-help.txt', 'gh pr update-branch').description).toBe('Update a pull request branch');
-    expect(flag('gh/pr-help.txt', { short: '-R' })).toEqual({
+    expect(flag('gh/pr-help.txt', { short: '-R' })).toMatchObject({
       short: '-R', long: '--repo', arg: '[HOST/]OWNER/REPO',
       description: 'Select another repository using the [HOST/]OWNER/REPO format',
     });
@@ -181,10 +181,10 @@ describe('golden: Go cobra (gh, docker, kubectl, chezmoi)', () => {
     assertDefined(result);
     expect(result.synopsis).toBe('gh pr create [flags]');
     expect(result.longDescription).toBe('Create a pull request on GitHub.');
-    expect(flag('gh/pr-create-help.txt', { short: '-B' })).toEqual({
+    expect(flag('gh/pr-create-help.txt', { short: '-B' })).toMatchObject({
       short: '-B', long: '--base', arg: 'branch', description: 'The branch into which you want your code merged',
     });
-    expect(flag('gh/pr-create-help.txt', { short: '-d' })).toEqual({
+    expect(flag('gh/pr-create-help.txt', { short: '-d' })).toMatchObject({
       short: '-d', long: '--draft', arg: undefined, description: 'Mark pull request as a draft',
     });
   });
@@ -200,12 +200,14 @@ describe('golden: Go cobra (gh, docker, kubectl, chezmoi)', () => {
     expect(result.longDescription).toBe('A self-sufficient runtime for containers');
     expect(sub('docker/help.txt', 'docker compose').description).toBe('Docker Compose');
     expect(sub('docker/help.txt', 'docker wait').description).toBe('Block until one or more containers stop, then print their exit codes');
-    expect(flag('docker/help.txt', { short: '-H' })).toEqual({
+    expect(flag('docker/help.txt', { short: '-H' })).toMatchObject({
       short: '-H', long: '--host', arg: 'string', description: 'Daemon socket to connect to',
     });
-    expect(flag('docker/help.txt', { long: '--config' }).description).toBe(
-      'Location of client config files (default "/Users/user/.docker")',
-    );
+    expect(flag('docker/help.txt', { long: '--config' })).toMatchObject({
+      description: 'Location of client config files',
+      default: '/Users/user/.docker',
+      group: 'Global Options',
+    });
   });
 
   it('docker compose up --help: optional variadic SERVICE argument', () => {
@@ -234,7 +236,8 @@ describe('golden: Go cobra (gh, docker, kubectl, chezmoi)', () => {
   it('chezmoi --help: name filling its column, compound argument types', () => {
     expect(sub('chezmoi/help.txt', 'chezmoi edit-config-template').description).toBe('Edit the configuration file template');
     expect(flag('chezmoi/help.txt', { short: '-R' })).toMatchObject({ long: '--refresh-externals', arg: 'always|auto|never[=always]' });
-    expect(flag('chezmoi/help.txt', { long: '--color' })).toMatchObject({ arg: 'bool|auto', description: 'Colorize output (default auto)' });
+    expect(flag('chezmoi/help.txt', { long: '--color' })).toMatchObject({ arg: 'bool|auto', description: 'Colorize output', default: 'auto' });
+    expect(flag('chezmoi/help.txt', { long: '--color' }).choices).toBeUndefined();
   });
 });
 
@@ -246,8 +249,9 @@ describe('golden: clap (uv, fd)', () => {
     expect(result.longDescription).toBe('An extremely fast Python package manager.');
     expect(result.arguments).toEqual([{ name: 'COMMAND', required: true, variadic: false, description: '' }]);
     expect(sub('uv/help.txt', 'uv pip').description).toBe('Manage Python packages with a pip-compatible interface');
-    expect(flag('uv/help.txt', { long: '--cache-dir' })).toMatchObject({ arg: '<CACHE_DIR>', description: 'Path to the cache directory [env: UV_CACHE_DIR=]' });
-    expect(flag('uv/help.txt', { short: '-q' })).toEqual({ short: '-q', long: '--quiet', arg: undefined, description: 'Use quiet output' });
+    expect(flag('uv/help.txt', { long: '--cache-dir' })).toMatchObject({ arg: '<CACHE_DIR>', description: 'Path to the cache directory', group: 'Cache options' });
+    expect(result.environment).toContainEqual({ name: 'UV_CACHE_DIR', description: 'Same as --cache-dir' });
+    expect(flag('uv/help.txt', { short: '-q' })).toMatchObject({ short: '-q', long: '--quiet', arg: undefined, description: 'Use quiet output' });
   });
 
   it('fd --help: "-d, --max-depth <depth>", repeatable "--unrestricted..."', () => {
@@ -275,7 +279,7 @@ describe('golden: npm', () => {
     expect(result.synopsis).toBe('npm install [<package-spec> ...]');
     expect(result.longDescription).toBe('Install a package');
     expect(result.arguments).toEqual([{ name: 'package-spec', required: false, variadic: false, description: '' }]);
-    expect(flag('npm/install-help.txt', { short: '-S' })).toEqual({
+    expect(flag('npm/install-help.txt', { short: '-S' })).toMatchObject({
       short: '-S', long: '--save', arg: undefined,
       description: 'Save installed packages to a `package.json` file as dependencies.',
     });
@@ -284,7 +288,7 @@ describe('golden: npm', () => {
 
 describe('golden: GNU and other help layouts', () => {
   it('make --help: "-C DIRECTORY, --directory=DIRECTORY" with description on the next line', () => {
-    expect(flag('make/help.txt', { short: '-C' })).toEqual({
+    expect(flag('make/help.txt', { short: '-C' })).toMatchObject({
       short: '-C', long: '--directory', arg: 'DIRECTORY', description: 'Change to DIRECTORY before doing anything.',
     });
     expect(flag('make/help.txt', { short: '-j' })).toMatchObject({ long: '--jobs', arg: '[N]' });
@@ -300,7 +304,7 @@ describe('golden: GNU and other help layouts', () => {
     expect(result.synopsis).toBe('curl [options...] <url>');
     expect(result.longDescription).toBeUndefined();
     expect(result.arguments).toEqual([{ name: 'url', required: true, variadic: false, description: '' }]);
-    expect(flag('curl/help.txt', { short: '-u' })).toEqual({
+    expect(flag('curl/help.txt', { short: '-u' })).toMatchObject({
       short: '-u', long: '--user', arg: '<user:password>', description: 'Server user and password',
     });
   });
@@ -371,13 +375,43 @@ describe('golden: man pages (GNU, BSD mdoc, ronn)', () => {
     expect(flag('ssh/man.txt', { short: '-p' })).toMatchObject({ arg: 'port' });
   });
 
-  it('man tmux: CLI options from DESCRIPTION; no junk subcommands from the COMMANDS prose', () => {
+  it('man tmux: CLI options from DESCRIPTION; commands from their "(alias: x)" blocks, not the copy-mode list', () => {
     const result = parse('tmux/man.txt');
     assertDefined(result);
     expect(result.description).toBe('terminal multiplexer');
-    // tmux documents its ~90 commands in prose sections, not a list: not extracted (known gap)
-    expect(result.subcommands).toEqual([]);
+    expect(sub('tmux/man.txt', 'tmux new-session').description).toBe('Create a new session with name session-name.');
+    expect(sub('tmux/man.txt', 'tmux rename-session').description).toBe('Rename the session to new-name.');
+    // copy-mode commands and option names share the layout, without an alias line
+    expect(result.subcommands.map(s => s.name)).not.toContain('tmux append-selection');
+    expect(result.subcommands.map(s => s.name)).not.toContain('tmux kill-server'); // no alias: known gap
     expect(flag('tmux/man.txt', { short: '-c' })).toMatchObject({ arg: 'shell-command' });
+  });
+
+  it('tmux new-session: its block in the tmux page gives usage, flags, alias and text', () => {
+    const detail = parseCommandBlock(read('tmux/man.txt'), 'tmux new-session');
+    assertDefined(detail);
+    expect(detail.synopsis).toMatch(/^tmux new-session \[-AdDEPX\] \[-c start-directory\] .* \[-y height\] \[shell-command \[argument \.\.\.\]\]$/);
+    expect(detail.description).toBe('Create a new session with name session-name.');
+    expect(detail.aliases).toEqual(['tmux new']);
+    expect(detail.flags.map(f => f.short)).toEqual(['-A', '-d', '-D', '-E', '-P', '-X', '-c', '-e', '-f', '-F', '-n', '-s', '-t', '-x', '-y']);
+    expect(detail.flags.find(f => f.short === '-c')).toMatchObject({ arg: 'start-directory' });
+    expect(parseCommandBlock(read('tmux/man.txt'), 'tmux append-selection')).toBeNull();
+  });
+
+  it('man openssl: the COMMAND SUMMARY tag lists, incl. names that fill the tag column', () => {
+    const result = parse('openssl/man.txt');
+    assertDefined(result);
+    expect(sub('openssl/man.txt', 'openssl req').description).toBe('PKCS#10 X.509 Certificate Signing Request (CSR) Management.');
+    expect(sub('openssl/man.txt', 'openssl asn1parse').description).toBe('Parse an ASN.1 sequence.');
+    expect(sub('openssl/man.txt', 'openssl cms').description).toBe('CMS (Cryptographic Message Syntax) command.');
+    expect(sub('openssl/man.txt', 'openssl ca').description).toBe('Certificate Authority (CA) Management.');
+    expect(sub('openssl/man.txt', 'openssl x509').description).toBe('X.509 Certificate Data Management.');
+    // a prose line that fits "name text" at the tag column is not an entry
+    expect(result.subcommands.map(s => s.name)).not.toContain('openssl the');
+  });
+
+  it('man brew: "brew analytics on" usage lines do not list the program itself', () => {
+    expect(parse('brew/man.txt')?.subcommands.map(s => s.name)).not.toContain('brew brew');
   });
 
   it('man tar (bsdtar): mode flags from DESCRIPTION plus OPTIONS', () => {
@@ -399,6 +433,50 @@ describe('golden: man pages (GNU, BSD mdoc, ronn)', () => {
     expect(result.subcommands).toEqual([]);
   });
 });
+
+describe('golden: CLIs whose command list is not in --help (aws help, bq help, poetry list)', () => {
+  it('aws help: a man page through the pager, services as "o name" bullets', () => {
+    const result = parseHelpOutput(read('aws/help-cmd.txt'), 'aws');
+    assertDefined(result);
+    expect(result.longDescription).toBe('The AWS Command Line Interface is a unified tool to manage your AWS services.');
+    expect(result.subcommands.length).toBeGreaterThan(400);
+    expect(result.subcommands.map(s => s.name)).toEqual(expect.arrayContaining(['aws s3', 'aws ec2', 'aws sts']));
+    expect(result.flags.map(f => f.long)).toEqual(expect.arrayContaining(['--debug', '--region', '--profile']));
+  });
+
+  it('aws s3 help / aws s3 ls help: commands, then options', () => {
+    expect(parseHelpOutput(read('aws/s3-help-cmd.txt'), 'aws s3')?.subcommands.map(s => s.name)).toEqual(
+      ['cp', 'ls', 'mb', 'mv', 'presign', 'rb', 'rm', 'sync', 'website'].map(n => `aws s3 ${n}`),
+    );
+    const ls = parseHelpOutput(read('aws/s3-ls-help-cmd.txt'), 'aws s3 ls');
+    assertDefined(ls);
+    expect(ls.longDescription).toMatch(/^List S3 objects and common prefixes under a prefix or all S3 buckets\./);
+    expect(ls.flags.find(f => f.long === '--recursive')).toMatchObject({ description: 'Command is performed on all files or objects', group: 'OPTIONS' });
+  });
+
+  it('bq help: the wrapped comma list, a name split at its hyphen rejoined', () => {
+    const names = parseHelpOutput(read('bq/help-cmd.txt'), 'bq')?.subcommands.map(s => s.name.slice(3));
+    expect(names).toEqual([
+      'add-iam-policy-binding', 'cancel', 'cp', 'extract', 'get-iam-policy', 'head', 'help', 'info', 'init',
+      'insert', 'load', 'ls', 'mk', 'mkdef', 'partition', 'query', 'remove-iam-policy-binding', 'rm',
+      'set-iam-policy', 'shell', 'show', 'truncate', 'undelete', 'update', 'version', 'wait',
+    ]);
+  });
+
+  it('poetry list: commands and namespaces (" cache" over "cache clear")', () => {
+    const result = parseHelpOutput(read('poetry/list.txt'), 'poetry');
+    assertDefined(result);
+    expect(findSub(result, 'poetry add').description).toBe('Adds a new dependency to pyproject.toml and installs it.');
+    expect(findSub(result, 'poetry cache').description).toBe('');
+    expect(result.flags.map(f => f.short)).toContain('-C');
+  });
+});
+
+function findSub(result: { subcommands: { name: string; description: string }[] }, name: string) {
+  const found = result.subcommands.find(s => s.name === name);
+  assertDefined(found);
+  return found;
+}
 
 describe('golden: usage on stderr / non-zero exit (BSD tools reject --help)', () => {
   it.each([

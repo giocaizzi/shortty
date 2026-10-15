@@ -348,6 +348,43 @@ describe('parseSubcommandManPage', () => {
     expect(result.arguments.length).toBeGreaterThan(0);
   });
 
+  it('without a page of its own, reads its block in the parent page (tmux new-session)', async () => {
+    const pages: Record<string, string> = {
+      tmux: `TMUX(1)
+
+NAME
+     tmux - terminal multiplexer
+
+CLIENTS AND SESSIONS
+     kill-server
+             Kill the tmux server and clients and destroy all sessions.
+
+     new-session [-dE] [-c start-directory]
+             [shell-command]
+                   (alias: new)
+             Create a new session with name session-name.
+
+             More text.
+`,
+    };
+    mockManOutput('');
+    const passThrough = mockSpawn.getMockImplementation()!;
+    mockSpawn.mockImplementation(((cmd: string, args: string[], opts: never) =>
+      cmd === 'man' ? createMockProcess(pages[args[0]] ?? '') : passThrough(cmd as never, args as never, opts)) as typeof spawn);
+
+    const result = await parseSubcommandManPage('tmux new-session');
+    expect(mockSpawn.mock.calls.filter(c => c[0] === 'man').map(c => c[1])).toEqual([['tmux-new-session'], ['tmux']]);
+    expect(result).toMatchObject({
+      name: 'tmux new-session',
+      description: 'Create a new session with name session-name.',
+      synopsis: 'tmux new-session [-dE] [-c start-directory] [shell-command]',
+      aliases: ['tmux new'],
+      flags: [{ short: '-d' }, { short: '-E' }, { short: '-c', arg: 'start-directory' }],
+    });
+    // a block without an alias line is not a command block
+    expect(await parseSubcommandManPage('tmux kill-server')).toBeNull();
+  });
+
   it('returns null when no useful data found', async () => {
     mockManOutput(`EMPTY(1)
 

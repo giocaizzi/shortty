@@ -34,6 +34,9 @@ export interface ParserMeta {
 export interface CommandDetail {
   name: string;
   description: string;
+  /** Help section the entry is listed under ("Management Commands", gcloud "GROUPS"). */
+  group?: string;
+  deprecated?: boolean;
 }
 
 export interface FlagDetail {
@@ -41,6 +44,35 @@ export interface FlagDetail {
   long?: string;
   arg?: string;
   description: string;
+  /** Default value as documented ("30", "open"). */
+  default?: string;
+  /** Allowed values, when the help lists them. */
+  choices?: string[];
+  required?: boolean;
+  deprecated?: boolean;
+  /** Help section the flag is listed under ("Global Flags", "INHERITED FLAGS"). */
+  group?: string;
+}
+
+export interface ExampleDetail {
+  command: string;
+  /** What the example does (the comment or sentence before it); may be empty. */
+  description: string;
+}
+
+export interface EnvVarDetail {
+  name: string;
+  description: string;
+}
+
+/** Optional extras parsed from help and man pages (docs/spec.md §7.8). */
+export interface HelpExtras {
+  /** Other names of this command ("gh pr ls"). */
+  aliases?: string[];
+  examples?: ExampleDetail[];
+  environment?: EnvVarDetail[];
+  /** Related pages and links: "gh-pr(1)", "https://cli.github.com/manual". */
+  seeAlso?: string[];
 }
 
 export interface ArgumentDetail {
@@ -50,7 +82,7 @@ export interface ArgumentDetail {
   description: string;
 }
 
-export interface SubcommandDetail {
+export interface SubcommandDetail extends HelpExtras {
   name: string;
   description: string;
   synopsis?: string;
@@ -62,7 +94,7 @@ export interface SubcommandDetail {
   arguments: ArgumentDetail[];
 }
 
-export interface Command {
+export interface Command extends HelpExtras {
   name: string;
   description: string;
   synopsis?: string;

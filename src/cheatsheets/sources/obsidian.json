@@ -2,6 +2,7 @@
   "id": "obsidian",
   "label": "Obsidian",
   "icon": "💎",
+  "app": { "bundleId": "md.obsidian", "name": "Obsidian" },
   "platforms": ["darwin", "win32", "linux"],
   "parser": "obsidian",
   "mergeMode": "replace",

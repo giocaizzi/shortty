@@ -2,6 +2,7 @@
   "id": "chrome",
   "label": "Chrome",
   "icon": "🌐",
+  "app": { "bundleId": "com.google.Chrome", "name": "Google Chrome" },
   "platforms": ["darwin", "win32", "linux"],
   "parser": "chrome",
   "mergeMode": "additive",

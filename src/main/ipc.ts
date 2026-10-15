@@ -9,6 +9,8 @@ import type { SourceStatus } from '../shared/types';
 import { getSettings, setSetting } from './settings-store';
 import { isSettingKey, validateSetting } from './settings-validation';
 import type { CommandsEngine } from './commands/engine';
+import { isE2E } from './e2e';
+import { createIconService, defaultBundleSearch } from './icons';
 
 let registered = false;
 
@@ -138,6 +140,21 @@ export function registerIpcHandlers(
 
   ipcMain.handle(IPC_CHANNELS.COMMANDS_GET_STATS, () => {
     return getCommandsEngine()?.getEnrichmentStats() ?? { total: 0, enriched: 0, running: false };
+  });
+
+  const getIcon = createIconService({
+    sourceApp: (id) => {
+      const source = registry.getAllSources().find((s) => s.id === id);
+      return source ? (source.cheatsheet?.app ?? null) : undefined;
+    },
+    commandBin: (name) => getCommandsEngine()?.getDetail(name)?.bin,
+    search: defaultBundleSearch(isE2E),
+  });
+
+  ipcMain.handle(IPC_CHANNELS.ICONS_GET, async (_event, kind: unknown, name: unknown) => {
+    if (process.platform !== 'darwin') return null;
+    await (kind === 'command' ? ready.commands : ready.shortcuts);
+    return getIcon(kind, name);
   });
 
   // --- Preferences window (WP-F) ---

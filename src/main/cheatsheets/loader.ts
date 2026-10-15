@@ -3,6 +3,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import log from '../logger';
 import type { MergeMode } from '../shortcuts/merge';
+import type { AppRef } from '../icons';
 
 type Platform = 'darwin' | 'win32' | 'linux';
 
@@ -19,6 +20,8 @@ export interface CheatsheetDefinition {
   id: string;
   label: string;
   icon: string;
+  /** macOS app bundle whose icon represents the source (main/icons.ts). */
+  app?: AppRef;
   platforms: Platform[];
   parser?: string | null;
   /** How user bindings combine with these defaults; 'additive' when absent. */

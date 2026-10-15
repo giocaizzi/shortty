@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { Check } from 'lucide-react';
 import type { Command, Shortcut } from '../shared/types';
 import { useShortcuts } from './hooks/useShortcuts';
@@ -32,6 +32,8 @@ import { KeyboardHelp } from './components/KeyboardHelp';
 const WINDOW_HEIGHT_EXPANDED = 580;
 const WINDOW_HEIGHT_EMPTY_STATE = 180;
 const WINDOW_HEIGHT_COLLAPSED = 72;
+/** How long the height must stay smaller before the window shrinks. */
+const SHRINK_DELAY_MS = 150;
 const COPY_FLASH_MS = 300;
 const COPIED_STATUS_MS = 1500;
 const EXIT_ANIMATION_MS = 80;
@@ -73,6 +75,29 @@ function shortcutLabel(shortcut: Shortcut, layout: KeyboardLayout): string {
     .join(' ');
 }
 
+/**
+ * The first word of `text` when it is one of `names` and should drill
+ * (docs/spec.md §10.2): it is followed by a space, or no other name starts
+ * with it. `head` is the text up to the end of the word, `rest` what follows
+ * the space.
+ */
+function typedStep(
+  text: string,
+  names: string[],
+): { head: string; word: string; rest: string } | null {
+  const m = /^(\s*(\S+))(?:\s+([\s\S]*))?$/.exec(text);
+  if (!m) return null;
+  const [, head, word, rest] = m;
+  if (!names.includes(word)) return null;
+  if (rest === undefined && names.some((n) => n !== word && n.startsWith(word))) return null;
+  return { head, word, rest: rest ?? '' };
+}
+
+/** "gh auth login" -> "login" */
+function lastWord(name: string): string {
+  return name.slice(name.lastIndexOf(' ') + 1);
+}
+
 function prefersReducedMotion(): boolean {
   return (
     typeof window.matchMedia === 'function' &&
@@ -95,6 +120,10 @@ export function App() {
   const [copied, setCopied] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [exiting, setExiting] = useState(false);
+  // The query was typed (not restored by Esc/Backspace or cleared by a
+  // reset), so its words may drill (docs/spec.md §10.2).
+  const [typed, setTyped] = useState(false);
+  const [composing, setComposing] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -170,6 +199,7 @@ export function App() {
     setCopied(null);
     setShowHelp(false);
     setExiting(false);
+    setTyped(false);
   }, [setQuery, clearTimers]);
 
   useEffect(() => {
@@ -195,12 +225,15 @@ export function App() {
 
   const changeQuery = useCallback(
     (q: string) => {
-      setQuery(q);
+      // A filter never starts with a space: the one typed after a word that
+      // already drilled (">gh pr" then " ") would otherwise stay in front.
+      setQuery(inDetail ? q.trimStart() : q);
+      setTyped(true);
       setSelectedIndex(0);
       setExpanded(NONE_EXPANDED);
       setCopyFlashIndex(null);
     },
-    [setQuery],
+    [setQuery, inDetail],
   );
 
   // Window height: a bare search bar until there is something to show.
@@ -214,8 +247,21 @@ export function App() {
         ? WINDOW_HEIGHT_EMPTY_STATE
         : WINDOW_HEIGHT_COLLAPSED;
 
+  // Grow at once (results must not be clipped); shrink only once typing or
+  // deleting settles. macOS animates each resize and keys queue behind it, so
+  // a burst of Backspaces must cost one resize, not one per keystroke.
+  const sentHeight = useRef<number | null>(null);
   useEffect(() => {
-    window.electronAPI?.setWindowHeight(windowHeight);
+    const send = () => {
+      sentHeight.current = windowHeight;
+      window.electronAPI?.setWindowHeight(windowHeight);
+    };
+    if (sentHeight.current === null || windowHeight > sentHeight.current) {
+      send();
+      return;
+    }
+    const timer = setTimeout(send, SHRINK_DELAY_MS);
+    return () => clearTimeout(timer);
   }, [windowHeight]);
 
   // Keep the selected row visible; at the top, show its section header too.
@@ -263,15 +309,19 @@ export function App() {
     [clearTimers, later, dismissAfterCopy, dismiss],
   );
 
+  /**
+   * Open `level`. The level left behind keeps `parentQuery` to restore on the
+   * way back; the new level starts with `nextQuery`.
+   */
   const pushLevel = useCallback(
-    (level: NavLevel) => {
+    (level: NavLevel, parentQuery: string = query, nextQuery = '') => {
       setNavStack((prev) => {
         const updated = [...prev];
         const top = updated[updated.length - 1] ?? ROOT;
-        updated[updated.length - 1] = { ...top, selectedIndex: sel, query, expanded };
-        return [...updated, { level, selectedIndex: 0, query: '', expanded: NONE_EXPANDED }];
+        updated[updated.length - 1] = { ...top, selectedIndex: sel, query: parentQuery, expanded };
+        return [...updated, { level, selectedIndex: 0, query: nextQuery, expanded: NONE_EXPANDED }];
       });
-      setQuery('');
+      setQuery(nextQuery);
       setSelectedIndex(0);
       setExpanded(NONE_EXPANDED);
       setCopyFlashIndex(null);
@@ -285,6 +335,8 @@ export function App() {
     if (!back) return;
     setNavStack(navStack.slice(0, -1));
     setQuery(back.query);
+    // A restored query is not re-resolved: Esc must not drill straight back in.
+    setTyped(false);
     setExpanded(back.expanded);
     setSelectedIndex(back.selectedIndex);
     setCopyFlashIndex(null);
@@ -329,6 +381,7 @@ export function App() {
         const item = items[index];
         if (item?.type !== 'command') return false;
         pushLevel({ kind: 'command', command: item.command });
+        setTyped(false);
         return true;
       }
       if (!detailData || !isSubcommandAtIndex(detailData, query, index)) return false;
@@ -339,10 +392,39 @@ export function App() {
         : currentLevel.kind === 'subcommand' ? currentLevel.baseBinPath
         : '';
       pushLevel({ kind: 'subcommand', qualifiedName: subName, baseBinPath });
+      setTyped(false);
       return true;
     },
     [inDetail, items, detailData, query, currentLevel, pushLevel],
   );
+
+  // Typed drill-down (docs/spec.md §10.2): ">gh auth lo" opens gh › auth
+  // filtered by "lo", one level per render and as deep as the subcommands
+  // go. Details that load later (on-demand enrichment, a subcommand's --help)
+  // re-run this, so a paste or fast typing ends where slow typing would.
+  // A layout effect: the next keystroke must land in the drilled field, not
+  // in the text the drill is about to replace.
+  useLayoutEffect(() => {
+    if (!typed || composing) return;
+    if (currentLevel.kind === 'flat') {
+      if (!commandPrefixActive) return;
+      const step = typedStep(query.slice(1), activeCommands.map((c) => c.name));
+      const command = step && activeCommands.find((c) => c.name === step.word);
+      if (step && command) pushLevel({ kind: 'command', command }, '>' + step.head, step.rest);
+      return;
+    }
+    if (!isDetailLevel(currentLevel) || !detailData) return;
+    const step = typedStep(query, detailData.subcommands.map((sc) => lastWord(sc.name)));
+    const sub = step && detailData.subcommands.find((sc) => lastWord(sc.name) === step.word);
+    if (!step || !sub) return;
+    const baseBinPath = currentLevel.kind === 'command' ? currentLevel.command.bin : currentLevel.baseBinPath;
+    pushLevel({ kind: 'subcommand', qualifiedName: sub.name, baseBinPath }, step.head, step.rest);
+  }, [typed, composing, currentLevel, commandPrefixActive, query, activeCommands, detailData, pushLevel]);
+
+  // Typed words wait for an unenriched command's details: show "Loading..."
+  // rather than a passing "No matches" for them.
+  const awaitingEnrichment =
+    typed && currentLevel.kind === 'command' && detailData?.enrichment === 'basic' && query.trim() !== '';
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -560,6 +642,7 @@ export function App() {
         hotkey={globalShortcut}
         activeDescendant={totalItems > 0 ? optionId(sel) : undefined}
         inputRef={inputRef}
+        onCompositionChange={setComposing}
       />
       <div ref={contentRef} className="flex min-h-0 flex-1 flex-col border-t border-separator">
         {inDetail ? (
@@ -568,7 +651,7 @@ export function App() {
             filterQuery={query}
             selectedIndex={sel}
             copyFlashIndex={copyFlashIndex}
-            loading={currentLevel.kind === 'subcommand' && subcommandLoading}
+            loading={(currentLevel.kind === 'subcommand' && subcommandLoading) || awaitingEnrichment}
           />
         ) : emptyState ? (
           <div data-testid="empty-state" className="flex flex-1 flex-col items-center justify-center gap-1 pb-1 text-center">

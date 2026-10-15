@@ -222,7 +222,7 @@ User presses Tab/→ on a command row. Detail view replaces results.
 │  ┌────────────────────────────────────────────────────────┐  │
 │  │ git [--version] [--help] [-C <path>] <command> [<args>]│  │  ← synopsis
 │  └────────────────────────────────────────────────────────┘  │
-│  the stupid content tracker                                  │
+│  ◼ the stupid content tracker                                │  ← command icon + description
 │                                                              │
 │  Arguments                                                 1 │
 │ ▌<command>  required                                         │
@@ -231,10 +231,20 @@ User presses Tab/→ on a command row. Detail view replaces results.
 │  git commit    Record changes to the repository            › │
 │  git push      Update remote refs along with objects       › │
 │                                                              │
+│  Examples                                                  2 │
+│  git commit -a                                               │
+│  Commit all tracked changes                                  │
+│                                                              │
 │  Flags                                                    14 │
 │  -C <path>     Run as if git was started in <path>           │
+│  --cleanup <mode>  How to strip spaces  strip | whitespace … │
 │  --version     Print the git suite version                   │
 │                                                              │
+│  Environment                                               3 │
+│  GIT_DIR       Path to the repository                        │
+│                                                              │
+│  See also                                                    │
+│  git-add(1)                                                  │
 │  Source: man page                                            │
 ├──────────────────────────────────────────────────────────────┤
 │                                  Copy ↩   Open ⇥   Back esc  │
@@ -242,11 +252,18 @@ User presses Tab/→ on a command row. Detail view replaces results.
 ```
 
 - Breadcrumb chips in the search bar show the path (`git`, then `commit`, …)
-- Synopsis in a code block, then the description
-- Sections: Arguments, Subcommands, Flags, each with a count
-- Typing filters the lists; Enter copies the selected subcommand, flag or argument
+- The command's icon tile (the same as its result row, also for a subcommand) beside the description, then aliases (`Alias  gh pr ls` chips), synopsis in a code block (wraps; very long ones scroll after 3 lines), then the long description
+- Sections, each with a count, in keyboard order: Arguments, Subcommands, Examples, Flags, Environment ([spec.md](spec.md) §7.8)
+- Subcommands and flags split into one header per group when the help groups them ("Core commands", "Inherited flags", gcloud "Groups"/"Commands", az "Subgroups"); a single group keeps the plain "Subcommands"/"Flags" title
+- Flag rows end with subtle badges: `required` (warning colour), `deprecated` (name dimmed), allowed values `a | b | c` (first four, full list on hover), default `= value`; deprecated subcommands get the same badge
+- Example rows: the command in monospace, its description muted on a second line; Enter copies the command
+- Environment rows: variable name in monospace and its description; Enter copies the name
+- "See also" (man references, links, "Learn more" lines) at the bottom, as plain text, above the source line
+- A group longer than 40 rows shows its first 25 and a "Show all N" button; it expands by itself when the selection moves past the cut, and a filter shows every match
+- Typing filters the lists; Enter copies the selected subcommand, flag, argument, example or variable
 - Tab/→ on a subcommand drills one level deeper (reads its man page or `--help` on demand; [spec.md](spec.md) §7.4)
 - Esc returns to the previous view (flat results, drilled source or parent command), restored as it was
+- Typing the command line drills by itself, to any depth: `>gh auth lo` shows the chips `gh` › `auth` with "lo" in the field. A word drills on the following space, or as soon as it is typed when no sibling starts with it (`>gh auth` drills at once, `>git commit` waits for the space because of `commit-tree`). Backspace on an empty field steps back one chip and puts its word back in the field ([spec.md](spec.md) §10.2)
 - "Source: man page" / "Source: --help" at the bottom of the content
 
 ---
@@ -559,7 +576,7 @@ Esc always clears a non-empty query first; with an empty query it goes back one 
   ↑ tile + name                                  ↑ entry count
 ```
 
-Source tiles are tinted monograms (`VS`, `Ch`, `Gh`, `tm`, `vi`, `z`, `$`, `Ob`, `F`, `⌘`, `>_` for commands); an unknown source gets its initial on a hue derived from its id.
+Source tiles show the installed app's real icon (Chrome, VS Code, Ghostty, Obsidian, Finder, System Settings), else a brand glyph in the brand colour (tmux, vim, zsh, bash; for commands `git`, `docker`, `kubectl`, …), else a tinted monogram (`VS`, `Ch`, `Gh`, `tm`, `vi`, `z`, `$`, `Ob`, `F`, `⌘`, `>_` for commands); an unknown source gets its initial on a hue derived from its id. Command rows use the command's own tile instead of the shell tile when there is one. Precedence and lookup: [spec.md §10.4](spec.md#104-entry-anatomy).
 
 ### 8.5 "Show All" Row
 

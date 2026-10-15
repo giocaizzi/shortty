@@ -1,5 +1,5 @@
 import { rmSync } from 'node:fs';
-import { test, expect, waitForEnrichment, launchShortty, FAKE_COMMANDS } from './fixtures';
+import { test, expect, waitForEnrichment, launchShortty, FAKE_COMMANDS, type Shortty } from './fixtures';
 
 test.describe('commands from the fixture PATH', () => {
   test.beforeEach(async ({ shortty }) => {
@@ -199,5 +199,63 @@ test.describe('drill-in before background enrichment', () => {
       await shortty.app.close();
       rmSync(shortty.hermetic.dir, { recursive: true, force: true });
     }
+  });
+});
+
+test.describe('typed drill-down (docs/spec.md §10.2)', () => {
+  test.beforeEach(async ({ shortty }) => {
+    await waitForEnrichment(shortty);
+    await shortty.setSetting('dismissAfterCopy', false);
+    await shortty.show();
+  });
+
+  const crumbs = (shortty: Shortty) => shortty.win.getByTestId('breadcrumb');
+
+  test('typing a path drills to any depth, fetching each level on demand', async ({ shortty }) => {
+    await shortty.win.keyboard.type('>nestor compute instances create --zo');
+    await expect(crumbs(shortty)).toHaveText(['nestor', 'compute', 'instances', 'create']);
+    await expect(shortty.search).toHaveValue('--zo');
+    await expect(shortty.win.getByTestId('flag-row')).toHaveText([/--zone/]);
+
+    await shortty.win.keyboard.press('Enter');
+    await expect.poll(() => shortty.clipboard()).toBe('--zone');
+  });
+
+  test('a pasted line resolves as far as it can', async ({ shortty }) => {
+    await shortty.win.keyboard.type('>');
+    await shortty.win.keyboard.insertText('nestor compute instances nope --x');
+    await expect(crumbs(shortty)).toHaveText(['nestor', 'compute', 'instances']);
+    await expect(shortty.search).toHaveValue('nope --x');
+  });
+
+  test('an ambiguous command name drills on the space', async ({ shortty }) => {
+    await shortty.win.keyboard.type('>gizmo');
+    // gizmo-lite also starts with "gizmo"
+    await expect(shortty.win.getByTestId('command-row')).toHaveCount(2);
+    await expect(crumbs(shortty)).toHaveCount(0);
+    await shortty.win.keyboard.type(' dep');
+    await expect(crumbs(shortty)).toHaveText(['gizmo']);
+    await expect(shortty.win.getByTestId('subcommand-row')).toHaveText([/gizmo deploy/]);
+  });
+
+  test('an unambiguous word drills at once, an ambiguous one waits', async ({ shortty }) => {
+    await shortty.win.keyboard.type('>nestor compute');
+    // compute-legacy keeps "compute" ambiguous
+    await expect(crumbs(shortty)).toHaveText(['nestor']);
+    await expect(shortty.win.getByTestId('subcommand-row')).toHaveCount(2);
+    await shortty.win.keyboard.type(' instances');
+    await expect(crumbs(shortty)).toHaveText(['nestor', 'compute', 'instances']);
+    await expect(shortty.search).toHaveValue('');
+  });
+
+  test('Backspace on an empty filter steps back with the word to edit', async ({ shortty }) => {
+    await shortty.win.keyboard.type('>nestor compute instances create');
+    await expect(crumbs(shortty)).toHaveText(['nestor', 'compute', 'instances', 'create']);
+    await shortty.win.keyboard.press('Backspace');
+    await expect(crumbs(shortty)).toHaveText(['nestor', 'compute', 'instances']);
+    await expect(shortty.search).toHaveValue('create');
+    await shortty.win.keyboard.press('Backspace');
+    await shortty.win.keyboard.type('e');
+    await expect(crumbs(shortty)).toHaveText(['nestor', 'compute', 'instances', 'create']);
   });
 });
