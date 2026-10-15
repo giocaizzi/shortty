@@ -1,4 +1,4 @@
-import { nativeImage } from 'electron';
+import { app, nativeImage } from 'electron';
 import { execFile } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -7,8 +7,9 @@ import { promisify } from 'node:util';
 
 /**
  * Real app icons for sources and for commands shipped inside an .app
- * (docs/spec.md §15). macOS only: elsewhere every lookup resolves to null and
- * the renderer falls back to a brand glyph or the monogram tile.
+ * (docs/spec.md §15), or on Windows the icon of the source app's or the
+ * command's .exe. Elsewhere every lookup resolves to null and the renderer
+ * falls back to a brand glyph or the monogram tile.
  */
 
 export interface AppRef {
@@ -31,7 +32,22 @@ export interface BundleSearch {
   roots: string[];
 }
 
-export function defaultBundleSearch(e2e: boolean): BundleSearch {
+export function defaultBundleSearch(
+  e2e: boolean,
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): BundleSearch {
+  if (platform === 'win32') {
+    // Install folders of WINDOWS_EXES: per-user first, then machine-wide.
+    const local = env.LOCALAPPDATA;
+    const roots = [
+      local && path.win32.join(local, 'Programs'),
+      env.ProgramFiles,
+      env['ProgramFiles(x86)'],
+      local,
+    ].filter((r): r is string => !!r);
+    return { spotlight: false, roots: e2e ? [] : roots };
+  }
   const home = path.join(homedir(), 'Applications');
   // e2e runs with a fake HOME: never look at the machine's real apps there.
   if (e2e) return { spotlight: false, roots: [home] };
@@ -70,6 +86,24 @@ export async function findAppBundle(ref: AppRef, search: BundleSearch): Promise<
   return null;
 }
 
+/** Each cheatsheet app's .exe under a Windows install folder, by AppRef name. */
+const WINDOWS_EXES = new Map([
+  ['Visual Studio Code', 'Microsoft VS Code\\Code.exe'],
+  ['Google Chrome', 'Google\\Chrome\\Application\\chrome.exe'],
+  ['Obsidian', 'Obsidian\\Obsidian.exe'],
+]);
+
+/** Locate an installed app's .exe on Windows under the search roots. */
+export function findWindowsExe(ref: AppRef, search: BundleSearch): string | null {
+  const exe = WINDOWS_EXES.get(ref.name);
+  if (!exe) return null;
+  for (const root of search.roots) {
+    const candidate = path.win32.join(root, exe);
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
 /** The .app a binary lives in (after symlinks), e.g. /usr/local/bin/code → Visual Studio Code.app. */
 export function appBundleOfBinary(bin: string): string | null {
   let real: string;
@@ -88,12 +122,19 @@ async function iconDataUrl(bundle: string): Promise<string | null> {
   return image.isEmpty() ? null : image.toDataURL();
 }
 
+async function exeIconDataUrl(exe: string): Promise<string | null> {
+  // 'large' is 32px on Windows (on macOS it aborts, hence iconDataUrl there).
+  const image = await app.getFileIcon(exe, { size: 'large' });
+  return image.isEmpty() ? null : image.toDataURL();
+}
+
 export interface IconDeps {
   /** App bundle declared by a known source's cheatsheet; undefined for unknown ids. */
   sourceApp: (id: string) => AppRef | null | undefined;
   /** Binary path of a known command; undefined for unknown names. */
   commandBin: (name: string) => string | undefined;
   search: BundleSearch;
+  platform?: NodeJS.Platform;
   /** Injectable for tests. */
   toDataUrl?: (bundle: string) => Promise<string | null>;
 }
@@ -105,15 +146,21 @@ export interface IconDeps {
  */
 export function createIconService(deps: IconDeps) {
   const cache = new Map<string, Promise<string | null>>();
-  const toDataUrl = deps.toDataUrl ?? iconDataUrl;
+  const windows = (deps.platform ?? process.platform) === 'win32';
+  const toDataUrl = deps.toDataUrl ?? (windows ? exeIconDataUrl : iconDataUrl);
 
+  /** The .app (macOS) or .exe (Windows) whose icon stands for the source or command. */
   async function bundleFor(kind: IconKind, name: string): Promise<string | null> {
     if (kind === 'source') {
       const ref = deps.sourceApp(name);
-      return ref ? findAppBundle(ref, deps.search) : null;
+      if (!ref) return null;
+      return windows ? findWindowsExe(ref, deps.search) : findAppBundle(ref, deps.search);
     }
     const bin = deps.commandBin(name);
-    return bin ? appBundleOfBinary(bin) : null;
+    if (!bin) return null;
+    // .cmd/.bat shims and scripts only have the generic file icon.
+    if (windows) return /\.exe$/i.test(bin) ? bin : null;
+    return appBundleOfBinary(bin);
   }
 
   return function getIcon(kind: unknown, name: unknown): Promise<string | null> {
