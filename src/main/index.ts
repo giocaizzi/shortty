@@ -10,6 +10,7 @@ import {
   screen,
 } from 'electron';
 import path from 'node:path';
+import os from 'node:os';
 import started from 'electron-squirrel-startup';
 import log from './logger';
 import { registerIpcHandlers } from './ipc';
@@ -37,6 +38,8 @@ import {
 import { WindowHider } from './window-hider';
 import { importLoginShellPath } from './shell-env';
 import { buildAppMenuTemplate } from './app-menu';
+import { focusLauncher, launcherMaterial, SOLID_PANEL_CSS } from './launcher-window';
+import { loginItemSettings } from './login-item';
 
 // `shortty --reset-settings` (docs/spec.md §9.1 escape hatch): restore defaults and quit.
 const resetRequested = process.argv.includes('--reset-settings');
@@ -116,6 +119,7 @@ function getWindowPosition(): { x: number; y: number } {
 
 function createWindow(): BrowserWindow {
   const { x, y } = getWindowPosition();
+  const material = launcherMaterial(process.platform, os.release());
 
   const win = new BrowserWindow({
     width: WINDOW_WIDTH,
@@ -125,8 +129,7 @@ function createWindow(): BrowserWindow {
     frame: false,
     transparent: false,
     backgroundColor: '#00000000',
-    vibrancy: 'under-window',
-    visualEffectState: 'active',
+    ...material,
     resizable: false,
     movable: false,
     minimizable: false,
@@ -148,6 +151,9 @@ function createWindow(): BrowserWindow {
   if (process.platform === 'darwin') {
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     win.setWindowButtonVisibility(false);
+  }
+  if (!material) {
+    win.webContents.on('dom-ready', () => void win.webContents.insertCSS(SOLID_PANEL_CSS));
   }
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
@@ -198,9 +204,7 @@ function showWindow(): void {
   win.setBounds({ x, y, width: WINDOW_WIDTH, height: win.getBounds().height });
 
   win.show();
-  app.focus({ steal: true });
-  win.focus();
-  win.webContents.focus();
+  focusLauncher(win, process.platform, () => app.focus({ steal: true }));
   win.webContents.send(IPC_CHANNELS.WINDOW_SHOWN);
   commandsEngine?.onWindowShown();
 }
@@ -277,7 +281,7 @@ function applyInitialSettings(): void {
     }
   }
 
-  // Menu bar icon
+  // Menu bar / system tray icon
   syncTray(settings.showMenuBar, trayCallbacks);
 
   // e2e runs must not register login items or grab the developer's hotkey
@@ -287,9 +291,7 @@ function applyInitialSettings(): void {
   }
 
   // Launch at login
-  app.setLoginItemSettings({
-    openAtLogin: settings.launchAtLogin,
-  });
+  app.setLoginItemSettings(loginItemSettings(settings.launchAtLogin));
 
   // Global shortcut
   registerGlobalShortcut(settings.globalShortcut);
@@ -328,16 +330,14 @@ function applySettingsChange(newSettings: AppSettings, oldSettings: AppSettings)
     }
   }
 
-  // Menu bar icon
+  // Menu bar / system tray icon
   if (newSettings.showMenuBar !== oldSettings.showMenuBar) {
     syncTray(newSettings.showMenuBar, trayCallbacks);
   }
 
   // Launch at login (never registered by e2e runs)
   if (newSettings.launchAtLogin !== oldSettings.launchAtLogin && !isE2E) {
-    app.setLoginItemSettings({
-      openAtLogin: newSettings.launchAtLogin,
-    });
+    app.setLoginItemSettings(loginItemSettings(newSettings.launchAtLogin));
   }
 
   // The global shortcut is applied by changeGlobalShortcut() before saving.
