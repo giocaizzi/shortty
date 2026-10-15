@@ -30,6 +30,7 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockHelp.mockResolvedValue(null);
 });
 
 describe('EnrichmentWorker', () => {
@@ -62,6 +63,42 @@ describe('EnrichmentWorker', () => {
     const [rm, npm] = batches.flat();
     expect(rm.enrichment).toBe('failed');
     expect(npm).toMatchObject({ enrichment: 'full', enrichedFrom: 'help', description: 'javascript package manager' });
+  });
+
+  it('runs --help after a man page without subcommands and keeps the richer result', async () => {
+    const manFlags = Array.from({ length: 3 }, (_, i) => ({ long: `--m${i}`, description: '' }));
+    mockMan.mockResolvedValue({
+      description: 'The Kubernetes package manager', subcommands: [], flags: manFlags, arguments: [],
+      examples: [{ command: 'helm ls', description: '' }],
+    });
+    mockHelp.mockResolvedValue({
+      subcommands: [{ name: 'helm install', description: 'install a chart' }],
+      flags: [{ long: '--debug', description: '' }], arguments: [],
+    });
+    const worker = new EnrichmentWorker(cache, () => undefined);
+    const helm = await worker.enrichNow(cmd('helm'));
+    expect(helm).toMatchObject({
+      enrichedFrom: 'help', hasManPage: true, description: 'The Kubernetes package manager',
+      subcommands: [{ name: 'helm install', description: 'install a chart' }],
+      // subcommands from help, the longer flag list and the examples from the man page
+      flags: manFlags, examples: [{ command: 'helm ls', description: '' }],
+    });
+  });
+
+  it('keeps a man page with more flags over a thinner --help (ffmpeg)', async () => {
+    mockMan.mockResolvedValue({ subcommands: [], flags: [{ short: '-i', description: '' }, { short: '-y', description: '' }], arguments: [] });
+    mockHelp.mockResolvedValue({ subcommands: [], flags: [{ short: '-h', description: '' }], arguments: [] });
+    const worker = new EnrichmentWorker(cache, () => undefined);
+    const ffmpeg = await worker.enrichNow(cmd('ffmpeg'));
+    expect(mockHelp).toHaveBeenCalledTimes(1);
+    expect(ffmpeg).toMatchObject({ enrichedFrom: 'man', flags: [{ short: '-i' }, { short: '-y' }] });
+  });
+
+  it('does not run --help when the man page lists subcommands', async () => {
+    mockMan.mockResolvedValue({ subcommands: [{ name: 'git commit', description: '' }], flags: [], arguments: [] });
+    const worker = new EnrichmentWorker(cache, () => undefined);
+    expect(await worker.enrichNow(cmd('git'))).toMatchObject({ enrichedFrom: 'man' });
+    expect(mockHelp).not.toHaveBeenCalled();
   });
 
   it('holds while paused and continues on resume', async () => {

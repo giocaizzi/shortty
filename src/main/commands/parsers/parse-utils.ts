@@ -1,4 +1,4 @@
-import type { FlagDetail, ArgumentDetail } from '../../../shared/types';
+import type { FlagDetail, ArgumentDetail, HelpExtras } from '../../../shared/types';
 
 /**
  * Split man page or structured text into named sections.
@@ -647,4 +647,46 @@ export function extractUsageLine(helpOutput: string): string | undefined {
   }
 
   return undefined;
+}
+
+interface ParsedDoc extends HelpExtras {
+  description?: string;
+  synopsis?: string;
+  longDescription?: string;
+  subcommands: unknown[];
+  flags: FlagDetail[];
+  arguments: ArgumentDetail[];
+}
+
+function hasContent(doc: ParsedDoc | null): doc is ParsedDoc {
+  return Boolean(doc && (doc.subcommands.length > 0 || doc.flags.length > 0 || doc.arguments.length > 0));
+}
+
+/**
+ * Whether `--help` should run after this man page result: unless the page
+ * already lists subcommands, `--help` may be richer (helm's page has its
+ * flags but no commands, jq's yields no flags) - docs/spec.md §7.5.
+ */
+export function needsHelp(man: ParsedDoc | null): boolean {
+  return !hasContent(man) || man.subcommands.length === 0;
+}
+
+/**
+ * The richer of a man page and a `--help` result: a man page that lists
+ * subcommands wins, then a help that does; otherwise the one documenting
+ * more flags (ffmpeg's man page over its short --help), the man page on a
+ * tie. The winner takes the other's flags when it has more, and fills its
+ * missing text and extras from it. Null when neither documents anything.
+ */
+export function pickRicher<T extends ParsedDoc>(man: T | null, help: T | null): { from: 'man' | 'help'; doc: T } | null {
+  if (!hasContent(help)) return hasContent(man) ? { from: 'man', doc: man } : null;
+  if (!hasContent(man)) return { from: 'help', doc: help };
+  const helpWins = man.subcommands.length === 0
+    && (help.subcommands.length > 0 || help.flags.length > man.flags.length);
+  const [doc, other] = helpWins ? [help, man] : [man, help];
+  const merged: T = { ...doc, flags: other.flags.length > doc.flags.length ? other.flags : doc.flags };
+  for (const key of ['description', 'synopsis', 'longDescription', 'aliases', 'examples', 'environment', 'seeAlso'] as const) {
+    if (!merged[key] && other[key]) Object.assign(merged, { [key]: other[key] });
+  }
+  return { from: helpWins ? 'help' : 'man', doc: merged };
 }

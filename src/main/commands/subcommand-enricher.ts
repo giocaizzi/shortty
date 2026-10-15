@@ -1,6 +1,7 @@
 import type { SubcommandDetail } from '../../shared/types';
 import { parseSubcommandManPage } from './parsers/man-parser';
 import { parseSubcommandHelp } from './parsers/help-parser';
+import { needsHelp, pickRicher } from './parsers/parse-utils';
 import type { BinaryIdentity, CommandCache } from './cache';
 
 /** Every word of a qualified name ("docker compose up") must be a plain token. */
@@ -37,25 +38,13 @@ export async function enrichSubcommand(
   const cached = cache.readSubcommandDetail(qualifiedName, base);
   if (cached && cached.enrichment === 'full') return cached;
 
-  const subParts = parts.slice(1);
-
-  // Try man page first (e.g. man git-commit)
+  // Man page first (man git-commit); unless it lists subcommands, --help may be richer
   const manResult = await parseSubcommandManPage(qualifiedName);
-  if (manResult) {
+  const helpResult = needsHelp(manResult) ? await parseSubcommandHelp(base.bin, parts.slice(1), qualifiedName) : null;
+  const picked = pickRicher(manResult, helpResult);
+  if (picked) {
     const detail: SubcommandDetail = {
-      ...manResult,
-      enrichment: 'full',
-      enrichedAt: new Date().toISOString(),
-    };
-    cache.writeSubcommandDetail(qualifiedName, base, detail);
-    return detail;
-  }
-
-  // Fallback to --help
-  const helpResult = await parseSubcommandHelp(base.bin, subParts, qualifiedName);
-  if (helpResult) {
-    const detail: SubcommandDetail = {
-      ...helpResult,
+      ...picked.doc,
       enrichment: 'full',
       enrichedAt: new Date().toISOString(),
     };

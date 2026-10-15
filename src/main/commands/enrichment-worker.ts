@@ -2,6 +2,7 @@ import type { Command, HelpExtras } from '../../shared/types';
 import log from '../logger';
 import { parseManPage } from './parsers/man-parser';
 import { parseHelp, isBlocklisted } from './parsers/help-parser';
+import { needsHelp, pickRicher } from './parsers/parse-utils';
 import type { CommandCache } from './cache';
 
 /** The optional sections a parser found (examples, environment, ...), without empty keys. */
@@ -113,49 +114,38 @@ export class EnrichmentWorker {
 
   private async enrichCommand(cmd: Command): Promise<Command> {
     const manResult = await parseManPage(cmd.name);
-    if (manResult && (manResult.subcommands.length > 0 || manResult.flags.length > 0 || manResult.arguments.length > 0)) {
+    // A man page that lists subcommands is complete; otherwise --help may be richer
+    const helpResult = needsHelp(manResult) && !isBlocklisted(cmd.name)
+      ? await this.exclusive(() => parseHelp(cmd.name, cmd.bin))
+      : null;
+    const picked = pickRicher(manResult, helpResult);
+
+    if (!picked) {
       return {
         ...cmd,
-        description: manResult.description ?? cmd.description,
-        synopsis: manResult.synopsis,
-        longDescription: manResult.longDescription,
-        subcommands: manResult.subcommands,
-        flags: manResult.flags,
-        arguments: manResult.arguments,
-        ...extras(manResult),
-        enrichment: 'full',
-        enrichedFrom: 'man',
+        description: cmd.description || manResult?.description || '',
+        enrichment: 'failed',
         enrichedAt: new Date().toISOString(),
-        hasManPage: true,
       };
     }
 
-    if (!isBlocklisted(cmd.name)) {
-      const helpResult = await this.exclusive(() => parseHelp(cmd.name, cmd.bin));
-      if (helpResult && (helpResult.subcommands.length > 0 || helpResult.flags.length > 0 || helpResult.arguments.length > 0)) {
-        return {
-          ...cmd,
-          // A man page with only a NAME line (npm) still gives the best one-liner
-          description: cmd.description || manResult?.description || helpResult.description || '',
-          synopsis: helpResult.synopsis,
-          longDescription: helpResult.longDescription,
-          subcommands: helpResult.subcommands,
-          flags: helpResult.flags,
-          arguments: helpResult.arguments,
-          ...extras(helpResult),
-          enrichment: 'full',
-          enrichedFrom: 'help',
-          enrichedAt: new Date().toISOString(),
-          hasManPage: Boolean(manResult),
-        };
-      }
-    }
-
+    const { from, doc } = picked;
     return {
       ...cmd,
-      description: cmd.description || manResult?.description || '',
-      enrichment: 'failed',
+      // A man page with only a NAME line (npm) still gives the best one-liner
+      description: from === 'man'
+        ? doc.description ?? cmd.description
+        : cmd.description || manResult?.description || doc.description || '',
+      synopsis: doc.synopsis,
+      longDescription: doc.longDescription,
+      subcommands: doc.subcommands,
+      flags: doc.flags,
+      arguments: doc.arguments,
+      ...extras(doc),
+      enrichment: 'full',
+      enrichedFrom: from,
       enrichedAt: new Date().toISOString(),
+      hasManPage: Boolean(manResult),
     };
   }
 
