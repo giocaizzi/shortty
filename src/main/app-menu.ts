@@ -5,12 +5,13 @@ import type { MenuItemConstructorOptions } from 'electron';
  * ⌘R (reload) and ⌥⌘I (devtools) in every window, so ⌘W in the launcher would
  * destroy it. This menu keeps only what the windows need: the Edit roles
  * (undo/redo/cut/copy/paste/select all in text fields) and, on macOS, the
- * standard app menu (Hide, Quit). Reload and devtools stay available in
+ * standard app menu (Settings ⌘,, Hide, Quit). Reload and devtools stay available in
  * unpackaged (development) builds only.
  */
 export function buildAppMenuTemplate(
   appName: string,
   isPackaged: boolean,
+  openSettings: () => void,
   platform: NodeJS.Platform = process.platform,
 ): MenuItemConstructorOptions[] {
   const template: MenuItemConstructorOptions[] = [];
@@ -20,6 +21,8 @@ export function buildAppMenuTemplate(
       label: appName,
       submenu: [
         { role: 'about' },
+        { type: 'separator' },
+        { label: 'Settings…', accelerator: 'CommandOrControl+,', click: openSettings },
         { type: 'separator' },
         { role: 'hide' },
         { role: 'hideOthers' },
