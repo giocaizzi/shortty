@@ -451,7 +451,7 @@ async function startup(): Promise<void> {
   const repaired = repairSettings();
   if (repaired.length > 0) log.warn(`Invalid settings reset to defaults: ${repaired.join(', ')}`);
 
-  Menu.setApplicationMenu(Menu.buildFromTemplate(buildAppMenuTemplate(app.name, app.isPackaged)));
+  Menu.setApplicationMenu(Menu.buildFromTemplate(buildAppMenuTemplate(app.name, app.isPackaged, openPreferences)));
 
   // Environment setup that must finish before the engines read PATH/HOME
   // (e.g. importing the login-shell PATH) chains in here.

@@ -641,7 +641,7 @@ Theme values: `light | dark | system`. No additional theming in v1.
 
 ### 9.2 Preferences Window Structure
 
-The Preferences window is modelled on macOS System Settings: a sidebar source list with coloured tiles (↑/↓ move between tabs), inset grouped sections, native-sized switches, segmented controls and sliders, light and dark palettes that follow the Theme setting. 600×500, non-resizable, hidden-inset title bar.
+It opens from the menu bar icon (Preferences...) or, while a Shortty window is focused, from the app menu's Settings… item (`⌘,`). The Preferences window is modelled on macOS System Settings: a sidebar source list with coloured tiles (↑/↓ move between tabs), inset grouped sections, native-sized switches, segmented controls and sliders, light and dark palettes that follow the Theme setting. 600×500, non-resizable, hidden-inset title bar.
 
 | Tab | Contents |
 |-----|----------|
