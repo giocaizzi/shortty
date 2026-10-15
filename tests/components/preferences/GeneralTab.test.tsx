@@ -102,6 +102,25 @@ describe('GeneralTab', () => {
     expect(onUpdate).not.toHaveBeenCalled();
   });
 
+  it('names the installed app in the reset command on macOS', () => {
+    renderTab({ showDockIcon: false, showMenuBar: true });
+    fireEvent.click(screen.getByRole('switch', { name: 'Show in menu bar' }));
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(
+      '/Applications/Shortty.app/Contents/MacOS/shortty --reset-settings',
+    );
+  });
+
+  it('says system tray on Windows and names the Squirrel launcher in the reset command', () => {
+    installMockApi({}, 'win32');
+    const { onUpdate } = renderTab({ showMenuBar: true });
+    fireEvent.click(screen.getByRole('switch', { name: 'Show in system tray' }));
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(screen.getByText('Add a Shortty icon to the system tray.')).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(
+      '%LOCALAPPDATA%\\shortty\\shortty.exe --reset-settings',
+    );
+  });
+
   describe('shortcut recorder', () => {
     it('shows the current shortcut as macOS keycaps', () => {
       renderTab();

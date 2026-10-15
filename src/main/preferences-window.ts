@@ -34,8 +34,10 @@ export function openPreferencesWindow(): void {
     maximizable: false,
     fullscreenable: false,
     title: 'Shortty Preferences',
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-    trafficLightPosition: { x: 16, y: 16 },
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 16, y: 16 } }
+      : // Native frame; the File/Edit menu stays reachable with Alt and keeps its accelerators.
+        { autoHideMenuBar: true }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       sandbox: true,

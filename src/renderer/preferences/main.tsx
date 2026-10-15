@@ -7,6 +7,8 @@ import { preventFileDrop } from '../lib/prevent-drop';
 import './styles/preferences.css';
 
 preventFileDrop();
+// Platform-specific window chrome in preferences.css (title bar, drag regions).
+document.documentElement.dataset.platform = window.electronAPI.platform;
 
 const root = document.getElementById('root');
 if (root) {

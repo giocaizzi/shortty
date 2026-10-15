@@ -3,7 +3,7 @@ import type { AppSettings } from '../../../shared/settings';
 import { DEFAULT_SETTINGS } from '../../../shared/settings';
 import { useKeyboardLayout } from '../../lib/keyboard-layout';
 import { acceleratorToGlyphs } from '../lib/accelerator';
-import { isMacPlatform } from '../lib/platform';
+import { isMacPlatform, resetSettingsCommand } from '../lib/platform';
 import type { UpdateSetting } from '../hooks/useSettings';
 import { Keycaps, PaneHeader, Row, Section, Segmented, SwitchRow } from './controls';
 import { ShortcutRecorder } from './ShortcutRecorder';
@@ -35,6 +35,7 @@ type VisibilityKey = 'showDockIcon' | 'showMenuBar';
 
 export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
   const mac = isMacPlatform();
+  const trayName = mac ? 'menu bar' : 'system tray';
   const layout = useKeyboardLayout();
   const [pendingHide, setPendingHide] = useState<VisibilityKey | null>(null);
   const shortcutLabelId = useId();
@@ -85,8 +86,8 @@ export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
           />
         )}
         <SwitchRow
-          label="Show in menu bar"
-          description="Add a Shortty icon to the menu bar."
+          label={`Show in ${trayName}`}
+          description={`Add a Shortty icon to the ${trayName}.`}
           checked={settings.showMenuBar}
           onChange={(v) => handleVisibilityToggle('showMenuBar', v)}
         />
@@ -130,7 +131,7 @@ export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
 
       <Section
         label="Appearance"
-        footer="Position is where the launcher opens. System appearance follows macOS light and dark mode."
+        footer={`Position is where the launcher opens. System appearance follows ${mac ? 'macOS' : 'the system'} light and dark mode.`}
       >
         <Row
           label="Position"
@@ -178,7 +179,8 @@ export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
             </h2>
             <p id="pf-hide-body" className="pf-sheet-body">
               You&apos;ll only be able to open Shortty with the keyboard shortcut. Are you sure?
-              To undo this later, run <code>shortty --reset-settings</code>.
+              To undo this later, quit Shortty and run{' '}
+              <code>{resetSettingsCommand(window.electronAPI.platform)}</code>.
             </p>
             <div className="pf-sheet-actions">
               <button

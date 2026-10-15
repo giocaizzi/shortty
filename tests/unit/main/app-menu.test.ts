@@ -33,9 +33,18 @@ describe('buildAppMenuTemplate', () => {
     expect(r).toEqual(expect.arrayContaining(['undo', 'redo', 'cut', 'copy', 'paste', 'selectAll']));
   });
 
-  it('macOS gets an app menu first; other platforms only Edit', () => {
+  it('macOS gets an app menu first; other platforms File and Edit', () => {
     expect(buildAppMenuTemplate('Shortty', true, noop, 'darwin')[0].label).toBe('Shortty');
-    expect(buildAppMenuTemplate('Shortty', true, noop, 'linux').map((m) => m.label)).toEqual(['Edit']);
+    expect(buildAppMenuTemplate('Shortty', true, noop, 'linux').map((m) => m.label)).toEqual(['File', 'Edit']);
+  });
+
+  it('Windows File menu opens Settings with Ctrl+,', () => {
+    const openSettings = vi.fn();
+    const file = buildAppMenuTemplate('Shortty', true, openSettings, 'win32')[0];
+    const item = (file.submenu as MenuItemConstructorOptions[]).find((i) => i.label === 'Settings…');
+    expect(item?.accelerator).toBe('CommandOrControl+,');
+    (item?.click as () => void)();
+    expect(openSettings).toHaveBeenCalledOnce();
   });
 
   it('unpackaged builds keep reload and devtools, still without close', () => {
