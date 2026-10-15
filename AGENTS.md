@@ -70,6 +70,7 @@ Main process (src/main)                          Renderer (src/renderer)
 - Never run the app or a test against the real `~/Library`, `~/.config` or the developer's settings. E2E runs in hermetic mode (`SHORTTY_E2E=1` + `SHORTTY_E2E_DIR`, `src/main/e2e.ts`): fake `HOME`, `PATH`, `TMPDIR` and `userData`; keep it that way in new specs.
 - The launcher hides on blur: during `make e2e` nothing else may take focus. Runs are serialized machine-wide with `lockf` on `/tmp/shortty-e2e.lock`, so parallel worktrees wait instead of failing.
 - `make e2e` builds with `npm run package` and launches the Electron binary from `node_modules`, not the packaged app (its fuses block the debugger Playwright needs).
+- The packaged app ships only `.vite/`, no `node_modules`: never mark a runtime dependency `external` in `vite.main.config.ts`. E2E would still pass (it resolves from the repo's `node_modules`) while the installed app crashes with `Cannot find module`.
 - Dismissal goes through main (`hideWindow` IPC, exit animation, `window-hider.ts`); blur-to-hide is disabled in `make dev`.
 - Changing a commands parser (`src/main/commands/parsers/`) in a way that alters its output: bump `CACHE_VERSION` in `src/main/commands/cache.ts`, or users keep the old cached results.
 - Probed binaries must go through `runSandboxed` (`src/main/commands/sandbox-exec.ts`): env allowlist, timeout, blocklist. Never spawn a user binary another way.
