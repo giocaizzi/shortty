@@ -14,6 +14,7 @@ import { ChromeParser } from './chrome.parser';
 import { MacosSystemParser } from './macos-system.parser';
 import { VimParser } from './vim.parser';
 import { BashParser } from './bash.parser';
+import { WindowsTerminalParser } from './windows-terminal.parser';
 import { BaseParser } from './base-parser';
 import { formatCheatsheetKey } from './key-normalizer';
 
@@ -33,6 +34,7 @@ const PARSERS: Record<string, new () => BaseParser> = {
   'macos-system': MacosSystemParser,
   vim: VimParser,
   bash: BashParser,
+  'windows-terminal': WindowsTerminalParser,
 };
 
 interface SourceInfo {

@@ -1,0 +1,26 @@
+// Windows Terminal settings.json (JSONC): 1.21+ split format plus legacy entries
+{
+    "$help": "https://aka.ms/terminal-documentation",
+    "$schema": "https://aka.ms/terminal-profiles-schema",
+    "actions": [
+        // New format: commands with ids, keys bound in "keybindings"
+        { "command": { "action": "copy", "singleLine": false }, "id": "User.copy.644BA8F2" },
+        { "command": "paste", "id": "User.paste" },
+        { "command": { "action": "splitPane", "split": "vertical" }, "id": "User.splitPane.A6751878", "name": "Split vertically" },
+        /* Legacy format: command and keys in one entry */
+        { "command": "togglePaneZoom", "keys": "ctrl+shift+z" },
+        { "command": { "action": "newTab", "index": 0 }, "keys": ["ctrl+alt+t", "ctrl+shift+1"] },
+        { "command": "unbound", "keys": "alt+enter" },
+        { "command": null, "keys": "ctrl+shift+w" },
+    ],
+    "keybindings": [
+        { "id": "User.copy.644BA8F2", "keys": "ctrl+c" },
+        { "id": "User.paste", "keys": "ctrl+v" },
+        { "id": "User.splitPane.A6751878", "keys": "alt+shift+plus" },
+        { "id": "Terminal.OpenNewTab", "keys": "ctrl+t" },
+        { "id": "Terminal.QuakeMode", "keys": "win+sc(41)" },
+        { "id": "Terminal.ToggleFocusMode", "keys": "ctrl+shift+numpad_0" },
+        { "id": null, "keys": "ctrl+shift+f" },
+    ],
+    "profiles": { "defaults": {}, "list": [] }
+}
