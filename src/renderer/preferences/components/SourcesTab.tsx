@@ -122,12 +122,17 @@ function SourceCard({ source, enabled, override, onToggle, onCommitOverride }: S
     if (next !== current) onCommitOverride(next);
   };
 
-  // Enter commits through the blur handler; Escape reverts and skips it.
+  // Enter commits at once (blur never fires on a field that has already lost
+  // focus); Escape reverts. Both skip the blur commit.
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (isImeComposing(e)) return;
     if (e.key === 'Enter') {
       e.preventDefault();
+      setEditing(false);
+      commit(e.currentTarget.value);
+      cancelEdit.current = true; // blur() runs handleBlur synchronously, if focused
       e.currentTarget.blur();
+      cancelEdit.current = false;
     } else if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
