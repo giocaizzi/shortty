@@ -6,13 +6,14 @@ import type { MenuItemConstructorOptions } from 'electron';
  * destroy it. This menu keeps only what the windows need: the Edit roles
  * (undo/redo/cut/copy/paste/select all in text fields) and, on macOS, the
  * standard app menu (Settings ⌘,, Hide, Quit), elsewhere a File menu (Settings
- * Ctrl+,, Quit). Reload and devtools stay available in
+ * Ctrl+,, Quit), both with About (Preferences → About). Reload and devtools stay available in
  * unpackaged (development) builds only.
  */
 export function buildAppMenuTemplate(
   appName: string,
   isPackaged: boolean,
   openSettings: () => void,
+  openAbout: () => void,
   platform: NodeJS.Platform = process.platform,
 ): MenuItemConstructorOptions[] {
   const template: MenuItemConstructorOptions[] = [];
@@ -21,7 +22,7 @@ export function buildAppMenuTemplate(
     template.push({
       label: appName,
       submenu: [
-        { role: 'about' },
+        { label: `About ${appName}`, click: openAbout },
         { type: 'separator' },
         { label: 'Settings…', accelerator: 'CommandOrControl+,', click: openSettings },
         { type: 'separator' },
@@ -38,6 +39,7 @@ export function buildAppMenuTemplate(
       label: 'File',
       submenu: [
         { label: 'Settings…', accelerator: 'CommandOrControl+,', click: openSettings },
+        { label: `About ${appName}`, click: openAbout },
         { type: 'separator' },
         { role: 'quit' },
       ],

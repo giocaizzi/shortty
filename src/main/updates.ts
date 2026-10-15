@@ -12,7 +12,7 @@ import log from './logger';
  * Shortty only asks the GitHub API for the latest release and links to it.
  */
 
-const REPO = 'giocaizzi/shortty';
+export const REPO = 'giocaizzi/shortty';
 const FEED_HOST = 'https://update.electronjs.org';
 const LATEST_RELEASE_API = `https://api.github.com/repos/${REPO}/releases/latest`;
 

@@ -337,6 +337,8 @@ On macOS a click opens the menu below; on Windows a left-click shows or hides th
 │ Show/Hide                    │
 │──────────────────────────────│
 │ Preferences...               │
+│ About Shortty                │
+│ Version 0.2.1                │  ← greyed, the running version
 │──────────────────────────────│
 │ Quit Shortty                 │
 └──────────────────────────────┘
@@ -345,6 +347,7 @@ On macOS a click opens the menu below; on Windows a left-click shows or hides th
 - "Update Available (vX.Y.Z)..." opens the release page; once an automatic update is downloaded it reads "Restart to Update" and restarts into the new version. Absent otherwise ([spec §12.4](spec.md#124-updates))
 - "Show/Hide" toggles the panel
 - "Preferences..." opens the preferences window
+- "About Shortty" opens Preferences on the About tab; the greyed line below it is the running version (also the tray tooltip, "Shortty 0.2.1")
 - "Quit Shortty" exits the app
 
 ---
@@ -477,6 +480,29 @@ Separate window: 600x500px, non-resizable, hidden-inset title bar on macOS (traf
 - Enrichment progress bar showing X/Y commands enriched
 - Status badge: "Running in background", "Complete" or "Paused"
 - **Rebuild index** (always shown): re-detects and re-parses every shortcut source, deletes the commands cache (`commands-cache/`: index, stats, per-command and subcommand details) and rescans PATH; command details are read again in the background (`prefs:rebuildIndex`, `rebuildIndex()` in `src/main/index.ts`)
+
+### 5.5 About Tab
+
+```
+┌──────────────┬───────────────────────────────────────────────┐
+│              │  About                                        │
+│              │                  [app icon]                   │
+│              │                   Shortty                     │
+│              │            Version 0.2.1 (arm64)              │
+│              │  [Release Notes] [GitHub] [Report…] [License] │
+│              │                                               │
+│              │  Shortty 0.2.1   Up to date.     [Check Now]  │
+│              │  Download updates automatically        [●  ]  │
+│              │                                               │
+│              │  macOS 26.0               [Copy Version Info] │
+│              │  Electron 44.7.0 · Chromium … · Node …        │
+└──────────────┴───────────────────────────────────────────────┘
+```
+
+- Reached from the sidebar, the tray ("About Shortty") and the app menu (macOS: Shortty → About Shortty; Windows/Linux: File → About Shortty). A closed Preferences window opens on it (`#about`); an open one switches to it (`prefs:showTab`).
+- The links open in the browser; main builds the URLs (`src/main/about.ts`), the renderer only names one of four. Release Notes is the GitHub release of the running version.
+- The Updates rows are the same as in General (§5.1).
+- "Copy Version Info" copies three lines (version and arch, OS, Electron/Chromium/Node) for bug reports.
 
 ---
 

@@ -44,6 +44,7 @@
   --pf-tile-sources: #0a84ff;
   --pf-tile-search: #5e5ce6;
   --pf-tile-commands: #2c2c2e;
+  --pf-tile-about: #34c759;
 
   --pf-backdrop: rgba(0, 0, 0, 0.18);
   --pf-sheet: #ececec;
@@ -194,6 +195,35 @@ input {
 .pf-nav-icon-sources { background: var(--pf-tile-sources); }
 .pf-nav-icon-search { background: var(--pf-tile-search); }
 .pf-nav-icon-commands { background: var(--pf-tile-commands); }
+.pf-nav-icon-about { background: var(--pf-tile-about); }
+
+.pf-about-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0 18px;
+  text-align: center;
+}
+
+.pf-about-name {
+  margin-top: 6px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.pf-about-version {
+  color: var(--pf-text-secondary);
+  user-select: text;
+}
+
+.pf-about-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
 
 .pf-content {
   flex: 1;

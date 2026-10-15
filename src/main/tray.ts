@@ -9,6 +9,7 @@ let update: UpdateStatus | null = null;
 interface TrayCallbacks {
   onToggle: () => void;
   onPreferences: () => void;
+  onAbout: () => void;
   /** Restart into a downloaded update or open the newer release's page. */
   onInstallUpdate: () => void;
 }
@@ -36,7 +37,7 @@ function createTray(callbacks: TrayCallbacks): void {
   const icon = nativeImage.createFromPath(getTrayIconPath());
 
   tray = new Tray(icon);
-  tray.setToolTip('Shortty');
+  tray.setToolTip(`Shortty ${app.getVersion()}`);
   trayCallbacks = callbacks;
   buildMenu();
   // Windows convention: left-click opens the app, right-click the menu.
@@ -62,6 +63,8 @@ function buildMenu(): void {
       { label: 'Show/Hide', click: callbacks.onToggle },
       { type: 'separator' },
       { label: 'Preferences...', click: callbacks.onPreferences },
+      { label: 'About Shortty', click: callbacks.onAbout },
+      { label: `Version ${app.getVersion()}`, enabled: false },
       { type: 'separator' },
       { label: 'Quit Shortty', click: () => app.quit() },
     ]),

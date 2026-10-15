@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron';
 import path from 'node:path';
+import { IPC_CHANNELS } from '../shared/ipc-channels';
 
 declare const PREFERENCES_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const PREFERENCES_WINDOW_VITE_NAME: string;
@@ -20,8 +21,10 @@ export function preferencesLocation(): { devUrl?: string; file: string } {
   };
 }
 
-export function openPreferencesWindow(): void {
+/** Open (or focus) Preferences, optionally on a tab such as `about`. */
+export function openPreferencesWindow(tab?: string): void {
   if (preferencesWindow && !preferencesWindow.isDestroyed()) {
+    if (tab) preferencesWindow.webContents.send(IPC_CHANNELS.PREFS_SHOW_TAB, tab);
     preferencesWindow.focus();
     return;
   }
@@ -47,10 +50,11 @@ export function openPreferencesWindow(): void {
   });
 
   const { devUrl, file } = preferencesLocation();
+  // A new window starts on the tab named in the URL hash.
   if (devUrl) {
-    preferencesWindow.loadURL(devUrl);
+    preferencesWindow.loadURL(tab ? `${devUrl}#${tab}` : devUrl);
   } else {
-    preferencesWindow.loadFile(file);
+    preferencesWindow.loadFile(file, tab ? { hash: tab } : undefined);
   }
 
   preferencesWindow.on('closed', () => {

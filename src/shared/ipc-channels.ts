@@ -12,6 +12,12 @@ export const IPC_CHANNELS = {
   SETTINGS_ON_CHANGE: 'settings:onChange',
 
   OPEN_PREFERENCES: 'app:openPreferences',
+  /** Version, runtime and OS for Preferences → About. */
+  APP_GET_INFO: 'app:getInfo',
+  /** renderer -> main (send): open one of the fixed About links in the browser. */
+  APP_OPEN_LINK: 'app:openLink',
+  /** main -> preferences: switch to a tab (About from the tray or app menu). */
+  PREFS_SHOW_TAB: 'prefs:showTab',
 
   COMMANDS_GET_ALL: 'commands:getAll',
   COMMANDS_GET_DETAIL: 'commands:getDetail',

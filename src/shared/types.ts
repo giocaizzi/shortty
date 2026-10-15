@@ -124,6 +124,21 @@ export interface SourceStatus {
 }
 
 /** Update check state shown in Preferences and the tray (src/main/updates.ts). */
+/** What Preferences → About shows (and copies for bug reports). */
+export interface AppInfo {
+  version: string;
+  arch: string;
+  platform: string;
+  /** e.g. "macOS 26.0", "Windows 10.0.26100", "Linux 6.8.0". */
+  os: string;
+  electron: string;
+  chrome: string;
+  node: string;
+}
+
+/** Fixed links About can open; main builds the URL (no URL crosses IPC). */
+export type AboutLink = 'releaseNotes' | 'repo' | 'issues' | 'license';
+
 export interface UpdateStatus {
   /** Running version (app.getVersion()). */
   current: string;

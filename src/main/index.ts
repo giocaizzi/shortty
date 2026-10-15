@@ -116,6 +116,7 @@ const updater = new Updater({
 const trayCallbacks = {
   onToggle: () => toggleWindow(),
   onPreferences: () => openPreferences(),
+  onAbout: () => openPreferences('about'),
   onInstallUpdate: () => updater.install(),
 };
 
@@ -428,8 +429,8 @@ async function rebuildIndex(): Promise<void> {
   }
 }
 
-function openPreferences(): void {
-  openPreferencesWindow();
+function openPreferences(tab?: string): void {
+  openPreferencesWindow(tab);
 }
 
 // --- Launcher window IPC (renderer -> main) ---
@@ -498,7 +499,7 @@ async function startup(): Promise<void> {
   const repaired = repairSettings();
   if (repaired.length > 0) log.warn(`Invalid settings reset to defaults: ${repaired.join(', ')}`);
 
-  Menu.setApplicationMenu(Menu.buildFromTemplate(buildAppMenuTemplate(app.name, app.isPackaged, openPreferences)));
+  Menu.setApplicationMenu(Menu.buildFromTemplate(buildAppMenuTemplate(app.name, app.isPackaged, () => openPreferences(), () => openPreferences('about'))));
 
   // Environment setup that must finish before the engines read PATH/HOME
   // (e.g. importing the login-shell PATH) chains in here.

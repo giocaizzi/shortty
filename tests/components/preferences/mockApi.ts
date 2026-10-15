@@ -57,6 +57,17 @@ export function installMockApi(
     onWindowWillHide: vi.fn(() => () => undefined),
     pickPath: vi.fn(async (): Promise<string | null> => null),
     getIcon: vi.fn(async (): Promise<string | null> => null),
+    getAppInfo: vi.fn(async () => ({
+      version: '0.2.1',
+      arch: 'arm64',
+      platform,
+      os: 'macOS 26.0',
+      electron: '44.7.0',
+      chrome: '150.0.0.0',
+      node: '24.0.0',
+    })),
+    openAboutLink: vi.fn(),
+    onShowTab: vi.fn(() => () => undefined),
     checkPaths: vi.fn(async (paths: string[]) =>
       paths.map((p) => ({
         path: p,

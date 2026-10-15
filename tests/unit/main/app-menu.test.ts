@@ -13,7 +13,7 @@ const noop = () => {};
 describe('buildAppMenuTemplate', () => {
   it('macOS app menu opens Settings with ⌘,', () => {
     const openSettings = vi.fn();
-    const appMenu = buildAppMenuTemplate('Shortty', true, openSettings, 'darwin')[0];
+    const appMenu = buildAppMenuTemplate('Shortty', true, openSettings, noop, 'darwin')[0];
     const item = (appMenu.submenu as MenuItemConstructorOptions[]).find((i) => i.label === 'Settings…');
     expect(item?.accelerator).toBe('CommandOrControl+,');
     (item?.click as () => void)();
@@ -21,7 +21,7 @@ describe('buildAppMenuTemplate', () => {
   });
 
   it('packaged: no close, reload or devtools items (⌘W must not destroy the launcher)', () => {
-    const r = roles(buildAppMenuTemplate('Shortty', true, noop, 'darwin'));
+    const r = roles(buildAppMenuTemplate('Shortty', true, noop, noop, 'darwin'));
     expect(r).not.toContain('close');
     expect(r).not.toContain('reload');
     expect(r).not.toContain('forceReload');
@@ -29,26 +29,34 @@ describe('buildAppMenuTemplate', () => {
   });
 
   it('keeps the Edit roles text fields need', () => {
-    const r = roles(buildAppMenuTemplate('Shortty', true, noop, 'darwin'));
+    const r = roles(buildAppMenuTemplate('Shortty', true, noop, noop, 'darwin'));
     expect(r).toEqual(expect.arrayContaining(['undo', 'redo', 'cut', 'copy', 'paste', 'selectAll']));
   });
 
   it('macOS gets an app menu first; other platforms File and Edit', () => {
-    expect(buildAppMenuTemplate('Shortty', true, noop, 'darwin')[0].label).toBe('Shortty');
-    expect(buildAppMenuTemplate('Shortty', true, noop, 'linux').map((m) => m.label)).toEqual(['File', 'Edit']);
+    expect(buildAppMenuTemplate('Shortty', true, noop, noop, 'darwin')[0].label).toBe('Shortty');
+    expect(buildAppMenuTemplate('Shortty', true, noop, noop, 'linux').map((m) => m.label)).toEqual(['File', 'Edit']);
   });
 
   it('Windows File menu opens Settings with Ctrl+,', () => {
     const openSettings = vi.fn();
-    const file = buildAppMenuTemplate('Shortty', true, openSettings, 'win32')[0];
+    const file = buildAppMenuTemplate('Shortty', true, openSettings, noop, 'win32')[0];
     const item = (file.submenu as MenuItemConstructorOptions[]).find((i) => i.label === 'Settings…');
     expect(item?.accelerator).toBe('CommandOrControl+,');
     (item?.click as () => void)();
     expect(openSettings).toHaveBeenCalledOnce();
   });
 
+  it.each(['darwin', 'win32'] as const)('About opens Preferences → About (%s)', (platform) => {
+    const openAbout = vi.fn();
+    const first = buildAppMenuTemplate('Shortty', true, noop, openAbout, platform)[0];
+    const item = (first.submenu as MenuItemConstructorOptions[]).find((i) => i.label === 'About Shortty');
+    (item?.click as () => void)();
+    expect(openAbout).toHaveBeenCalledOnce();
+  });
+
   it('unpackaged builds keep reload and devtools, still without close', () => {
-    const r = roles(buildAppMenuTemplate('Shortty', false, noop, 'darwin'));
+    const r = roles(buildAppMenuTemplate('Shortty', false, noop, noop, 'darwin'));
     expect(r).toContain('toggleDevTools');
     expect(r).toContain('reload');
     expect(r).not.toContain('close');
