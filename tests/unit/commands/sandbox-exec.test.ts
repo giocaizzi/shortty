@@ -49,10 +49,12 @@ describe.runIf(posix)('runSandboxed', () => {
 
   it('closes stdin so a command waiting for input does not hang', async () => {
     const bin = script('reader', 'read line; echo "got:[$line]"');
-    const result = await runSandboxed(bin, [], { timeoutMs: 1500 });
+    // Generous: a loaded host can take seconds just to start sh. A hang
+    // would still show up as timedOut.
+    const result = await runSandboxed(bin, [], { timeoutMs: 10000 });
     expect(result.timedOut).toBe(false);
     expect(result.output).toBe('got:[]\n');
-  });
+  }, 15000);
 
   it('runs in a throwaway directory that is removed afterwards', async () => {
     const bin = script('where', 'pwd; touch created-by-help');

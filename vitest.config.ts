@@ -10,7 +10,7 @@ export default defineConfig({
     setupFiles: ['tests/setup.ts'],
     // The on-disk transform cache misses new files matched by import.meta.glob
     // (a new cheatsheet), so tests ran against the old bundled set
-    experimental: { fsModuleCache: false },
+    fsModuleCache: false,
   },
   resolve: {
     alias: {
