@@ -6,7 +6,7 @@ import type { ElectronAPI } from '../../../src/preload/preload';
 import { useSubcommandDetail } from '../../../src/renderer/hooks/useSubcommandDetail';
 
 function detailFor(name: string): SubcommandDetail {
-  return { name, description: `${name} help`, enrichment: 'full', subcommands: [], flags: [] } as SubcommandDetail;
+  return { name, description: `${name} help`, enrichment: 'full', subcommands: [], flags: [], arguments: [] } as SubcommandDetail;
 }
 
 interface Deferred<T> {

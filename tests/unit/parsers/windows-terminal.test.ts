@@ -10,7 +10,7 @@ const FIXTURE_PATH = join(FIXTURES, 'windows-terminal-settings.json');
 
 /** Keys as structured strokes, independent of how the platform displays them. */
 const view = (s: Shortcut[]) => s.map((k) => [
-  k.rawCommand, k.command, k.strokes.map((st) => [...st.mods, st.key].join('+')).join(' '), k.isUnbound,
+  k.rawCommand, k.command, (k.strokes ?? []).map((st) => [...st.mods, st.key].join('+')).join(' '), k.isUnbound,
 ]);
 
 describe('WindowsTerminalParser', () => {

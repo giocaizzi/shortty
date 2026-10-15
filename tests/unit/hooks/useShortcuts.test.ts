@@ -60,7 +60,7 @@ describe('useShortcuts', () => {
   });
 
   it('fetches sources and keybindings on mount', async () => {
-    const api = window.electronAPI;
+    const api = vi.mocked(window.electronAPI);
     renderHook(() => useShortcuts());
 
     await waitFor(() => {
@@ -70,7 +70,7 @@ describe('useShortcuts', () => {
   });
 
   it('calls refresh to reload keybindings', async () => {
-    const api = window.electronAPI;
+    const api = vi.mocked(window.electronAPI);
     const updatedShortcuts: Shortcut[] = [
       ...mockShortcuts,
       {
@@ -106,7 +106,7 @@ describe('useShortcuts', () => {
   it('cleans up event listeners on unmount', async () => {
     const unsubUpdate = vi.fn();
     const unsubShown = vi.fn();
-    const api = window.electronAPI;
+    const api = vi.mocked(window.electronAPI);
     api.onKeybindingsUpdate.mockReturnValue(unsubUpdate);
     api.onWindowShown.mockReturnValue(unsubShown);
 
@@ -123,7 +123,7 @@ describe('useShortcuts', () => {
   });
 
   it('does not refetch shortcuts on show unless the source list changed', async () => {
-    const api = window.electronAPI;
+    const api = vi.mocked(window.electronAPI);
     let shown: () => void = () => undefined;
     api.onWindowShown.mockImplementation((cb: () => void) => {
       shown = cb;
@@ -145,7 +145,7 @@ describe('useShortcuts', () => {
   });
 
   it('retries the first load when the main process is not ready yet', async () => {
-    const api = window.electronAPI;
+    const api = vi.mocked(window.electronAPI);
     api.getSources
       .mockRejectedValueOnce(new Error('No handler registered'))
       .mockResolvedValue(mockSources);

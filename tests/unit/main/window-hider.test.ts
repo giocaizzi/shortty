@@ -2,14 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { WindowHider } from '../../../src/main/window-hider';
 
 describe('WindowHider', () => {
-  let requestExit: ReturnType<typeof vi.fn>;
-  let hide: ReturnType<typeof vi.fn>;
+  let requestExit: ReturnType<typeof vi.fn<(id: number) => void>>;
+  let hide: ReturnType<typeof vi.fn<() => void>>;
   let hider: WindowHider;
 
   beforeEach(() => {
     vi.useFakeTimers();
-    requestExit = vi.fn();
-    hide = vi.fn();
+    requestExit = vi.fn<(id: number) => void>();
+    hide = vi.fn<() => void>();
     hider = new WindowHider({ requestExit, hide, timeoutMs: 120 });
   });
 
