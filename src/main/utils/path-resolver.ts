@@ -23,7 +23,7 @@ export function resolvePath(p: string): string {
   let resolved = p;
 
   // Tilde expansion
-  if (resolved.startsWith('~/')) {
+  if (resolved.startsWith('~/') || resolved.startsWith('~\\')) {
     resolved = join(homedir(), resolved.slice(2));
   }
 
@@ -33,7 +33,8 @@ export function resolvePath(p: string): string {
     /\$\{(\w+)\}|\$(\w+)/g,
     (_, braced: string | undefined, bare: string | undefined) => envOrDefault(braced ?? bare ?? ''),
   );
-  resolved = resolved.replace(/%(\w+)%/g, (_, name) => process.env[name] ?? '');
+  // Windows names may contain parentheses: %ProgramFiles(x86)%.
+  resolved = resolved.replace(/%([\w()]+)%/g, (_, name) => process.env[name] ?? '');
 
   return resolve(resolved);
 }
