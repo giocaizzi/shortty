@@ -434,6 +434,50 @@ describe('golden: man pages (GNU, BSD mdoc, ronn)', () => {
   });
 });
 
+describe('golden: CLIs whose command list is not in --help (aws help, bq help, poetry list)', () => {
+  it('aws help: a man page through the pager, services as "o name" bullets', () => {
+    const result = parseHelpOutput(read('aws/help-cmd.txt'), 'aws');
+    assertDefined(result);
+    expect(result.longDescription).toBe('The AWS Command Line Interface is a unified tool to manage your AWS services.');
+    expect(result.subcommands.length).toBeGreaterThan(400);
+    expect(result.subcommands.map(s => s.name)).toEqual(expect.arrayContaining(['aws s3', 'aws ec2', 'aws sts']));
+    expect(result.flags.map(f => f.long)).toEqual(expect.arrayContaining(['--debug', '--region', '--profile']));
+  });
+
+  it('aws s3 help / aws s3 ls help: commands, then options', () => {
+    expect(parseHelpOutput(read('aws/s3-help-cmd.txt'), 'aws s3')?.subcommands.map(s => s.name)).toEqual(
+      ['cp', 'ls', 'mb', 'mv', 'presign', 'rb', 'rm', 'sync', 'website'].map(n => `aws s3 ${n}`),
+    );
+    const ls = parseHelpOutput(read('aws/s3-ls-help-cmd.txt'), 'aws s3 ls');
+    assertDefined(ls);
+    expect(ls.longDescription).toMatch(/^List S3 objects and common prefixes under a prefix or all S3 buckets\./);
+    expect(ls.flags.find(f => f.long === '--recursive')).toMatchObject({ description: 'Command is performed on all files or objects', group: 'OPTIONS' });
+  });
+
+  it('bq help: the wrapped comma list, a name split at its hyphen rejoined', () => {
+    const names = parseHelpOutput(read('bq/help-cmd.txt'), 'bq')?.subcommands.map(s => s.name.slice(3));
+    expect(names).toEqual([
+      'add-iam-policy-binding', 'cancel', 'cp', 'extract', 'get-iam-policy', 'head', 'help', 'info', 'init',
+      'insert', 'load', 'ls', 'mk', 'mkdef', 'partition', 'query', 'remove-iam-policy-binding', 'rm',
+      'set-iam-policy', 'shell', 'show', 'truncate', 'undelete', 'update', 'version', 'wait',
+    ]);
+  });
+
+  it('poetry list: commands and namespaces (" cache" over "cache clear")', () => {
+    const result = parseHelpOutput(read('poetry/list.txt'), 'poetry');
+    assertDefined(result);
+    expect(findSub(result, 'poetry add').description).toBe('Adds a new dependency to pyproject.toml and installs it.');
+    expect(findSub(result, 'poetry cache').description).toBe('');
+    expect(result.flags.map(f => f.short)).toContain('-C');
+  });
+});
+
+function findSub(result: { subcommands: { name: string; description: string }[] }, name: string) {
+  const found = result.subcommands.find(s => s.name === name);
+  assertDefined(found);
+  return found;
+}
+
 describe('golden: usage on stderr / non-zero exit (BSD tools reject --help)', () => {
   it.each([
     ['tmux/help.txt', 'tmux [-2CDhlNuVv] [-c shell-command] [-f file] [-L socket-name] [-S socket-path] [-T features] [command [flags]]'],
