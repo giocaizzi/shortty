@@ -120,9 +120,11 @@ function extractSubcommands(
     }
   }
 
-  // Format 2: man page cross-references — "  cmd-subcmd(1)\n      description"
+  // Format 2: man page cross-references — "  cmd-subcmd(1)\n      description";
+  // a subcommand's page names them with dashes ("gh auth" -> "gh-auth-login(1)")
+  const refPrefix = commandName.replace(/ /g, '-').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const refRegex = new RegExp(
-    `^\\s+${commandName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-(\\S+?)\\(\\d+\\)\\s*\\n\\s{8,}(.+)`,
+    `^\\s+${refPrefix}-(\\S+?)\\(\\d+\\)\\s*\\n\\s{8,}(.+)`,
     'gm',
   );
   let match: RegExpExecArray | null;

@@ -2175,5 +2175,17 @@
       "|--line-buffered"
     ],
     "subcommands": []
+  },
+  "gh/man-auth.txt": {
+    "subcommands": [
+      "login",
+      "logout",
+      "refresh",
+      "setup-git",
+      "status",
+      "switch",
+      "token"
+    ],
+    "flags": []
   }
 }
