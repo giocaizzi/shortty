@@ -69,7 +69,9 @@ export async function runSandboxed(
       const useGroup = process.platform !== 'win32';
       const child = spawn(bin, args, {
         cwd,
-        env: { ...sandboxEnv(), ...env },
+        // tmux finds its server through TMUX_TMPDIR: a probe (tmux new-session --help)
+        // must never reach the user's running server
+        env: { ...sandboxEnv(), TMUX_TMPDIR: cwd, ...env },
         stdio: ['ignore', 'pipe', 'pipe'],
         detached: useGroup,
       });

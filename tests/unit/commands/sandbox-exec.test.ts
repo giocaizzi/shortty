@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mkdtempSync, writeFileSync, chmodSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { runSandboxed, sandboxEnv } from '../../../src/main/commands/sandbox-exec';
 
 const posix = process.platform !== 'win32';
@@ -66,6 +66,13 @@ describe.runIf(posix)('runSandboxed', () => {
     const bin = script('env', 'echo "$PAGER|$MANPAGER|$GIT_PAGER|$NO_COLOR|$EDITOR|$GIT_EDITOR|${CLICOLOR_FORCE-unset}"');
     const result = await runSandboxed(bin, []);
     expect(result.output).toBe('cat|cat|cat|1|true|true|unset\n');
+  });
+
+  it('points tmux at the throwaway directory, away from the user\'s server', async () => {
+    const bin = script('tmuxdir', 'echo "$TMUX_TMPDIR"; pwd');
+    const [tmuxDir, cwd] = (await runSandboxed(bin, [])).output.trim().split('\n');
+    expect(tmuxDir).toMatch(/shortty-help-/);
+    expect(basename(tmuxDir)).toBe(basename(cwd));
   });
 
   it('passes arguments without a shell (no injection)', async () => {
