@@ -31,7 +31,7 @@ Actions → Release → Run workflow (or `gh workflow run release.yml --ref <bra
 
 ## Rollback
 
-Delete the release and its tag: `gh release delete vX.Y.Z --cleanup-tag`. Then fix forward on `main`; release-please opens the next Release PR. If the manifest was bumped, the next release keeps counting from it (never reuse a version). Users who installed it keep it: there is no auto-update channel to retract.
+Delete the release and its tag: `gh release delete vX.Y.Z --cleanup-tag`. Then fix forward on `main`; release-please opens the next Release PR. If the manifest was bumped, the next release keeps counting from it (never reuse a version). Copies that already auto-updated keep it (update.electronjs.org only serves the latest release, so they move on with the next one); see [updates.md](updates.md).
 
 ## What a human must provide
 

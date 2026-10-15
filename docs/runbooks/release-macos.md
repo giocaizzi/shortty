@@ -68,7 +68,7 @@ The packaged app must contain: the cheatsheets (bundled into `app.asar` at `.vit
 
 ## 4. Publish
 
-Attach the DMG and ZIP to a GitHub Release for the tag (`gh release create vX.Y.Z out/make/dmg/*/*.dmg out/make/zip/darwin/*/*.zip`). No auto-update channel exists in v1.
+Releases are published by CI ([release.md](release.md)). By hand: `gh release create vX.Y.Z out/make/dmg/*/*.dmg out/make/zip/darwin/*/*.zip`, renamed as in release.md, or auto-update cannot find the zip ([updates.md](updates.md)).
 
 ## What a human must provide
 
@@ -77,10 +77,10 @@ Attach the DMG and ZIP to a GitHub Release for the tag (`gh release create vX.Y.
 
 ## Signing in CI
 
-Releases build unsigned in `.github/workflows/release.yml` ([release.md](release.md)). To sign there: import the Developer ID certificate (base64 `.p12` secret plus password) into a temporary keychain on the macOS build job, expose `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` as secrets of a `release` environment, and delete the keychain afterwards (issue #49).
+`.github/workflows/release.yml` imports the Developer ID certificate (`MACOS_CERT_P12`, `MACOS_CERT_PASSWORD`) into a temporary keychain and signs and notarizes with the four variables above, all secrets of the `release` environment ([release.md](release.md#what-a-human-must-provide)). Without them it builds unsigned with a warning.
 
 ## Rollback
 
-Before publishing, nothing leaves the machine: delete `out/`. After publishing, delete the GitHub Release and its tag (`gh release delete vX.Y.Z --cleanup-tag`); users who already downloaded the DMG keep it (there is no auto-update channel to retract). A notarization submission cannot be withdrawn, but it has no effect without the published artifact.
+Before publishing, nothing leaves the machine: delete `out/`. After publishing, delete the GitHub Release and its tag (`gh release delete vX.Y.Z --cleanup-tag`); users who already installed it keep it ([release.md](release.md#rollback)). A notarization submission cannot be withdrawn, but it has no effect without the published artifact.
 
 **Last verified:** 2026-10-14 by the feat/finish-v1 docs pass (commands read against `Makefile` and `forge.config.ts`; signing and publishing not exercised, no certificate available)
