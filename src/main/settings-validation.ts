@@ -59,6 +59,7 @@ const CHECKS: Record<keyof AppSettings, Check> = {
   showDockIcon: boolean,
   showMenuBar: boolean,
   dismissAfterCopy: boolean,
+  resetLauncher: oneOf('immediately', '90s', 'never'),
   theme: oneOf('light', 'dark', 'system'),
   globalShortcut: (v) =>
     typeof v === 'string' && v.trim() !== '' && v.length <= 100 ? null : 'must be a non-empty shortcut',

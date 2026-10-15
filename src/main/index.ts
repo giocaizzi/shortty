@@ -192,9 +192,10 @@ function showWindow(): void {
   // Showing again during the exit animation aborts the pending hide.
   hider.cancel();
 
-  // Reposition on the display under the cursor and reset to the compact bar
+  // Reposition on the display under the cursor. The height stays: the renderer
+  // collapses it when it resets, and keeps it when it resumes its last screen.
   const { x, y } = getWindowPosition();
-  win.setBounds({ x, y, width: WINDOW_WIDTH, height: SEARCH_BAR_HEIGHT });
+  win.setBounds({ x, y, width: WINDOW_WIDTH, height: win.getBounds().height });
 
   win.show();
   app.focus({ steal: true });

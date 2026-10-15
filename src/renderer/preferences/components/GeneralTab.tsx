@@ -19,6 +19,12 @@ const POSITIONS: { value: AppSettings['windowPosition']; label: string }[] = [
   { value: 'mouse', label: 'Near Cursor' },
 ];
 
+const RESETS: { value: AppSettings['resetLauncher']; label: string }[] = [
+  { value: 'immediately', label: 'Immediately' },
+  { value: '90s', label: 'After 90 s' },
+  { value: 'never', label: 'Never' },
+];
+
 const THEMES: { value: AppSettings['theme']; label: string }[] = [
   { value: 'system', label: 'System' },
   { value: 'light', label: 'Light' },
@@ -89,6 +95,18 @@ export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
           description="Close the launcher once a shortcut or command is copied."
           checked={settings.dismissAfterCopy}
           onChange={(v) => void onUpdate('dismissAfterCopy', v)}
+        />
+        <Row
+          label="Start blank"
+          description="When a reopened launcher clears its search instead of showing the last screen."
+          control={
+            <Segmented
+              label="Start blank"
+              value={settings.resetLauncher}
+              options={RESETS}
+              onChange={(v) => void onUpdate('resetLauncher', v)}
+            />
+          }
         />
       </Section>
 

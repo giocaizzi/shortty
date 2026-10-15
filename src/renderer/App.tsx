@@ -1,6 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { Check } from 'lucide-react';
 import type { Command, Shortcut } from '../shared/types';
+import type { AppSettings } from '../shared/settings';
 import { useShortcuts } from './hooks/useShortcuts';
 import { useCommands } from './hooks/useCommands';
 import { useSearch } from './hooks/useSearch';
@@ -37,6 +38,12 @@ const SHRINK_DELAY_MS = 150;
 const COPY_FLASH_MS = 300;
 const COPIED_STATUS_MS = 1500;
 const EXIT_ANIMATION_MS = 80;
+/** How long a hidden launcher keeps its screen (Preferences → General → Reset). */
+const RESET_DELAY_MS: Record<AppSettings['resetLauncher'], number> = {
+  immediately: 0,
+  '90s': 90_000,
+  never: Infinity,
+};
 const NO_COMMANDS: Command[] = [];
 
 type NavLevel =
@@ -109,8 +116,10 @@ function prefersReducedMotion(): boolean {
 export function App() {
   const { shortcuts, sources, loading } = useShortcuts();
   const { commands } = useCommands();
-  const { commandPrefixMode, dismissAfterCopy, commandsEnabled, resultLimits, globalShortcut } =
+  const { commandPrefixMode, dismissAfterCopy, commandsEnabled, resultLimits, globalShortcut, resetLauncher } =
     useAppSettings();
+  const resetDelay = useRef(RESET_DELAY_MS[resetLauncher]);
+  resetDelay.current = RESET_DELAY_MS[resetLauncher];
   const layout = useKeyboardLayout();
 
   const [navStack, setNavStack] = useState<StackEntry[]>([ROOT]);
@@ -128,6 +137,7 @@ export function App() {
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const sentHeight = useRef<number | null>(null);
 
   const currentLevel = (navStack[navStack.length - 1] ?? ROOT).level;
   const drilledSourceId = currentLevel.kind === 'drilled-source' ? currentLevel.sourceId : null;
@@ -187,10 +197,13 @@ export function App() {
     timers.current.push(setTimeout(fn, ms));
   }, []);
 
-  // Full reset (docs/spec.md §10.1). Done when the window hides, so the old query
-  // never flashes on the next show, and again on show for safety.
+  // Full reset (docs/spec.md §10.1). Done when the window hides (at once, or
+  // after the reset delay), so the old screen never flashes on the next show.
+  // Main reopens at the last height, so collapse it now rather than debounced.
   const resetAll = useCallback(() => {
     clearTimers();
+    sentHeight.current = WINDOW_HEIGHT_COLLAPSED;
+    window.electronAPI?.setWindowHeight(WINDOW_HEIGHT_COLLAPSED);
     setNavStack([ROOT]);
     setQuery('');
     setSelectedIndex(0);
@@ -205,8 +218,24 @@ export function App() {
   useEffect(() => {
     const api = window.electronAPI;
     if (!api) return;
-    const unsubShown = api.onWindowShown(resetAll);
-    const unsubHidden = api.onWindowHidden(resetAll);
+    let hiddenAt = 0;
+    let resetTimer: ReturnType<typeof setTimeout> | undefined;
+    const unsubHidden = api.onWindowHidden(() => {
+      hiddenAt = Date.now();
+      const delay = resetDelay.current;
+      if (delay === 0) return resetAll();
+      // Keep the screen; drop only what belonged to the last visit.
+      clearTimers();
+      setCopyFlashIndex(null);
+      setCopied(null);
+      setExiting(false);
+      if (Number.isFinite(delay)) resetTimer = setTimeout(resetAll, delay);
+    });
+    const unsubShown = api.onWindowShown(() => {
+      clearTimeout(resetTimer);
+      if (Date.now() - hiddenAt >= resetDelay.current) resetAll();
+      else setExiting(false);
+    });
     // Every hide (Esc, copy, blur, hotkey) plays the exit animation first;
     // main waits for this promise (or ~120ms) before hiding.
     const unsubWillHide = api.onWindowWillHide(() => {
@@ -218,8 +247,9 @@ export function App() {
       unsubShown();
       unsubHidden();
       unsubWillHide();
+      clearTimeout(resetTimer);
     };
-  }, [resetAll]);
+  }, [resetAll, clearTimers]);
 
   useEffect(() => clearTimers, [clearTimers]);
 
@@ -250,7 +280,6 @@ export function App() {
   // Grow at once (results must not be clipped); shrink only once typing or
   // deleting settles. macOS animates each resize and keys queue behind it, so
   // a burst of Backspaces must cost one resize, not one per keystroke.
-  const sentHeight = useRef<number | null>(null);
   useEffect(() => {
     const send = () => {
       sentHeight.current = windowHeight;

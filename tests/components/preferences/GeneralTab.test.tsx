@@ -76,6 +76,12 @@ describe('GeneralTab', () => {
     expect(onUpdate).toHaveBeenCalledWith('theme', 'dark');
   });
 
+  it('writes when a reopened launcher starts blank', () => {
+    const { onUpdate } = renderTab();
+    fireEvent.click(screen.getByRole('radio', { name: 'After 90 s' }));
+    expect(onUpdate).toHaveBeenCalledWith('resetLauncher', '90s');
+  });
+
   it('asks before hiding both the Dock and menu bar icons', () => {
     const { onUpdate } = renderTab({ showDockIcon: false, showMenuBar: true });
     fireEvent.click(screen.getByRole('switch', { name: 'Show in menu bar' }));

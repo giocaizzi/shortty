@@ -359,6 +359,7 @@ Separate window: 600x500px, non-resizable, hidden-inset title bar (traffic light
 │ [≡] Sources  │  │ Show in Dock                       ( o)│  │
 │ [🔍] Search  │  │ Show in menu bar                   (o )│  │
 │ [>_] Commands│  │ Hide after copying                 (o )│  │
+│              │  │ Start blank [Immediately|After 90 s|Never]│ │
 │              │  └─────────────────────────────────────────┘  │
 │              │  ┌─────────────────────────────────────────┐  │
 │              │  │ Activation shortcut     [ ⇧ ][ ⌘ ][Space]│  │

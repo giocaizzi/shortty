@@ -624,6 +624,7 @@ Each section shows a selectable "Show all X" row when truncated (Enter expands i
 | Show in Dock | boolean | `false` | General tab |
 | Show in Menu Bar | boolean | `true` | General tab |
 | Dismiss After Copy | boolean | `true` | General tab |
+| Start Blank (`resetLauncher`) | `immediately \| 90s \| never` | `immediately` | General tab |
 | Global Shortcut | string | `CommandOrControl+Shift+Space` | General tab |
 | Window Position | enum | `top-center` | General tab |
 | Theme | enum | `system` | General tab |
@@ -684,7 +685,7 @@ The panel is a **lookup tool**. Users come with intent.
 - **Global hotkey** (`⌘⇧Space` default) summons the panel
 - **Blank on open** — search bar focused, no results displayed, ready for input
 - **Type to search** — results appear instantly in three sections (Sources, Shortcuts, Commands)
-- **Full state reset on every open** — query cleared, back to flat mode
+- **Full state reset on open** — query cleared, back to flat mode. The Start Blank setting (§9.1) can delay it: reopened within 90 s (or always, with `never`), the panel resumes its last screen (query, drill-down level, selection, height). The reset runs while the window is hidden, so the old screen never flashes
 - **Dismiss** — Esc (in flat mode with an empty query; with a query, Esc clears it first), click outside, blur/focus loss, global hotkey toggle
 
 ### 10.2 Navigation Model: Flat → Drill-In
@@ -771,6 +772,8 @@ Enter on a "Show all X" row expands that section. The shortcut copied is the key
 | `←` / `Backspace` (empty field) | — | Back to flat | Back to results |
 | Any character | Search input | Search within source | Filter within details |
 | `?` icon (or `?` on an empty query) | Show keyboard shortcuts help | — | — |
+
+In Command Detail, Enter copies the full command line: a subcommand row copies its path (`gh auth login`), a flag or argument row copies it after the current path (`gh auth login --hostname`, `git <args>`), an example copies its whole command, an environment variable its name alone.
 
 Tab never moves focus out of the search field; → drills only when the caret is at the end of the query.
 
