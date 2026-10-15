@@ -185,6 +185,10 @@ src/cheatsheets/
     bash.json                    # Metadata only
     obsidian.json                # Metadata only
     macos-system.json            # Metadata only
+    windows-system.json          # Windows only, no parser
+    explorer.json                # Windows only, no parser
+    windows-terminal.json
+    psreadline.json              # Metadata only
 ```
 
 #### Cheatsheet Schema
@@ -271,7 +275,9 @@ Parsers are **optional enhancers** that detect user customizations from config f
 | Chrome | additive | extension commands only, no overlap with defaults | none |
 | Obsidian | replace | replaces the command's hotkeys | empty hotkey list |
 | macOS System | replace | replaces the hotkey | hotkey disabled |
-| Finder | — | cheatsheet only, no parser | — |
+| Windows Terminal | additive | adds a key | `"command": "unbound"` / `null`, or `"id": null` (matches by key) |
+| PowerShell (PSReadLine) | additive | replaces the handler on that key (merged inside the parser) | `Remove-PSReadLineKeyHandler` |
+| Finder, Windows, File Explorer | — | cheatsheet only, no parser | — |
 
 Rules (overrides match defaults by `source` + `rawCommand`, ignoring the VS Code `-` removal prefix):
 
@@ -283,10 +289,14 @@ Rules (overrides match defaults by `source` + `rawCommand`, ignoring the VS Code
 
 Known limits: a user binding for a *different* command on a default's key does not shadow that default (in Ghostty and vim a trigger maps to one action, so `keybind = super+d=close_surface` really replaces the default ⌘D `new_split:right`, but both are listed); VS Code removals match on command and key, not on the `when` clause.
 
-**Special case (tmux, macOS System, Zsh, Bash, Obsidian):**
+**Special case (tmux, macOS System, Zsh, Bash, Obsidian, PowerShell):**
 Parser provides all data (defaults + user config). Cheatsheet has empty `shortcuts` array, serving only as metadata shell (id, label, icon, paths, `mergeMode`). Their `mergeMode` still records the app's semantics so a future cheatsheet merges correctly.
 
 Zsh and Bash defaults come from the shell itself, started without rc files through the `--help` sandbox (`src/main/parsers/shell-defaults.ts`: temp cwd, stdin closed, env allowlist, timeout; Bash also gets `INPUTRC=/dev/null`) and cached per binary path + mtime. Noise is dropped (self-insert, digit arguments, unbound functions, keys listed twice). A config binding replaces the default on the same keymap + key, an unbind marks it unbound; a missing shell leaves only the config bindings.
+
+PowerShell (PSReadLine) defaults come from `pwsh.exe`, else `powershell.exe` (PATH, then `%SystemRoot%\System32\WindowsPowerShell\v1.0`), run with `-NoProfile -NonInteractive` through the same sandbox (10 s timeout) as `Get-PSReadLineKeyHandler -Bound | ConvertTo-Json`, after `Set-PSReadLineOption -EditMode` when the profile selects Emacs or Vi. When no PowerShell runs, the parser uses its bundled Windows-mode list (`src/main/parsers/data/psreadline-defaults.ts`, from about_PSReadLine_Functions). `Set-PSReadLineKeyHandler` lines of the `$PROFILE` files (`-Chord`/`-Key`, `-Function` or `-ScriptBlock` with `-BriefDescription`) replace the handler on their key. Chords: `Ctrl+x,Ctrl+e` is a sequence, an upper-case letter means Shift (`Ctrl+C`).
+
+Windows Terminal: `settings.json` (JSONC) in the legacy format (`command` + `keys` in `actions`/`keybindings`) and the 1.21+ split format (`actions` with `id`, `keybindings` with `id` + `keys`). A binding whose command equals a default action (`src/main/parsers/data/windows-terminal-actions.ts`, from the app's `defaults.json`) gets that action's id (`Terminal.OpenNewTab`) as `rawCommand`, so it merges with the cheatsheet entry.
 
 #### Parser Registration
 
@@ -303,8 +313,12 @@ const PARSERS: Record<string, new () => BaseParser> = {
   chrome: ChromeParser,
   'macos-system': MacosSystemParser,
   vim: VimParser,
+  'windows-terminal': WindowsTerminalParser,
+  psreadline: PsReadLineParser,
 };
 ```
+
+A parser registers only on the platforms in its `meta.platforms`, like a cheatsheet only on its `platforms`.
 
 Sources can enter the system through two doors:
 - **Cheatsheet file** (with or without parser) — community/curated path
@@ -321,7 +335,7 @@ A parser without a cheatsheet works — it shows only what it can parse. No chea
 Config paths are resolved in this order:
 
 1. **User override** (from settings, if set)
-2. **Environment variable expansion** (`~`, `$HOME`, `$XDG_CONFIG_HOME`, `%APPDATA%`)
+2. **Environment variable expansion** (`~/` and `~\`, `$HOME`, `$XDG_CONFIG_HOME`, `%APPDATA%`, `%ProgramFiles(x86)%`)
 3. **Cheatsheet `defaultPaths`** for current platform (try each in order)
 4. **Discovery scan** (for apps like Obsidian where paths aren't predictable)
 
@@ -361,8 +375,12 @@ Rebuild triggers:
 | Obsidian | Metadata only | hotkeys.json per vault | all |
 | Chrome | Curated (~50-60) | extension shortcuts | all |
 | macOS System | Metadata only | symbolichotkeys.plist | darwin |
-| vim | Curated (~100-150) | `~/.vimrc`, `~/.vim/vimrc`, `~/.config/vim/vimrc` (vim 9.1 XDG; vimscript only) | darwin, linux |
+| vim | Curated (~100-150) | `~/.vimrc`, `~/.vim/vimrc`, `~/.config/vim/vimrc` (vim 9.1 XDG; vimscript only); Windows: `~/_vimrc`, `~/vimfiles/vimrc` first | all |
 | Finder | Curated (~40-50) | None | darwin |
+| Windows | Curated (~65) | None | win32 |
+| File Explorer | Curated (~45) | None | win32 |
+| Windows Terminal | Curated (60, from `defaults.json`) | settings.json (packaged, Preview, unpackaged) | win32 |
+| PowerShell | Metadata only | $PROFILE `Set-PSReadLineKeyHandler` + `Get-PSReadLineKeyHandler -Bound` (bundled Windows-mode fallback) | win32 |
 
 ---
 
