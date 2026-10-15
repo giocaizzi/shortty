@@ -107,7 +107,7 @@ export class VimParser extends BaseParser {
       id: 'vim',
       label: 'vim',
       icon: '📝',
-      platforms: ['darwin', 'linux'],
+      platforms: ['darwin', 'win32', 'linux'],
     };
   }
 

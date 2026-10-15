@@ -147,7 +147,7 @@ describe('ParserRegistry on Windows', () => {
 
   beforeAll(async () => {
     registry = new ParserRegistry();
-    await registry.initialize(['vscode', 'chrome', 'obsidian']);
+    await registry.initialize(['vscode', 'chrome', 'obsidian', 'vim']);
   });
 
   it('registers only the sources that run on Windows', () => {
