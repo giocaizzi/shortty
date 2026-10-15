@@ -5,17 +5,20 @@
  *
  * Absent on purpose: logos simple-icons does not carry (VS Code, Finder,
  * Azure, AWS, OpenAI, Java). Those fall back to the app icon or the monogram.
+ * Each glyph costs its SVG path in the renderer bundle (~1.5 KB on average),
+ * so very detailed niche marks (Composer at 40 KB, Podman, LLVM, Argo) are
+ * left out too.
  */
 import {
-  si1password, siAnaconda, siAnsible, siApple, siArgo, siBitwarden, siBiome, siBruno, siBun,
-  siCaddy, siClaude, siCloudflare, siCloudflareworkers, siCmake, siCocoapods, siComposer, siConsul,
+  si1password, siAnaconda, siAnsible, siApple, siBitwarden, siBiome, siBruno, siBun,
+  siCaddy, siClaude, siCloudflare, siCloudflareworkers, siCmake, siCocoapods, siConsul,
   siDart, siDeno, siDigitalocean, siDocker, siDotnet, siElectron, siElixir, siErlang, siEslint,
   siExpo, siFastlane, siFfmpeg, siFirebase, siFlutter, siFlydotio, siGhostty, siGit, siGithub,
   siGithubactions, siGithubcopilot, siGitlab, siGnubash, siGnuemacs, siGnuprivacyguard, siGo,
   siGooglechrome, siGooglecloud, siGradle, siHaskell, siHelm, siHomebrew, siHttpie, siJupyter,
-  siKotlin, siKubernetes, siLatex, siLlvm, siLua, siMariadb, siMongodb, siMysql, siNeovim,
+  siKotlin, siKubernetes, siLatex, siLua, siMariadb, siMongodb, siMysql, siNeovim,
   siNetlify, siNginx, siNgrok, siNixos, siNodedotjs, siNomad, siNpm, siObsidian, siOllama,
-  siOpencode, siOpenjdk, siOpenssl, siPacker, siPerl, siPhp, siPnpm, siPodman, siPoetry,
+  siOpencode, siOpenjdk, siOpenssl, siPacker, siPerl, siPhp, siPnpm, siPoetry,
   siPostgresql, siPrettier, siPrometheus, siPulumi, siPython, siRabbitmq, siRedis, siRuby,
   siRubygems, siRust, siScala, siSqlite, siStarship, siStripe, siSupabase, siSwift, siTailscale,
   siTerraform, siTmux, siTypescript, siUv, siVagrant, siVault, siVercel, siVim, siVitest,
@@ -40,8 +43,8 @@ const SOURCES: Record<string, BrandIcon> = {
 /** Command name (after version suffixes are stripped, see brandIconForCommand). */
 const COMMANDS: Record<string, BrandIcon> = {
   git: siGit, gh: siGithub, glab: siGitlab,
-  docker: siDocker, 'docker-compose': siDocker, podman: siPodman,
-  kubectl: siKubernetes, helm: siHelm, argo: siArgo,
+  docker: siDocker, 'docker-compose': siDocker,
+  kubectl: siKubernetes, helm: siHelm,
   terraform: siTerraform, packer: siPacker, vagrant: siVagrant, consul: siConsul, vault: siVault,
   nomad: siNomad, pulumi: siPulumi, ansible: siAnsible, 'ansible-playbook': siAnsible,
   gcloud: siGooglecloud, gsutil: siGooglecloud, bq: siGooglecloud, firebase: siFirebase,
@@ -57,8 +60,8 @@ const COMMANDS: Record<string, BrandIcon> = {
   java: siOpenjdk, javac: siOpenjdk, kotlin: siKotlin, gradle: siGradle, scala: siScala,
   swift: siSwift, swiftc: siSwift, xcodebuild: siXcode, xcrun: siXcode, pod: siCocoapods,
   fastlane: siFastlane, flutter: siFlutter, dart: siDart, eas: siExpo, expo: siExpo,
-  ruby: siRuby, irb: siRuby, gem: siRubygems, php: siPhp, composer: siComposer, perl: siPerl,
-  lua: siLua, zig: siZig, clang: siLlvm, 'clang++': siLlvm, cmake: siCmake, dotnet: siDotnet,
+  ruby: siRuby, irb: siRuby, gem: siRubygems, php: siPhp, perl: siPerl,
+  lua: siLua, zig: siZig, cmake: siCmake, dotnet: siDotnet,
   elixir: siElixir, iex: siElixir, mix: siElixir, erl: siErlang, ghc: siHaskell, cabal: siHaskell,
   psql: siPostgresql, postgres: siPostgresql, pg_dump: siPostgresql, pg_restore: siPostgresql,
   mysql: siMysql, mariadb: siMariadb, sqlite3: siSqlite, 'redis-cli': siRedis,

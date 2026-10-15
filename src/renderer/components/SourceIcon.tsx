@@ -137,7 +137,7 @@ function BrandTile({ id, brand, size, radius }: { id: string; brand: BrandIcon; 
       className="brand-tile inline-flex shrink-0 items-center justify-center"
       style={{ width: size, height: size, borderRadius: radius, '--brand': `#${brand.hex}` } as CSSProperties}
     >
-      <svg viewBox="0 0 24 24" width={Math.round(size * 0.62)} height={Math.round(size * 0.62)} fill="currentColor">
+      <svg viewBox="0 0 24 24" width={Math.round(size * 0.68)} height={Math.round(size * 0.68)} fill="currentColor">
         <path d={brand.path} />
       </svg>
     </span>
