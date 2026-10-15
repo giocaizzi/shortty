@@ -331,15 +331,18 @@ On macOS a click opens the menu below; on Windows a left-click shows or hides th
 ### 4.2 Tray Context Menu
 
 ```
-┌─────────────────────┐
-│ Show/Hide           │
-│─────────────────────│
-│ Preferences...      │
-│─────────────────────│
-│ Quit Shortty        │
-└─────────────────────┘
+┌──────────────────────────────┐
+│ Update Available (v0.2.0)... │  ← only when an update is found
+│──────────────────────────────│
+│ Show/Hide                    │
+│──────────────────────────────│
+│ Preferences...               │
+│──────────────────────────────│
+│ Quit Shortty                 │
+└──────────────────────────────┘
 ```
 
+- "Update Available (vX.Y.Z)..." opens the release page; once an automatic update is downloaded it reads "Restart to Update" and restarts into the new version. Absent otherwise ([spec §12.4](spec.md#124-updates))
 - "Show/Hide" toggles the panel
 - "Preferences..." opens the preferences window
 - "Quit Shortty" exits the app
@@ -369,11 +372,17 @@ Separate window: 600x500px, non-resizable, hidden-inset title bar on macOS (traf
 │              │  │ Position   [Top Center|Center|Near Cursor]│ │
 │              │  │ Appearance [System | Light | Dark]       │  │
 │              │  └─────────────────────────────────────────┘  │
+│              │  ┌─────────────────────────────────────────┐  │
+│              │  │ Shortty 0.1.0               [Check Now] │  │
+│              │  │ Up to date.                             │  │
+│              │  │ Download updates automatically     (o )│  │
+│              │  └─────────────────────────────────────────┘  │
 └──────────────┴───────────────────────────────────────────────┘
 ```
 
 - Each switch has a one-line explanation under its label
 - The shortcut recorder records physical keys (`KeyboardEvent.code`) and labels them for the user's layout; a shortcut already in use shows the error from the main process
+- Updates: the running version and the update status (Not checked yet, Checking…, Up to date., Version X is available., Downloading the update…, … is ready. Restart to update., Couldn't check for updates.). The button is "Check Now", "Download…" (opens the release page) when a newer version was found without auto-update, or "Restart to Update" once one is downloaded. Development builds show "Updates are checked in installed builds only." with the button disabled. The auto-update switch is absent on Linux, where Shortty only notifies
 - Off macOS the Dock row is absent and the tray row reads "Show in system tray" / "Add a Shortty icon to the system tray."
 - Turning off both Dock and menu bar (off macOS: the tray icon) asks for confirmation first. The dialog names the installed app's reset command: `/Applications/Shortty.app/Contents/MacOS/shortty --reset-settings` on macOS, `%LOCALAPPDATA%\shortty\shortty.exe --reset-settings` on Windows, `shortty --reset-settings` on Linux
 

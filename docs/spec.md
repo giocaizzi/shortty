@@ -665,6 +665,7 @@ Each section shows a selectable "Show all X" row when truncated (Enter expands i
 | Command Prefix Mode | boolean | `false` | Search tab |
 | Result Limits | object | see §8.5 | Search tab |
 | Commands Enabled | boolean | `true` | Commands tab |
+| Auto-update (`autoUpdate`) | boolean | `true` | General tab (macOS and Windows) |
 
 **Visibility safety:** if user disables both Dock and Menu Bar (off macOS: the system tray icon, the only one there), show confirmation dialog: "You'll only be able to access Shortty via the keyboard shortcut. Are you sure?" Escape hatch: the `--reset-settings` CLI flag, shown in the dialog with the installed app's path per platform. It restores `DEFAULT_SETTINGS` (`src/shared/settings.ts`) and exits without opening a window; it refuses (exit code 1) while another instance holds the single-instance lock. Procedure: [runbooks/reset-settings.md](runbooks/reset-settings.md).
 
@@ -676,7 +677,7 @@ It opens from the menu bar / tray icon (Preferences...) or, while a Shortty wind
 
 | Tab | Contents |
 |-----|----------|
-| **General** | Launch at login, show in dock, show in menu bar, dismiss after copy, global shortcut recorder, window position, theme |
+| **General** | Launch at login, show in dock, show in menu bar, dismiss after copy, global shortcut recorder, window position, theme, updates (version, status, Check Now, auto-update) |
 | **Sources** | All sources with enable/disable toggle, detection status, path overrides per source |
 | **Search** | Shortcut weight sliders, command prefix mode toggle, result section limits |
 | **Commands** | Enable/disable commands feature (room for future enrichment settings) |
@@ -927,14 +928,25 @@ Principle: **never crash the app, never block the user.** Each subsystem fails i
 
 ### 12.3 Privacy
 
-- All data stays local — no network calls, no telemetry
+- All data stays local, no telemetry. The only network calls are the update checks (§12.4): update.electronjs.org (which sees the app version, platform and IP) or the GitHub releases API
 - Logs contain summaries, not file contents
 - Cache stores parsed results, not raw config data
 - Clipboard write only on explicit user action (Enter key)
 
-### 12.4 Auto-Update
+### 12.4 Updates
 
-`electron-updater` with GitHub Releases. App checks for updates on launch, downloads and installs automatically. Implemented in a later phase, not blocking v1 launch.
+`src/main/updates.ts`. Releases are GitHub Releases on `giocaizzi/shortty` (public), tagged `vX.Y.Z`. Two paths, chosen once per start (and again when `autoUpdate` changes):
+
+| Install | Path |
+|---|---|
+| Windows Squirrel install (`Update.exe` one folder above the running `app-x.y.z\shortty.exe`) | Auto-update |
+| macOS bundle signed with a Developer ID (`codesign -dv` on the `.app` lists `Authority=Developer ID Application: …`; unsigned arm64 builds are ad-hoc signed and do not) | Auto-update |
+| Linux deb/rpm, unsigned macOS, portable Windows ZIP, or `autoUpdate` off | Notify only |
+
+- **Auto-update:** Electron's `autoUpdater` (Squirrel) with the feed `https://update.electronjs.org/giocaizzi/shortty/<platform>-<arch>/<version>`, the free Electron update service, which reads the repo's releases. The first check runs 30 s after startup, then every hour. Squirrel downloads the update; the tray and Preferences then offer "Restart to Update" (`quitAndInstall`). A Squirrel error (e.g. a translocated or read-only macOS app) falls back to the notify check.
+- **Notify only:** `GET https://api.github.com/repos/giocaizzi/shortty/releases/latest` with `net.fetch`, 30 s after startup, then every 24 h. Drafts, prereleases and tags that are not `vX.Y.Z` are ignored; a newer version adds "Update Available (vX.Y.Z)..." to the tray, which opens the release page. Offline or rate limited: no message, Preferences shows "Couldn't check for updates."
+- **Never** in development (`!app.isPackaged`) or e2e (`SHORTTY_E2E=1`) runs; tests make no network calls.
+- **Asset names** update.electronjs.org relies on: macOS `*-mac*.zip` (case-insensitive, `-arm64` lowercase for Apple silicon) → `Shortty-macOS-arm64.zip`; Windows any `.exe` without `arm`/`ia32` → `Shortty-Windows-x64-Setup.exe`, plus `RELEASES` and the `.nupkg` it names in the same release. Procedure and constraints: [runbooks/updates.md](runbooks/updates.md).
 
 ### 12.5 Distribution
 
@@ -958,7 +970,7 @@ Principle: **never crash the app, never block the user.** Each subsystem fails i
 | Settings | electron-store | ^11 |
 | Icons | Lucide React | ^1 |
 | Logging | electron-log | ^5 |
-| Auto-update | electron-updater | not in v1 |
+| Auto-update | Electron `autoUpdater` + update.electronjs.org | built in |
 | Testing | Vitest + React Testing Library | ^5 |
 | End-to-end | Playwright (`_electron`) | 1.63 ([runbook](runbooks/run-e2e-tests.md)) |
 | Linting | ESLint + @typescript-eslint | latest |
@@ -1002,5 +1014,6 @@ Where v1 deliberately departs from the original plan. Each row is implemented; e
 | Single-instance lock (§5.3) | — | A second launch would add a second tray, watcher set and commands engine. |
 | Cheatsheets bundled with `import.meta.glob`, schema checked by tests (§6.1) | JSON files read at runtime, validated at build time | No runtime path to resolve in dev, e2e and the packaged app; a unit test gives the same guarantee as a build step. |
 | Preferences styled like macOS System Settings (§9.2) | Generic sidebar + tabs | Native look and controls on the primary platform. |
+| update.electronjs.org + notify-only fallback (§12.4) | `electron-updater`, auto-install everywhere | Squirrel installs only on Windows installs and Developer ID signed macOS apps; the free service needs no update server or extra dependency, and every other build still learns about new versions. The "Restart to Update" prompt is ours (tray, Preferences), not a dialog. |
 
 Command prefix mode stays **off** by default as originally specified; an interim commit (`874aa74`) had turned it on and `32885a4` restored the §9.1 defaults.

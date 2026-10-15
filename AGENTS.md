@@ -53,7 +53,7 @@ Main process (src/main)                          Renderer (src/renderer)
 - Cheatsheets: `src/cheatsheets/sources/*.json`, bundled with `import.meta.glob` in `src/main/cheatsheets/loader.ts`; schema `src/cheatsheets/schema.json`, enforced by `tests/unit/cheatsheets/shipped.test.ts`.
 - Adding a parser: create `src/main/parsers/<name>.parser.ts` extending `BaseParser` (`meta`, `isAvailable()`, `getWatchPaths()`, `parse()`), add it to `PARSERS` in `registry.ts`, add a cheatsheet with `"parser": "<name>"`, a fixture in `fixtures/` and a test.
 - Parser output is merged onto the cheatsheet defaults per the cheatsheet's `mergeMode` (`additive` or `replace`): [docs/spec.md §6.2](docs/spec.md#62-parser-system).
-- IPC channel names: `src/shared/ipc-channels.ts` (`keybindings:*`, `commands:*`, `settings:*`, `window:*`, `prefs:*`); the renderer calls them through `window.electronAPI` (typed in the preload).
+- IPC channel names: `src/shared/ipc-channels.ts` (`keybindings:*`, `commands:*`, `settings:*`, `window:*`, `prefs:*`, `updates:*`); the renderer calls them through `window.electronAPI` (typed in the preload).
 - Shared types: `src/shared/types.ts` (`Shortcut`, `Command`, `SubcommandDetail`, `ParserMeta`), keys in `src/shared/keys.ts`, settings and defaults in `src/shared/settings.ts`. Path alias `@shared/*` → `src/shared/*`.
 - Keys are structured `strokes` resolved per keyboard layout in the renderer: read [docs/keyboard-layouts.md](docs/keyboard-layouts.md) before touching key display, search or copy.
 - Window geometry (750px wide, 72px collapsed, up to 580px): `src/main/window-geometry.ts` and `App.tsx`. Frameless, vibrancy `under-window` (acrylic on Windows 11, `src/main/launcher-window.ts`), always on top, hidden from the Dock (`LSUIElement`).
@@ -73,13 +73,14 @@ Main process (src/main)                          Renderer (src/renderer)
 - The packaged app ships only `.vite/`, no `node_modules`: never mark a runtime dependency `external` in `vite.main.config.ts`. E2E would still pass (it resolves from the repo's `node_modules`) while the installed app crashes with `Cannot find module`.
 - Dismissal goes through main (`hideWindow` IPC, exit animation, `window-hider.ts`); blur-to-hide is disabled in `make dev`.
 - Changing a commands parser (`src/main/commands/parsers/`) in a way that alters its output: bump `CACHE_VERSION` in `src/main/commands/cache.ts`, or users keep the old cached results.
+- Updates (`src/main/updates.ts`) never run in dev or e2e; update.electronjs.org finds releases by asset name, so don't rename release assets without reading [docs/runbooks/updates.md](docs/runbooks/updates.md).
 - Probed binaries must go through `runSandboxed` (`src/main/commands/sandbox-exec.ts`): env allowlist, timeout, blocklist. Never spawn a user binary another way.
 - The single-instance lock is per `userData` dir: `make dev` shares it with an installed Shortty, so quit the running app first or the dev instance exits immediately. E2E runs use their own dir and are unaffected.
 - Colours come from the light/dark tokens in `src/renderer/styles/globals.css` (launcher) and `src/renderer/preferences/styles/preferences.css`; don't hard-code white or black.
 
 ## Docs
 
-Index: [docs/README.md](docs/README.md). Runbooks: [run e2e tests](docs/runbooks/run-e2e-tests.md), [release macOS](docs/runbooks/release-macos.md), [reset settings](docs/runbooks/reset-settings.md). v1 status: [docs/wip/v1-status.md](docs/wip/v1-status.md). Update the matching doc in the same change as the behaviour.
+Index: [docs/README.md](docs/README.md). Runbooks: [run e2e tests](docs/runbooks/run-e2e-tests.md), [release macOS](docs/runbooks/release-macos.md), [reset settings](docs/runbooks/reset-settings.md), [updates](docs/runbooks/updates.md). v1 status: [docs/wip/v1-status.md](docs/wip/v1-status.md). Update the matching doc in the same change as the behaviour.
 
 ## Workflow
 
