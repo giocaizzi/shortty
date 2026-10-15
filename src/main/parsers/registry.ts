@@ -14,6 +14,8 @@ import { ChromeParser } from './chrome.parser';
 import { MacosSystemParser } from './macos-system.parser';
 import { VimParser } from './vim.parser';
 import { BashParser } from './bash.parser';
+import { WindowsTerminalParser } from './windows-terminal.parser';
+import { PsReadLineParser } from './psreadline.parser';
 import { BaseParser } from './base-parser';
 import { formatCheatsheetKey } from './key-normalizer';
 
@@ -33,6 +35,8 @@ const PARSERS: Record<string, new () => BaseParser> = {
   'macos-system': MacosSystemParser,
   vim: VimParser,
   bash: BashParser,
+  'windows-terminal': WindowsTerminalParser,
+  psreadline: PsReadLineParser,
 };
 
 interface SourceInfo {
@@ -99,6 +103,7 @@ export class ParserRegistry {
       if (this.sources.has(id)) continue;
 
       const parser = new ParserClass();
+      if (!parser.meta.platforms.includes(platform)) continue;
       const source: SourceInfo = {
         id,
         label: parser.meta.label,

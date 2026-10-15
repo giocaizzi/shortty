@@ -140,3 +140,35 @@ describe('ParserRegistry (bundled cheatsheets + fixture configs)', () => {
     expect(registry.getWatchPaths().get('vscode')).toEqual([join(FIXTURES, 'later.json')]);
   });
 });
+
+describe('ParserRegistry on Windows', () => {
+  withPlatform('win32');
+  let registry: ParserRegistry;
+
+  beforeAll(async () => {
+    registry = new ParserRegistry();
+    await registry.initialize(['vscode', 'chrome', 'obsidian', 'vim', 'psreadline'], {
+      'windows-terminal': join(FIXTURES, 'windows-terminal-settings.json'),
+    });
+  });
+
+  it('registers only the sources that run on Windows', () => {
+    const ids = registry.getAllSources().map((s) => s.id);
+    expect(ids).toContain('vscode');
+    for (const id of ['ghostty', 'tmux', 'zsh', 'bash', 'macos-system', 'finder']) {
+      expect(ids, id).not.toContain(id);
+    }
+  });
+
+  it('merges Windows Terminal settings onto its defaults', () => {
+    const wt = registry.getCachedBySource('windows-terminal');
+    expect(wt.find((s) => s.rawCommand === 'Terminal.ClosePane')?.isUnbound).toBe(true);
+    expect(wt.filter((s) => s.rawCommand === 'Terminal.OpenNewTab').map((s) => s.origin))
+      .toEqual(['cheatsheet', 'user-config']);
+    // a user binding of a default command keeps the cheatsheet label
+    expect(wt.find((s) => s.rawCommand === 'Terminal.CopyToClipboard' && s.origin === 'user-config')?.command)
+      .toBe('Copy');
+    expect(registry.getCachedBySource('windows-system').length).toBeGreaterThan(40);
+    expect(registry.getCachedBySource('explorer').length).toBeGreaterThan(40);
+  });
+});

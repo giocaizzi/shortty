@@ -1,0 +1,379 @@
+{
+  "$schema": "../schema.json",
+  "id": "windows-terminal",
+  "label": "Windows Terminal",
+  "icon": "⬛",
+  "platforms": ["win32"],
+  "parser": "windows-terminal",
+  "mergeMode": "additive",
+  "lastVerified": { "version": "1.22", "date": "2026-10-15" },
+  "defaultPaths": {
+    "win32": [
+      "%LOCALAPPDATA%/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json",
+      "%LOCALAPPDATA%/Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState/settings.json",
+      "%LOCALAPPDATA%/Microsoft/Windows Terminal/settings.json"
+    ]
+  },
+  "shortcuts": [
+    {
+      "command": "New Window",
+      "rawCommand": "Terminal.OpenNewWindow",
+      "key": { "win32": "Ctrl+Shift+N" },
+      "category": "Window"
+    },
+    {
+      "command": "Close Window",
+      "rawCommand": "Terminal.CloseWindow",
+      "key": { "win32": "Alt+F4" },
+      "category": "Window"
+    },
+    {
+      "command": "Toggle Fullscreen",
+      "rawCommand": "Terminal.ToggleFullscreen",
+      "key": { "win32": "F11" },
+      "category": "Window"
+    },
+    {
+      "command": "Quake Mode (Drop-down Window)",
+      "rawCommand": "Terminal.QuakeMode",
+      "key": { "win32": "Win+`" },
+      "category": "Window"
+    },
+    {
+      "command": "Open System Menu",
+      "rawCommand": "Terminal.OpenSystemMenu",
+      "key": { "win32": "Alt+Space" },
+      "category": "Window"
+    },
+    {
+      "command": "Command Palette",
+      "rawCommand": "Terminal.ToggleCommandPalette",
+      "key": { "win32": "Ctrl+Shift+P" },
+      "category": "General"
+    },
+    {
+      "command": "Open Settings",
+      "rawCommand": "Terminal.OpenSettingsUI",
+      "key": { "win32": "Ctrl+," },
+      "category": "General"
+    },
+    {
+      "command": "Open settings.json",
+      "rawCommand": "Terminal.OpenSettingsFile",
+      "key": { "win32": "Ctrl+Shift+," },
+      "category": "General"
+    },
+    {
+      "command": "Open defaults.json",
+      "rawCommand": "Terminal.OpenDefaultSettingsFile",
+      "key": { "win32": "Ctrl+Alt+," },
+      "category": "General"
+    },
+    {
+      "command": "Show Suggestions",
+      "rawCommand": "Terminal.Suggestions",
+      "key": { "win32": "Ctrl+Shift+." },
+      "category": "General"
+    },
+    {
+      "command": "New Tab",
+      "rawCommand": "Terminal.OpenNewTab",
+      "key": { "win32": "Ctrl+Shift+T" },
+      "category": "Tabs"
+    },
+    {
+      "command": "New Tab Dropdown",
+      "rawCommand": "Terminal.OpenNewTabDropdown",
+      "key": { "win32": "Ctrl+Shift+Space" },
+      "category": "Tabs"
+    },
+    {
+      "command": "New Tab with Profile 1",
+      "rawCommand": "Terminal.OpenNewTabProfile0",
+      "key": { "win32": "Ctrl+Shift+1" },
+      "category": "Tabs"
+    },
+    {
+      "command": "New Tab with Profile 2",
+      "rawCommand": "Terminal.OpenNewTabProfile1",
+      "key": { "win32": "Ctrl+Shift+2" },
+      "category": "Tabs"
+    },
+    {
+      "command": "New Tab with Profile 3",
+      "rawCommand": "Terminal.OpenNewTabProfile2",
+      "key": { "win32": "Ctrl+Shift+3" },
+      "category": "Tabs"
+    },
+    {
+      "command": "New Tab with Profile 4",
+      "rawCommand": "Terminal.OpenNewTabProfile3",
+      "key": { "win32": "Ctrl+Shift+4" },
+      "category": "Tabs"
+    },
+    {
+      "command": "New Tab with Profile 5",
+      "rawCommand": "Terminal.OpenNewTabProfile4",
+      "key": { "win32": "Ctrl+Shift+5" },
+      "category": "Tabs"
+    },
+    {
+      "command": "New Tab with Profile 6",
+      "rawCommand": "Terminal.OpenNewTabProfile5",
+      "key": { "win32": "Ctrl+Shift+6" },
+      "category": "Tabs"
+    },
+    {
+      "command": "New Tab with Profile 7",
+      "rawCommand": "Terminal.OpenNewTabProfile6",
+      "key": { "win32": "Ctrl+Shift+7" },
+      "category": "Tabs"
+    },
+    {
+      "command": "New Tab with Profile 8",
+      "rawCommand": "Terminal.OpenNewTabProfile7",
+      "key": { "win32": "Ctrl+Shift+8" },
+      "category": "Tabs"
+    },
+    {
+      "command": "New Tab with Profile 9",
+      "rawCommand": "Terminal.OpenNewTabProfile8",
+      "key": { "win32": "Ctrl+Shift+9" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Duplicate Tab",
+      "rawCommand": "Terminal.DuplicateTab",
+      "key": { "win32": "Ctrl+Shift+D" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Next Tab",
+      "rawCommand": "Terminal.NextTab",
+      "key": { "win32": "Ctrl+Tab" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Previous Tab",
+      "rawCommand": "Terminal.PrevTab",
+      "key": { "win32": "Ctrl+Shift+Tab" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Switch to Tab 1",
+      "rawCommand": "Terminal.SwitchToTab0",
+      "key": { "win32": "Ctrl+Alt+1" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Switch to Tab 2",
+      "rawCommand": "Terminal.SwitchToTab1",
+      "key": { "win32": "Ctrl+Alt+2" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Switch to Tab 3",
+      "rawCommand": "Terminal.SwitchToTab2",
+      "key": { "win32": "Ctrl+Alt+3" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Switch to Tab 4",
+      "rawCommand": "Terminal.SwitchToTab3",
+      "key": { "win32": "Ctrl+Alt+4" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Switch to Tab 5",
+      "rawCommand": "Terminal.SwitchToTab4",
+      "key": { "win32": "Ctrl+Alt+5" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Switch to Tab 6",
+      "rawCommand": "Terminal.SwitchToTab5",
+      "key": { "win32": "Ctrl+Alt+6" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Switch to Tab 7",
+      "rawCommand": "Terminal.SwitchToTab6",
+      "key": { "win32": "Ctrl+Alt+7" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Switch to Tab 8",
+      "rawCommand": "Terminal.SwitchToTab7",
+      "key": { "win32": "Ctrl+Alt+8" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Switch to Last Tab",
+      "rawCommand": "Terminal.SwitchToLastTab",
+      "key": { "win32": "Ctrl+Alt+9" },
+      "category": "Tabs"
+    },
+    {
+      "command": "Close Pane",
+      "rawCommand": "Terminal.ClosePane",
+      "key": { "win32": "Ctrl+Shift+W" },
+      "category": "Panes"
+    },
+    {
+      "command": "Split Pane Down",
+      "rawCommand": "Terminal.DuplicatePaneDown",
+      "key": { "win32": "Alt+Shift+-" },
+      "category": "Panes"
+    },
+    {
+      "command": "Split Pane Right",
+      "rawCommand": "Terminal.DuplicatePaneRight",
+      "key": { "win32": "Alt+Shift+Plus" },
+      "category": "Panes"
+    },
+    {
+      "command": "Move Focus Up",
+      "rawCommand": "Terminal.MoveFocusUp",
+      "key": { "win32": "Alt+Up" },
+      "category": "Panes"
+    },
+    {
+      "command": "Move Focus Down",
+      "rawCommand": "Terminal.MoveFocusDown",
+      "key": { "win32": "Alt+Down" },
+      "category": "Panes"
+    },
+    {
+      "command": "Move Focus Left",
+      "rawCommand": "Terminal.MoveFocusLeft",
+      "key": { "win32": "Alt+Left" },
+      "category": "Panes"
+    },
+    {
+      "command": "Move Focus Right",
+      "rawCommand": "Terminal.MoveFocusRight",
+      "key": { "win32": "Alt+Right" },
+      "category": "Panes"
+    },
+    {
+      "command": "Move Focus to Previous Pane",
+      "rawCommand": "Terminal.MoveFocusPrevious",
+      "key": { "win32": "Ctrl+Alt+Left" },
+      "category": "Panes"
+    },
+    {
+      "command": "Resize Pane Up",
+      "rawCommand": "Terminal.ResizePaneUp",
+      "key": { "win32": "Alt+Shift+Up" },
+      "category": "Panes"
+    },
+    {
+      "command": "Resize Pane Down",
+      "rawCommand": "Terminal.ResizePaneDown",
+      "key": { "win32": "Alt+Shift+Down" },
+      "category": "Panes"
+    },
+    {
+      "command": "Resize Pane Left",
+      "rawCommand": "Terminal.ResizePaneLeft",
+      "key": { "win32": "Alt+Shift+Left" },
+      "category": "Panes"
+    },
+    {
+      "command": "Resize Pane Right",
+      "rawCommand": "Terminal.ResizePaneRight",
+      "key": { "win32": "Alt+Shift+Right" },
+      "category": "Panes"
+    },
+    {
+      "command": "Copy",
+      "rawCommand": "Terminal.CopyToClipboard",
+      "key": { "win32": "Ctrl+Shift+C" },
+      "category": "Clipboard"
+    },
+    {
+      "command": "Paste",
+      "rawCommand": "Terminal.PasteFromClipboard",
+      "key": { "win32": "Ctrl+Shift+V" },
+      "category": "Clipboard"
+    },
+    {
+      "command": "Select All",
+      "rawCommand": "Terminal.SelectAll",
+      "key": { "win32": "Ctrl+Shift+A" },
+      "category": "Clipboard"
+    },
+    {
+      "command": "Toggle Mark Mode",
+      "rawCommand": "Terminal.ToggleMarkMode",
+      "key": { "win32": "Ctrl+Shift+M" },
+      "category": "Clipboard"
+    },
+    {
+      "command": "Find",
+      "rawCommand": "Terminal.FindText",
+      "key": { "win32": "Ctrl+Shift+F" },
+      "category": "Scroll and Search"
+    },
+    {
+      "command": "Scroll Up",
+      "rawCommand": "Terminal.ScrollUp",
+      "key": { "win32": "Ctrl+Shift+Up" },
+      "category": "Scroll and Search"
+    },
+    {
+      "command": "Scroll Down",
+      "rawCommand": "Terminal.ScrollDown",
+      "key": { "win32": "Ctrl+Shift+Down" },
+      "category": "Scroll and Search"
+    },
+    {
+      "command": "Scroll Up a Page",
+      "rawCommand": "Terminal.ScrollUpPage",
+      "key": { "win32": "Ctrl+Shift+PgUp" },
+      "category": "Scroll and Search"
+    },
+    {
+      "command": "Scroll Down a Page",
+      "rawCommand": "Terminal.ScrollDownPage",
+      "key": { "win32": "Ctrl+Shift+PgDn" },
+      "category": "Scroll and Search"
+    },
+    {
+      "command": "Scroll to Top",
+      "rawCommand": "Terminal.ScrollToTop",
+      "key": { "win32": "Ctrl+Shift+Home" },
+      "category": "Scroll and Search"
+    },
+    {
+      "command": "Scroll to Bottom",
+      "rawCommand": "Terminal.ScrollToBottom",
+      "key": { "win32": "Ctrl+Shift+End" },
+      "category": "Scroll and Search"
+    },
+    {
+      "command": "Clear Buffer",
+      "rawCommand": "Terminal.ClearBuffer",
+      "key": { "win32": "Ctrl+Shift+K" },
+      "category": "Scroll and Search"
+    },
+    {
+      "command": "Increase Font Size",
+      "rawCommand": "Terminal.IncreaseFontSize",
+      "key": { "win32": "Ctrl+Plus" },
+      "category": "Font"
+    },
+    {
+      "command": "Decrease Font Size",
+      "rawCommand": "Terminal.DecreaseFontSize",
+      "key": { "win32": "Ctrl+-" },
+      "category": "Font"
+    },
+    {
+      "command": "Reset Font Size",
+      "rawCommand": "Terminal.ResetFontSize",
+      "key": { "win32": "Ctrl+0" },
+      "category": "Font"
+    }
+  ]
+}

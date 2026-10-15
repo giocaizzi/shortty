@@ -169,6 +169,22 @@ describe('KeyNormalizer', () => {
       expect(canonicalKeyName('Period')).toBe('.');
       expect(canonicalKeyName('MediaPlayPause')).toBe('MediaPlayPause');
     });
+
+    it('understands Windows Terminal and PSReadLine key names', () => {
+      expect(canonicalKeyName('minus')).toBe('-');
+      expect(canonicalKeyName('plus')).toBe('+');
+      expect(canonicalKeyName('backtick')).toBe('`');
+      expect(canonicalKeyName('pgup')).toBe('PageUp');
+      expect(canonicalKeyName('pgdn')).toBe('PageDown');
+      expect(canonicalKeyName('numpad_plus')).toBe('NumpadPlus');
+      expect(canonicalKeyName('numpad_0')).toBe('Numpad0');
+      expect(canonicalKeyName('UpArrow')).toBe('↑');
+      expect(canonicalKeyName('LeftArrow')).toBe('←');
+      expect(canonicalKeyName('Spacebar')).toBe('Space');
+      expect(parseKeyCombo('win+alt+shift+minus')).toEqual({
+        modifiers: [Modifier.Command, Modifier.Option, Modifier.Shift], key: '-',
+      });
+    });
   });
 
   describe('formatKeyCombo', () => {

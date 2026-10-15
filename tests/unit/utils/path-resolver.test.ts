@@ -14,6 +14,19 @@ describe('resolvePath', () => {
     expect(resolvePath('~/.vimrc')).toBe(join(homedir(), '.vimrc'));
   });
 
+  it('expands a Windows-style ~\\', () => {
+    expect(resolvePath('~\\_vimrc')).toBe(join(homedir(), '_vimrc'));
+  });
+
+  it('expands %VAR% names with parentheses', () => {
+    process.env['ProgramFiles(x86)'] = join(homedir(), 'pf86');
+    try {
+      expect(resolvePath('%ProgramFiles(x86)%/app')).toBe(resolve(homedir(), 'pf86', 'app'));
+    } finally {
+      delete process.env['ProgramFiles(x86)'];
+    }
+  });
+
   it('falls back to ~/.config when XDG_CONFIG_HOME is unset', () => {
     delete process.env.XDG_CONFIG_HOME;
     expect(resolvePath('$XDG_CONFIG_HOME/ghostty/config')).toBe(join(homedir(), '.config/ghostty/config'));

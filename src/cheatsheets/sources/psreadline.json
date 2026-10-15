@@ -1,0 +1,19 @@
+{
+  "$schema": "../schema.json",
+  "id": "psreadline",
+  "label": "PowerShell",
+  "icon": "💠",
+  "platforms": ["win32"],
+  "parser": "psreadline",
+  "mergeMode": "additive",
+  "lastVerified": { "version": "PSReadLine 2.3", "date": "2026-10-15" },
+  "defaultPaths": {
+    "win32": [
+      "~/Documents/PowerShell/Microsoft.PowerShell_profile.ps1",
+      "~/Documents/PowerShell/profile.ps1",
+      "~/Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1",
+      "~/Documents/WindowsPowerShell/profile.ps1"
+    ]
+  },
+  "shortcuts": []
+}

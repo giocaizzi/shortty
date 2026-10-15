@@ -1,4 +1,5 @@
 import { access, constants, stat } from 'node:fs/promises';
+import { isAbsolute } from 'node:path';
 import { pathDirectories } from '../commands/path-scanner';
 import { runSandboxed } from '../commands/sandbox-exec';
 import log from '../logger';
@@ -23,14 +24,16 @@ const cache = new Map<string, Promise<string | null>>();
  * built-in key bindings. Goes through the `--help` sandbox (temp cwd, stdin
  * closed, env allowlist, timeout) and caches the output per binary path and
  * mtime, so a shell upgrade is picked up and a config edit is not re-spawned.
- * Returns null when the shell is missing or fails.
+ * `shell` is a name looked up on PATH or an absolute path. Returns null when
+ * the shell is missing or fails.
  */
 export async function shellDefaults(
   shell: string,
   args: string[],
   env: NodeJS.ProcessEnv = {},
+  timeoutMs?: number,
 ): Promise<string | null> {
-  const bin = await findOnPath(shell);
+  const bin = isAbsolute(shell) ? shell : await findOnPath(shell);
   if (!bin) return null;
   let mtime: number;
   try {
@@ -41,7 +44,7 @@ export async function shellDefaults(
   const key = [bin, mtime, ...args].join('\0');
   let pending = cache.get(key);
   if (!pending) {
-    pending = runSandboxed(bin, args, { env })
+    pending = runSandboxed(bin, args, { env, timeoutMs })
       .then((r) => (r.timedOut || r.exitCode !== 0 ? null : r.output))
       .catch(() => null);
     cache.set(key, pending);

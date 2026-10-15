@@ -1,0 +1,281 @@
+{
+  "$schema": "../schema.json",
+  "id": "explorer",
+  "label": "File Explorer",
+  "icon": "📂",
+  "platforms": ["win32"],
+  "parser": null,
+  "lastVerified": { "version": "11 24H2", "date": "2026-10-15" },
+  "shortcuts": [
+    {
+      "command": "New Window",
+      "rawCommand": "explorer.newWindow",
+      "key": { "win32": "Ctrl+N" },
+      "category": "Window"
+    },
+    {
+      "command": "New Tab",
+      "rawCommand": "explorer.newTab",
+      "key": { "win32": "Ctrl+T" },
+      "category": "Window"
+    },
+    {
+      "command": "Close Tab",
+      "rawCommand": "explorer.closeTab",
+      "key": { "win32": "Ctrl+W" },
+      "category": "Window"
+    },
+    {
+      "command": "Next Tab",
+      "rawCommand": "explorer.nextTab",
+      "key": { "win32": "Ctrl+Tab" },
+      "category": "Window"
+    },
+    {
+      "command": "Previous Tab",
+      "rawCommand": "explorer.previousTab",
+      "key": { "win32": "Ctrl+Shift+Tab" },
+      "category": "Window"
+    },
+    {
+      "command": "Maximize or Restore Window",
+      "rawCommand": "explorer.fullscreen",
+      "key": { "win32": "F11" },
+      "category": "Window"
+    },
+    {
+      "command": "Back",
+      "rawCommand": "explorer.back",
+      "key": { "win32": "Alt+Left" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Back (Previous Folder)",
+      "rawCommand": "explorer.backspace",
+      "key": { "win32": "Backspace" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Forward",
+      "rawCommand": "explorer.forward",
+      "key": { "win32": "Alt+Right" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Up One Level",
+      "rawCommand": "explorer.up",
+      "key": { "win32": "Alt+Up" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Focus the Address Bar",
+      "rawCommand": "explorer.addressBar",
+      "key": { "win32": "Ctrl+L" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Select the Address Bar",
+      "rawCommand": "explorer.addressBarAlt",
+      "key": { "win32": "Alt+D" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Edit the Path in the Address Bar",
+      "rawCommand": "explorer.addressBarEdit",
+      "key": { "win32": "F4" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Search",
+      "rawCommand": "explorer.search",
+      "key": { "win32": "Ctrl+E" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Search (Ctrl+F)",
+      "rawCommand": "explorer.searchF",
+      "key": { "win32": "Ctrl+F" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Search for a File or Folder",
+      "rawCommand": "explorer.searchF3",
+      "key": { "win32": "F3" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Refresh",
+      "rawCommand": "explorer.refresh",
+      "key": { "win32": "F5" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Cycle Through Panes",
+      "rawCommand": "explorer.cycleElements",
+      "key": { "win32": "F6" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Scroll to Top",
+      "rawCommand": "explorer.top",
+      "key": { "win32": "Home" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Scroll to Bottom",
+      "rawCommand": "explorer.bottom",
+      "key": { "win32": "End" },
+      "category": "Navigation"
+    },
+    {
+      "command": "Expand All Folders in the Navigation Pane",
+      "rawCommand": "explorer.expandAll",
+      "key": { "win32": "Ctrl+Shift+E" },
+      "category": "Navigation"
+    },
+    {
+      "command": "New Folder",
+      "rawCommand": "explorer.newFolder",
+      "key": { "win32": "Ctrl+Shift+N" },
+      "category": "File"
+    },
+    {
+      "command": "Rename",
+      "rawCommand": "explorer.rename",
+      "key": { "win32": "F2" },
+      "category": "File"
+    },
+    {
+      "command": "Properties",
+      "rawCommand": "explorer.properties",
+      "key": { "win32": "Alt+Enter" },
+      "category": "File"
+    },
+    {
+      "command": "Move to Recycle Bin",
+      "rawCommand": "explorer.delete",
+      "key": { "win32": "Delete" },
+      "category": "File"
+    },
+    {
+      "command": "Move to Recycle Bin (Ctrl+D)",
+      "rawCommand": "explorer.deleteCtrlD",
+      "key": { "win32": "Ctrl+D" },
+      "category": "File"
+    },
+    {
+      "command": "Delete Permanently",
+      "rawCommand": "explorer.deletePermanently",
+      "key": { "win32": "Shift+Delete" },
+      "category": "File"
+    },
+    {
+      "command": "Context Menu",
+      "rawCommand": "explorer.contextMenu",
+      "key": { "win32": "Shift+F10" },
+      "category": "File"
+    },
+    {
+      "command": "Select All",
+      "rawCommand": "explorer.selectAll",
+      "key": { "win32": "Ctrl+A" },
+      "category": "Edit"
+    },
+    {
+      "command": "Copy",
+      "rawCommand": "explorer.copy",
+      "key": { "win32": "Ctrl+C" },
+      "category": "Edit"
+    },
+    {
+      "command": "Cut",
+      "rawCommand": "explorer.cut",
+      "key": { "win32": "Ctrl+X" },
+      "category": "Edit"
+    },
+    {
+      "command": "Paste",
+      "rawCommand": "explorer.paste",
+      "key": { "win32": "Ctrl+V" },
+      "category": "Edit"
+    },
+    {
+      "command": "Undo",
+      "rawCommand": "explorer.undo",
+      "key": { "win32": "Ctrl+Z" },
+      "category": "Edit"
+    },
+    {
+      "command": "Redo",
+      "rawCommand": "explorer.redo",
+      "key": { "win32": "Ctrl+Y" },
+      "category": "Edit"
+    },
+    {
+      "command": "Show or Hide the Preview Pane",
+      "rawCommand": "explorer.previewPane",
+      "key": { "win32": "Alt+P" },
+      "category": "View"
+    },
+    {
+      "command": "Show or Hide the Details Pane",
+      "rawCommand": "explorer.detailsPane",
+      "key": { "win32": "Alt+Shift+P" },
+      "category": "View"
+    },
+    {
+      "command": "Resize All Columns to Fit",
+      "rawCommand": "explorer.fitColumns",
+      "key": { "win32": "Ctrl+NumpadAdd" },
+      "category": "View"
+    },
+    {
+      "command": "View: Extra Large Icons",
+      "rawCommand": "explorer.view1",
+      "key": { "win32": "Ctrl+Shift+1" },
+      "category": "View"
+    },
+    {
+      "command": "View: Large Icons",
+      "rawCommand": "explorer.view2",
+      "key": { "win32": "Ctrl+Shift+2" },
+      "category": "View"
+    },
+    {
+      "command": "View: Medium Icons",
+      "rawCommand": "explorer.view3",
+      "key": { "win32": "Ctrl+Shift+3" },
+      "category": "View"
+    },
+    {
+      "command": "View: Small Icons",
+      "rawCommand": "explorer.view4",
+      "key": { "win32": "Ctrl+Shift+4" },
+      "category": "View"
+    },
+    {
+      "command": "View: List",
+      "rawCommand": "explorer.view5",
+      "key": { "win32": "Ctrl+Shift+5" },
+      "category": "View"
+    },
+    {
+      "command": "View: Details",
+      "rawCommand": "explorer.view6",
+      "key": { "win32": "Ctrl+Shift+6" },
+      "category": "View"
+    },
+    {
+      "command": "View: Tiles",
+      "rawCommand": "explorer.view7",
+      "key": { "win32": "Ctrl+Shift+7" },
+      "category": "View"
+    },
+    {
+      "command": "View: Content",
+      "rawCommand": "explorer.view8",
+      "key": { "win32": "Ctrl+Shift+8" },
+      "category": "View"
+    }
+  ]
+}

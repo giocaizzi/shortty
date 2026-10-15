@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { VimParser } from '../../../src/main/parsers/vim.parser';
 import { FIXTURES, rows } from './parser-helpers';
@@ -58,6 +60,20 @@ describe('VimParser', () => {
     expect(upperW?.strokes).toEqual([{ mods: [], key: 'W', literal: true }]);
     const ctrlP = result.find((kb) => kb.rawCommand.startsWith('nnoremap <C-p>'));
     expect(ctrlP?.strokes).toEqual([{ mods: ['ctrl'], key: 'P' }]);
+  });
+
+  it('parses a CRLF vimrc (Windows _vimrc) like an LF one', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'shortty-vim-'));
+    try {
+      const crlf = join(dir, '_vimrc');
+      writeFileSync(crlf, readFileSync(FIXTURE_PATH, 'utf-8').replace(/\n/g, '\r\n'));
+      const p = new VimParser();
+      p.setConfigPaths([crlf]);
+      const expected = (await parser.parse()).map((s) => ({ ...s, filePath: '', id: '' }));
+      expect((await p.parse()).map((s) => ({ ...s, filePath: '', id: '' }))).toEqual(expected);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('generates unique IDs', async () => {
