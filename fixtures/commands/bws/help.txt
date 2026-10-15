@@ -1,0 +1,54 @@
+Bitwarden Secrets CLI
+
+Usage: bws [OPTIONS] [COMMAND]
+
+Commands:
+  config       Configure the CLI
+  completions  Generate shell completion files
+  project      Commands available on Projects
+  secret       Commands available on Secrets
+  run          Run a command with secrets injected
+  help         Print this message or the help of the given subcommand(s)
+
+Options:
+  -o, --output <OUTPUT>
+          Output format
+          
+          [default: json]
+          [possible values: json, yaml, env, table, tsv, none]
+
+  -c, --color <COLOR>
+          Use colors in the output
+
+          Possible values:
+          - no:   Force colors off
+          - yes:  Force colors on
+          - auto: Automatically detect if colors are supported in the terminal
+          
+          [default: auto]
+
+  -t, --access-token <ACCESS_TOKEN>
+          Specify access token for the service account
+          
+          [env: BWS_ACCESS_TOKEN]
+
+  -f, --config-file <CONFIG_FILE>
+          [default: ~/.config/bws/config] Config file to use
+          
+          [env: BWS_CONFIG_FILE=]
+
+  -p, --profile <PROFILE>
+          Profile to use from the config file
+          
+          [env: BWS_PROFILE=]
+
+  -u, --server-url <SERVER_URL>
+          Override the server URL from the config file
+          
+          [env: BWS_SERVER_URL=]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version

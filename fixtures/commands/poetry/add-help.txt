@@ -1,0 +1,53 @@
+
+Description:
+  Adds a new dependency to pyproject.toml and installs it.
+
+Usage:
+  add [options] [--] <name>...
+
+Arguments:
+  name                       The packages to add.
+
+Options:
+  -G, --group=GROUP          The group to add the dependency to. [default: "main"]
+  -D, --dev                  Add as a development dependency. (shortcut for '-G dev')
+  -e, --editable             Add vcs/path dependencies as editable.
+  -E, --extras=EXTRAS        Extras to activate for the dependency. (multiple values allowed)
+      --optional=OPTIONAL    Add as an optional dependency to an extra.
+      --python=PYTHON        Python version for which the dependency must be installed.
+      --platform=PLATFORM    Platforms for which the dependency must be installed.
+      --markers=MARKERS      Environment markers which describe when the dependency should be installed.
+      --source=SOURCE        Name of the source to use to install the package.
+      --allow-prereleases    Accept prereleases.
+      --dry-run              Output the operations but do not execute anything (implicitly enables --verbose).
+      --lock                 Do not perform operations (only update the lockfile).
+  -h, --help                 Display help for the given command. When no command is given display help for the list command.
+  -q, --quiet                Do not output any message.
+  -V, --version              Display this application version.
+      --ansi                 Force ANSI output.
+      --no-ansi              Disable ANSI output.
+  -n, --no-interaction       Do not ask any interactive question.
+      --no-plugins           Disables plugins.
+      --no-cache             Disables the use of Poetry's caches (cached package metadata and dist files from configured package sources) for the duration of the command, forcing Poetry to behave as if it had a cold cache. This does not delete the caches; use `poetry cache clear` to remove cached data.
+  -P, --project=PROJECT      Specify another path as the project root. All command-line arguments will be resolved relative to the current working directory.
+  -C, --directory=DIRECTORY  The working directory for the Poetry command (defaults to the current working directory). All command-line arguments will be resolved relative to the given directory.
+  -v|vv|vvv, --verbose       Increase the verbosity of messages: 1 for normal output, 2 for more verbose output and 3 for debug.
+
+Help:
+  The add command adds required packages to your pyproject.toml and installs them.
+  
+  If you do not specify a version constraint, poetry will choose a suitable one based on the available package versions.
+  
+  You can specify a package in the following forms:
+    - A single name (requests)
+    - A name and a constraint (requests@^2.23.0)
+    - A git url (git+https://github.com/python-poetry/poetry.git)
+    - A git url with a revision (git+https://github.com/python-poetry/poetry.git#develop)
+    - A subdirectory of a git repository (git+https://github.com/python-poetry/poetry.git#subdirectory=tests/fixtures/sample_project)
+    - A git SSH url (git+ssh://git@github.com/python-poetry/poetry.git)
+    - A git SSH url with a revision (git+ssh://git@github.com/python-poetry/poetry.git#develop)
+    - A file path (../my-package/my-package.whl)
+    - A directory (../my-package/)
+    - A url (https://example.com/packages/my-package-0.1.0.tar.gz)
+  
+  
