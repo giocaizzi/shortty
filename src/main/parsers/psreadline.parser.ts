@@ -32,8 +32,8 @@ const GROUPS: Record<string, string> = {
 /** Where default bindings come from, shown as their file path. */
 const DEFAULTS_SOURCE = 'Get-PSReadLineKeyHandler';
 
-/** Windows PowerShell 5.1 starts slowly on a cold cache. */
-const POWERSHELL_TIMEOUT_MS = 10_000;
+/** A cold PowerShell start takes 5-15 s on a CI runner (warm: ~0.4 s). */
+const POWERSHELL_TIMEOUT_MS = 20_000;
 
 /**
  * PowerShell line-editor (PSReadLine) bindings: the defaults of the edit
