@@ -21,6 +21,8 @@ export interface IpcCallbacks {
    * when the accelerator cannot be registered (the old one stays active).
    */
   changeGlobalShortcut: (accelerator: string) => string | null;
+  /** Drop the commands cache and index commands and shortcut sources again. */
+  rebuildIndex: () => Promise<void>;
 }
 
 /**
@@ -158,6 +160,11 @@ export function registerIpcHandlers(
   });
 
   // --- Preferences window (WP-F) ---
+
+  ipcMain.handle(IPC_CHANNELS.PREFS_REBUILD_INDEX, async () => {
+    await Promise.all([ready.shortcuts, ready.commands]);
+    await callbacks.rebuildIndex();
+  });
 
   ipcMain.handle(IPC_CHANNELS.PREFS_PICK_PATH, async (event, defaultPath: unknown) => {
     let start: string | undefined;

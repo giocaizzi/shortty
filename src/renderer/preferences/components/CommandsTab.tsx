@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { AppSettings } from '../../../shared/settings';
 import type { UpdateSetting } from '../hooks/useSettings';
-import { Badge, PaneHeader, Section, SwitchRow, type Tone } from './controls';
+import { Badge, PaneHeader, Row, Section, SwitchRow, type Tone } from './controls';
 
 interface CommandsTabProps {
   settings: AppSettings;
@@ -24,6 +24,19 @@ function enrichmentStatus(stats: CommandsStats): { text: string; tone: Tone } {
 
 export function CommandsTab({ settings, onUpdate }: CommandsTabProps) {
   const [stats, setStats] = useState<CommandsStats>({ total: 0, enriched: 0, running: false });
+  const [rebuilding, setRebuilding] = useState(false);
+
+  const rebuild = async () => {
+    setRebuilding(true);
+    try {
+      await window.electronAPI.rebuildIndex();
+      setStats(await window.electronAPI.getCommandsStats());
+    } catch (err) {
+      console.error('Rebuild failed:', err);
+    } finally {
+      setRebuilding(false);
+    }
+  };
 
   useEffect(() => {
     if (!settings.commandsEnabled) return;
@@ -76,6 +89,18 @@ export function CommandsTab({ settings, onUpdate }: CommandsTabProps) {
           </div>
         </Section>
       )}
+
+      <Section footer="Use it after installing tools or editing config files, or when results look stale. Command details are read again in the background.">
+        <Row
+          label="Rebuild index"
+          description="Clear cached command help and re-read every command and shortcut source."
+          control={
+            <button type="button" className="pf-button" disabled={rebuilding} onClick={() => void rebuild()}>
+              {rebuilding ? 'Rebuilding…' : 'Rebuild'}
+            </button>
+          }
+        />
+      </Section>
     </div>
   );
 }

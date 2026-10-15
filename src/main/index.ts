@@ -381,6 +381,23 @@ function applySettingsChange(newSettings: AppSettings, oldSettings: AppSettings)
   }
 }
 
+/**
+ * Preferences → Commands → Rebuild index: re-detect and re-parse every
+ * shortcut source, then drop the commands cache and scan PATH from scratch.
+ */
+async function rebuildIndex(): Promise<void> {
+  log.info('Rebuilding index');
+  for (const { id } of parserRegistry.getAllSources()) {
+    const keybindings = await parserRegistry.parseSingleSource(id);
+    launcherAlive()?.webContents.send(IPC_CHANNELS.ON_UPDATE, { sourceId: id, keybindings });
+  }
+  restartWatching(parserRegistry, launcherAlive);
+  if (commandsEngine) {
+    const commands = await commandsEngine.rebuild();
+    launcherAlive()?.webContents.send(IPC_CHANNELS.COMMANDS_ON_UPDATE, commands);
+  }
+}
+
 function openPreferences(): void {
   openPreferencesWindow();
 }
@@ -466,7 +483,7 @@ async function startup(): Promise<void> {
   // "No handler registered"; data handlers wait for the engines.
   registerIpcHandlers(
     parserRegistry,
-    { openPreferences, changeGlobalShortcut },
+    { openPreferences, changeGlobalShortcut, rebuildIndex },
     () => commandsEngine,
     { shortcuts: shortcutsReady, commands: commandsReady },
   );

@@ -154,6 +154,11 @@ const electronAPI = {
 
   // Preferences window (WP-F)
 
+  /** Drop the commands cache and index commands and shortcut sources again. */
+  rebuildIndex(): Promise<void> {
+    return ipcRenderer.invoke(IPC_CHANNELS.PREFS_REBUILD_INDEX);
+  },
+
   /** Native open dialog for a config file or folder; null when cancelled. */
   pickPath(defaultPath?: string): Promise<string | null> {
     return ipcRenderer.invoke(IPC_CHANNELS.PREFS_PICK_PATH, defaultPath);

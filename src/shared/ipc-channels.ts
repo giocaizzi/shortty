@@ -40,4 +40,5 @@ export const IPC_CHANNELS = {
   // Preferences window (WP-F)
   PREFS_PICK_PATH: 'prefs:pickPath',
   PREFS_CHECK_PATHS: 'prefs:checkPaths',
+  PREFS_REBUILD_INDEX: 'prefs:rebuildIndex',
 } as const;

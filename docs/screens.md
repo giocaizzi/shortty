@@ -456,12 +456,16 @@ Separate window: 600x500px, non-resizable, hidden-inset title bar (traffic light
 │              │  Shortty reads each command's --help and man  │
 │              │  page in the background to fill in            │
 │              │  subcommands and flags.                       │
+│              │  ┌─────────────────────────────────────────┐  │
+│              │  │ Rebuild index                [Rebuild]  │  │
+│              │  └─────────────────────────────────────────┘  │
 └──────────────┴───────────────────────────────────────────────┘
 ```
 
 - Enable/disable toggle for entire commands feature
 - Enrichment progress bar showing X/Y commands enriched
 - Status badge: "Running in background", "Complete" or "Paused"
+- **Rebuild index** (always shown): re-detects and re-parses every shortcut source, deletes the commands cache (`commands-cache/`: index, stats, per-command and subcommand details) and rescans PATH; command details are read again in the background (`prefs:rebuildIndex`, `rebuildIndex()` in `src/main/index.ts`)
 
 ---
 
