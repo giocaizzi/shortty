@@ -188,7 +188,7 @@ describe.runIf(!posix)('runSandboxed on Windows (real processes)', () => {
     const bin = file('hello.ps1', 'Write-Output "ps $($args -join \',\')"\r\n');
     const result = await runSandboxed(bin, ['--help'], { timeoutMs: 15000 });
     expect(result.output.trim()).toBe('ps --help');
-  });
+  }, 20000); // PowerShell takes seconds to start on a cold runner
 
   it('kills the whole tree at the timeout', async () => {
     const bin = file('hang.cmd', '@echo off\r\nping -n 30 127.0.0.1 > nul\r\n');
