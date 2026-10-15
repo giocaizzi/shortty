@@ -1,0 +1,2 @@
+# Fixtures and sources are LF everywhere: parsers and golden tests read them byte for byte.
+* text=auto eol=lf

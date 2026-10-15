@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { CommandCache } from '../../../src/main/commands/cache';
+import { CommandCache, cacheFilename } from '../../../src/main/commands/cache';
 import type { Command, SubcommandDetail } from '../../../src/shared/types';
 
 describe('CommandCache', () => {
@@ -152,6 +152,23 @@ describe('CommandCache', () => {
       writeFileSync(join(tempDir, 'commands-cache', 'details', 'sub', encodeURIComponent('git push') + '.json'), JSON.stringify(detail('git push')));
       expect(cache.readSubcommandDetail('git push', git)).toBeNull();
     });
+  });
+
+  it('stores details of names Windows reserves or that differ only in case apart', () => {
+    const names = ['con', 'NUL', 'com1', 'lpt9.x', 'Git', 'git', 'a.', 'what*', 'a/b'];
+    for (const name of names) cache.writeDetail(name, { name } as Command);
+    for (const name of names) expect(cache.readDetail(name)?.name).toBe(name);
+    expect(cache.listDetailNames()).toEqual(new Set(names));
+  });
+
+  it('encodes file names reversibly and without characters NTFS rejects or folds', () => {
+    for (const name of ['con', 'Con', 'aux.txt', 'Git', 'git push', 'a.', '100%', 'x*?"<>|:', 'ü']) {
+      const file = cacheFilename(name);
+      expect(file).toMatch(/^[a-z0-9%_.-]+\.json$/);
+      expect(file).not.toMatch(/^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/);
+      expect(file.slice(0, -5)).not.toMatch(/\.$/);
+      expect(decodeURIComponent(file.slice(0, -5))).toBe(name);
+    }
   });
 
   it('returns null for missing detail', () => {

@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { join } from 'node:path';
 import { ChromeParser } from '../../../src/main/parsers/chrome.parser';
-import { FIXTURES, rows, withPlatform } from './parser-helpers';
+import { FIXTURES, rows } from './parser-helpers';
+import { withPlatform } from '../../helpers';
 
 const PROFILE_PREFS = join(FIXTURES, 'chrome-profile/Preferences');
 const LEGACY_PREFS = join(FIXTURES, 'chrome-preferences.json');

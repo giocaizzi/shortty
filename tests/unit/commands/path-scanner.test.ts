@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { scanPath } from '../../../src/main/commands/path-scanner';
+import { scanPath, windowsExecutableExtensions } from '../../../src/main/commands/path-scanner';
+import { withPlatform } from '../../helpers';
 
 vi.mock('node:fs/promises', () => ({
   readdir: vi.fn(),
@@ -15,6 +16,8 @@ const mockStat = vi.mocked(stat);
 const mockAccess = vi.mocked(access);
 
 describe('scanPath', () => {
+  withPlatform('darwin');
+
   beforeEach(() => {
     vi.resetAllMocks();
   });
@@ -159,5 +162,46 @@ describe('scanPath', () => {
     expect(result).toEqual([]);
 
     process.env.PATH = origPath;
+  });
+});
+
+describe('scanPath on Windows', () => {
+  withPlatform('win32');
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('lists PATHEXT files by name without extension; first directory, then PATHEXT order wins', async () => {
+    const origPath = process.env.PATH;
+    const origExt = process.env.PATHEXT;
+    process.env.PATH = 'C:\\a;C:\\b';
+    process.env.PATHEXT = '.COM;.EXE;.BAT;.CMD';
+
+    mockReaddir.mockImplementation(async (dir) => {
+      if (dir === 'C:\\a') return ['foo.cmd', 'foo.exe', 'bar.cmd', 'baz.dll', 'Qux.EXE'] as unknown as Awaited<ReturnType<typeof readdir>>;
+      if (dir === 'C:\\b') return ['QUX.exe', 'tool.ps1', 'noext'] as unknown as Awaited<ReturnType<typeof readdir>>;
+      return [] as unknown as Awaited<ReturnType<typeof readdir>>;
+    });
+    mockStat.mockResolvedValue({ isFile: () => true, mtimeMs: 1000 } as unknown as Awaited<ReturnType<typeof stat>>);
+
+    const result = await scanPath();
+
+    expect(result.map(c => [c.name, c.bin])).toEqual([
+      ['foo', 'C:\\a\\foo.exe'],
+      ['Qux', 'C:\\a\\Qux.EXE'],
+      ['bar', 'C:\\a\\bar.cmd'],
+      ['tool', 'C:\\b\\tool.ps1'],
+    ]);
+    // Windows has no execute bit to check
+    expect(mockAccess).not.toHaveBeenCalled();
+
+    process.env.PATH = origPath;
+    process.env.PATHEXT = origExt;
+  });
+
+  it('reads PATHEXT case-insensitively and always includes .ps1', () => {
+    expect(windowsExecutableExtensions('.COM;.EXE; .Bat ;;cmd')).toEqual(['.com', '.exe', '.bat', '.ps1']);
+    expect(windowsExecutableExtensions('.EXE;.PS1')).toEqual(['.exe', '.ps1']);
   });
 });

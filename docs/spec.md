@@ -410,7 +410,9 @@ The commands engine dynamically indexes every CLI command available on the user'
 
 **PATH import:** an app started from Finder or at login gets the minimal launchd PATH (`/usr/bin:/bin:/usr/sbin:/sbin`), without Homebrew, `~/.local/bin`, nvm, etc. At startup, before the commands engine and the parsers run, the main process runs the user's login shell (`$SHELL -ilc`, stdin closed, 3s timeout, async) and merges the PATH it prints in front of the current one (`src/main/shell-env.ts`).
 
-**Descriptions:** `apropos .` (async; a few seconds on macOS), falling back to `whatis -w '*'` (man-db). macOS `whatis` has no `-w`. A name documented in several man sections takes the description from its command section (1, then 8, then 6).
+**PATH scan** (`src/main/commands/path-scanner.ts`): PATH is split on the platform delimiter (`:`, `;` on Windows); relative and empty entries are dropped, entries are normalized and deduplicated (case-insensitively on Windows), `~/` is expanded on macOS/Linux. A name resolves to its first occurrence, like the shell. macOS/Linux: every executable file (symlinks followed). Windows: files whose extension is in `PATHEXT` (default `.COM;.EXE;.BAT;.CMD`, plus `.PS1`), named without the extension (`git.exe` is `git`); names compare case-insensitively, and within one directory the first `PATHEXT` extension wins (`foo.exe` over `foo.cmd`).
+
+**Descriptions:** `apropos .` (async; a few seconds on macOS), falling back to `whatis -w '*'` (man-db). macOS `whatis` has no `-w`. A name documented in several man sections takes the description from its command section (1, then 8, then 6). Windows has no whatis database or man pages: neither is run there, commands are described from `--help` only.
 
 **First launch (cold):**
 1. No cached index exists
@@ -454,7 +456,7 @@ The index holds one entry per executable. Subcommand names are a search key of t
 
 **Man page vs `--help`** (`needsHelp`, `pickRicher` in `src/main/commands/parsers/parse-utils.ts`, shared by commands and subcommands). A man page that lists subcommands is used as is, without spawning anything. Otherwise `--help` also runs (when the probing policy below allows it) and the richer result wins: one that lists subcommands, else the one with more flags, the man page on a tie (ffmpeg's man page, 171 flags, beats its 42-flag `--help`; helm's page has flags but no commands, jq's yields no flags). The winner takes the other's flag list when that one is longer, and fills its missing description, synopsis and extras from it. The cost is one extra serialized `--help` for trusted binaries whose man page lists no subcommands; OS binaries are never probed, so they stay man-only.
 
-**Per-tool help words** (`HELP_WORDS` in `help-parser.ts`): a few CLIs do not list their commands in `--help`, so the probe asks the documented way instead: `aws help` / `aws <cmd> … help` (aws's `--help` is an error; its help goes through the pager, which is `cat`), `bq help` and `poetry list` at the top level (their subcommands still get `--help`). Fixed words per command name; the policy below applies unchanged.
+**Per-tool help words** (`HELP_WORDS` in `help-parser.ts`): a few CLIs do not list their commands in `--help`, so the probe asks the documented way instead: `aws help` / `aws <cmd> … help` (aws's `--help` is an error; its help goes through the pager, which is `cat`), `bq help` and `poetry list` at the top level (their subcommands still get `--help`). On Windows git gets `-h` (`git <cmd> --help` opens an HTML page in the browser there). Fixed words per command name; the policy below applies unchanged.
 
 **Enrichment source discovery:**
 - Man page locations: single `man --path` command at startup
@@ -483,6 +485,13 @@ Anything else, notably the user's own scripts in `~/bin`, `~/.local/bin` or a pr
 
 Other rules: dotfile/hidden commands (names starting with `.` or `_`) are skipped; at most one probe runs at a time; 2 second timeout, hard kill (SIGKILL to the whole process group).
 
+**Windows policy** (`isTrustedWindowsBinary`): there are no owner or mode bits, so rule 3b does not apply, and paths compare case-insensitively.
+
+1. Never probed: anything under `%SystemRoot%\` (System32 holds `format`, `diskpart` and GUI tools), `%LOCALAPPDATA%\Microsoft\WindowsApps\` (Store app execution aliases: `python.exe` there opens the Store; they may not even resolve) and `C:\Program Files\WindowsApps\`, checked on the PATH entry before resolving it and again on the resolved file.
+2. **PE executables** (`MZ` magic) anywhere else.
+3. **`.cmd`, `.bat`, `.ps1` scripts** (the Windows equivalent of `#!` scripts) only under trusted prefixes: `%ProgramFiles%\`, `%ProgramFiles(x86)%\`, `%ProgramData%\chocolatey\`, `~\scoop\shims\`, `~\scoop\apps\`, `%APPDATA%\npm\`, `%LOCALAPPDATA%\Microsoft\WinGet\Links\` and `\Packages\`, `%LOCALAPPDATA%\Programs\`, `~\.cargo\bin\`, `~\go\bin\` (and the e2e dir in e2e mode). Anything else (other `PATHEXT` types such as `.vbs` or `.js`, `#!` scripts) is never run.
+4. Blocklist lookups lowercase the name and strip its `PATHEXT` extension (`Python.EXE` is `python`). The running-as-root check has no Windows equivalent yet: an elevated Shortty probes like a normal one.
+
 **`--help` blocklist (hardcoded, `BLOCKLIST`):**
 
 System/destructive: `shutdown`, `reboot`, `halt`, `poweroff`, `init`, `rm`, `mkfs`, `fdisk`, `dd`, `kill`, `killall`, `pkill`
@@ -495,7 +504,9 @@ macOS security/signing tools (Keychain or admin prompts) and GUI apps: `security
 
 Wrappers that execute their arguments, where an implementation without a `--help` flag would run `--help` (or the subcommand words) as a command: `env`, `xargs`, `nohup`, `nice`, `renice`, `caffeinate`, `watch`, `doas`, `time`, `timeout`, `exec`, `chroot`, `sandbox-exec`, `stdbuf`, `script`, `setsid`, `flock`, `taskset`, `pkexec`, `runuser`, `arch`, `parallel`, `entr`, …
 
-**`--help` sandbox** (`src/main/commands/sandbox-exec.ts`): every probe runs in a throwaway temp cwd with stdin closed and output capped at 1 MB; `TMUX_TMPDIR` points at that cwd, so a probe such as `tmux new-session --help` can never reach the user's running tmux server. The environment is an allowlist (`PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, `TMPDIR`, `LANG`, `MANPATH`, `LC_*`), so tokens and keys in the user's environment never reach an arbitrary binary; pagers are `cat`, editors are `true`, colours and Homebrew auto-update are off. `man` lookups use the same environment in their own process group (man starts groff and friends), killed after 5 seconds. The startup login-shell PATH import (`src/main/shell-env.ts`) kills the shell's process group on timeout or when it prints more than 1 MB.
+Windows, on top of the above (`WINDOWS_BLOCKLIST`): `format`, `diskpart`, `bcdedit`, `cipher`, `takeown`, `icacls`, `reg`, `sc`, `net`, `taskkill`, `vssadmin`, `wmic`, `cmd`, `powershell`, `pwsh`, `wsl`, `runas`, `start`, `mshta`, `rundll32`, `regsvr32`, `msiexec`, `wscript`, `cscript`, `explorer`, `notepad`, `mmc`, `control`.
+
+**`--help` sandbox** (`src/main/commands/sandbox-exec.ts`): every probe runs in a throwaway temp cwd with stdin closed and output capped at 1 MB; `TMUX_TMPDIR` points at that cwd, so a probe such as `tmux new-session --help` can never reach the user's running tmux server. The environment is an allowlist (`PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, `TMPDIR`, `LANG`, `MANPATH`, `LC_*`), so tokens and keys in the user's environment never reach an arbitrary binary; pagers are `cat`, editors are `true`, colours and Homebrew auto-update are off. On Windows the allowlist matches names case-insensitively (the variable is `Path`) and adds what programs need to start and find the user's folders (`SystemRoot`, `windir`, `PATHEXT`, `COMSPEC`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `TEMP`, `TMP`, `ProgramData`, `ProgramFiles`, `ProgramFiles(x86)`, `ProgramW6432`, `HOMEDRIVE`, `HOMEPATH`, `USERNAME`, `NUMBER_OF_PROCESSORS`, `PROCESSOR_ARCHITECTURE`, and `PSModuleAnalysisCachePath`, without which PowerShell may rebuild its module cache past the timeout); pagers are empty (no pager) and editors `:` (git's no-op editor), since `cat` and `true` do not exist there. Every spawn is `windowsHide`. `.cmd`/`.bat` run through `cmd.exe /d /v:off /s /c` with the path quoted, and only with arguments cmd passes through unchanged (letters, digits, `.+-/:@_`): anything it would expand or split is refused, not escaped. `.ps1` run through `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File`. On timeout `taskkill /PID <pid> /T /F` ends the whole tree. The temp cwd removal retries (a killed process may still hold it). `man` lookups use the same environment in their own process group (man starts groff and friends), killed after 5 seconds. The startup login-shell PATH import (`src/main/shell-env.ts`) kills the shell's process group on timeout or when it prints more than 1 MB.
 
 **Whatis fallback:**
 If whatis database doesn't exist, Tier 1 index has names with no descriptions. Enrichment naturally fills descriptions from man page NAME sections. No special handling needed.
@@ -521,13 +532,15 @@ Structure:
 │       └── sub/                 # Subcommand details, keyed by bin path + mtime
 ```
 
+Detail file names are the command name percent-encoded, with uppercase letters and the characters Windows forbids escaped as well and Windows' reserved names (`con`, `nul`, `com1`, …) and trailing dots broken up (`cacheFilename` in `src/main/commands/cache.ts`): `Git` and `git` stay apart on case-insensitive volumes, and every name is a valid NTFS file name. Atomic index writes retry the rename on `EPERM`/`EBUSY` (a scanner or reader holding the file on Windows).
+
 ### 7.7 Platform Differences
 
 | Platform | Tier 1 | Enrichment sources |
 |----------|--------|-------------------|
 | macOS | PATH scan + whatis | zsh completions → bash completions → man pages → --help |
 | Linux | PATH scan + whatis | zsh completions → bash completions → man pages → --help |
-| Windows | PATH scan | --help only (no man pages, no shell completions) |
+| Windows | PATH scan (`PATHEXT`), no descriptions | --help only (no man pages, whatis or shell completions) |
 
 ### 7.8 What Is Parsed
 

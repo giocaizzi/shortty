@@ -18,6 +18,8 @@ import { parseAliases, parseArgumentEntries, parseEnvironment, parseExamples, pa
 const MAN_TIMEOUT_MS = 5000;
 
 function fetchManPage(name: string): Promise<string> {
+  // Windows has no man: every lookup is "no page"
+  if (process.platform === 'win32') return Promise.resolve('');
   return new Promise<string>((resolve, reject) => {
     const env = sandboxEnv();
     // man runs a pipeline (groff, preconv, a pager...): give it its own
@@ -27,6 +29,7 @@ function fetchManPage(name: string): Promise<string> {
       stdio: ['ignore', 'pipe', 'ignore'],
       detached: useGroup,
       env,
+      windowsHide: true,
     });
     const manTimer = setTimeout(() => {
       try {
@@ -43,6 +46,7 @@ function fetchManPage(name: string): Promise<string> {
       timeout: 6000,
       killSignal: 'SIGKILL',
       env,
+      windowsHide: true,
     });
 
     man.stdout.pipe(col.stdin);

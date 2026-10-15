@@ -32,7 +32,7 @@ const CACHE_DIR_NAME = 'commands-cache';
  * Bump when a parser change alters what gets cached: a cache written by an
  * older version is dropped at start, so fixes reach already-enriched commands.
  */
-const CACHE_VERSION = '5';
+const CACHE_VERSION = '6';
 
 /**
  * Remove what earlier versions wrote into userData/cache, and nothing else:
@@ -63,6 +63,22 @@ function dropIfOutdated(cacheDir: string): void {
     rmSync(join(cacheDir, name), { recursive: true, force: true });
   }
   writeFileSync(versionFile, CACHE_VERSION);
+}
+
+/**
+ * Injective file name that is safe on every file system: percent-encoded,
+ * with uppercase letters and the characters Windows forbids escaped too (Git
+ * and git must not collide on a case-insensitive volume), and a name Windows
+ * reserves (con, nul, com1...) or a trailing dot broken up. Decoded by
+ * decodeURIComponent.
+ */
+export function cacheFilename(name: string): string {
+  const hex = (c: string) => `%${c.charCodeAt(0).toString(16)}`;
+  const encoded = encodeURIComponent(name)
+    .replace(/%[0-9A-F]{2}|[A-Z!'()*~]/g, (m) => (m.length === 3 ? m.toLowerCase() : hex(m)))
+    .replace(/^(?=(?:con|prn|aux|nul|com\d|lpt\d)(?:\.|$))./, hex)
+    .replace(/\.$/, '%2e');
+  return `${encoded}.json`;
 }
 
 export class CommandCache {
@@ -155,12 +171,22 @@ export class CommandCache {
     const target = join(this.cacheDir, name);
     const temp = `${target}.${process.pid}.tmp`;
     await writeFile(temp, content);
-    await rename(temp, target);
+    // Windows refuses to replace a file another handle (an antivirus scan, a reader) has open
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await rename(temp, target);
+        return;
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (attempt >= 5 || (code !== 'EPERM' && code !== 'EBUSY' && code !== 'EACCES')) throw err;
+        await new Promise((resolve) => setTimeout(resolve, 50 * attempt));
+      }
+    }
   }
 
   readDetail(name: string): Command | null {
     try {
-      const raw = readFileSync(join(this.cacheDir, 'details', `${name}.json`), 'utf-8');
+      const raw = readFileSync(join(this.cacheDir, 'details', cacheFilename(name)), 'utf-8');
       return JSON.parse(raw);
     } catch {
       return null;
@@ -168,12 +194,7 @@ export class CommandCache {
   }
 
   writeDetail(name: string, detail: Command): void {
-    writeFileSync(join(this.cacheDir, 'details', `${name}.json`), JSON.stringify(detail));
-  }
-
-  /** Injective file name: "a b__c" and "a b c" must not share an entry. */
-  private subFilename(qualifiedName: string): string {
-    return encodeURIComponent(qualifiedName) + '.json';
+    writeFileSync(join(this.cacheDir, 'details', cacheFilename(name)), JSON.stringify(detail));
   }
 
   /**
@@ -183,7 +204,7 @@ export class CommandCache {
   readSubcommandDetail(qualifiedName: string, source: BinaryIdentity): SubcommandDetail | null {
     try {
       const raw = readFileSync(
-        join(this.cacheDir, 'details', 'sub', this.subFilename(qualifiedName)),
+        join(this.cacheDir, 'details', 'sub', cacheFilename(qualifiedName)),
         'utf-8',
       );
       const entry = JSON.parse(raw) as Partial<SubcommandCacheEntry>;
@@ -197,17 +218,23 @@ export class CommandCache {
   writeSubcommandDetail(qualifiedName: string, source: BinaryIdentity, detail: SubcommandDetail): void {
     const entry: SubcommandCacheEntry = { bin: source.bin, mtime: source.mtime, detail };
     writeFileSync(
-      join(this.cacheDir, 'details', 'sub', this.subFilename(qualifiedName)),
+      join(this.cacheDir, 'details', 'sub', cacheFilename(qualifiedName)),
       JSON.stringify(entry),
     );
   }
 
   listDetailNames(): Set<string> {
     try {
-      const files = readdirSync(join(this.cacheDir, 'details'));
-      return new Set(
-        files.filter(f => f.endsWith('.json')).map(f => f.slice(0, -5)),
-      );
+      const names = new Set<string>();
+      for (const file of readdirSync(join(this.cacheDir, 'details'))) {
+        if (!file.endsWith('.json')) continue;
+        try {
+          names.add(decodeURIComponent(file.slice(0, -5)));
+        } catch {
+          // not a name this cache wrote
+        }
+      }
+      return names;
     } catch {
       return new Set();
     }

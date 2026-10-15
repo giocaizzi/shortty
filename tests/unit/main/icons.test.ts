@@ -53,7 +53,8 @@ describe('findAppBundle', () => {
     await expect(findAppBundle(CHROME, search)).resolves.toBe('/Users/me/Applications/Google Chrome.app');
   });
 
-  it('falls back to the folders by name when Spotlight fails', async () => {
+  // App bundles are macOS paths: path.join writes them with backslashes on Windows
+  it.skipIf(process.platform === 'win32')('falls back to the folders by name when Spotlight fails', async () => {
     mdfindReturns(new Error('timeout'));
     existing.add('/Users/me/Applications/Google Chrome.app');
     await expect(findAppBundle(CHROME, search)).resolves.toBe('/Users/me/Applications/Google Chrome.app');
@@ -104,7 +105,7 @@ describe('createIconService', () => {
     return { getIcon, toDataUrl };
   }
 
-  it('resolves a source icon once and caches it', async () => {
+  it.skipIf(process.platform === 'win32')('resolves a source icon once and caches it', async () => {
     existing.add('/Applications/Google Chrome.app');
     const { getIcon, toDataUrl } = service();
     await expect(getIcon('source', 'chrome')).resolves.toBe('data:/Applications/Google Chrome.app');

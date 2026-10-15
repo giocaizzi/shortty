@@ -1,9 +1,10 @@
-// Real-process tests for the --help sandbox (POSIX shells only).
+// Real-process tests for the --help sandbox, per OS, and its Windows command lines.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mkdtempSync, writeFileSync, chmodSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { runSandboxed, sandboxEnv } from '../../../src/main/commands/sandbox-exec';
+import { runSandboxed, sandboxEnv, windowsCommand } from '../../../src/main/commands/sandbox-exec';
+import { withPlatform } from '../../helpers';
 
 const posix = process.platform !== 'win32';
 let dir: string;
@@ -94,6 +95,8 @@ describe.runIf(posix)('runSandboxed', () => {
 });
 
 describe('sandboxEnv', () => {
+  withPlatform('darwin');
+
   it('keeps PATH and HOME and removes forced colour', () => {
     const env = sandboxEnv({ PATH: '/bin', HOME: '/home/u', FORCE_COLOR: '1', CLICOLOR_FORCE: '1' });
     expect(env.PATH).toBe('/bin');
@@ -108,5 +111,103 @@ describe('sandboxEnv', () => {
     expect(env.LC_ALL).toBe('it_IT.UTF-8');
     expect(env.GITHUB_TOKEN).toBeUndefined();
     expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
+  });
+});
+
+describe('sandboxEnv on Windows', () => {
+  withPlatform('win32');
+
+  it('keeps what Windows needs to start programs, matching names case-insensitively', () => {
+    const env = sandboxEnv({
+      Path: 'C:\\Windows\\System32', SystemRoot: 'C:\\Windows', PATHEXT: '.EXE', ComSpec: 'C:\\Windows\\System32\\cmd.exe',
+      USERPROFILE: 'C:\\Users\\me', 'ProgramFiles(x86)': 'C:\\Program Files (x86)', temp: 'C:\\Temp', GITHUB_TOKEN: 'x',
+    });
+    expect(env.Path).toBe('C:\\Windows\\System32');
+    expect(env.PATH).toBeUndefined();
+    expect(env.SystemRoot).toBe('C:\\Windows');
+    expect(env.ComSpec).toBe('C:\\Windows\\System32\\cmd.exe');
+    expect(env['ProgramFiles(x86)']).toBe('C:\\Program Files (x86)');
+    expect(env.temp).toBe('C:\\Temp');
+    expect(env.GITHUB_TOKEN).toBeUndefined();
+  });
+
+  it('names no Unix pager or editor', () => {
+    const env = sandboxEnv({});
+    expect([env.PAGER, env.MANPAGER, env.GIT_PAGER]).toEqual(['', '', '']);
+    expect([env.EDITOR, env.VISUAL, env.GIT_EDITOR]).toEqual([':', ':', ':']);
+  });
+});
+
+describe('windowsCommand', () => {
+  it('runs .exe directly', () => {
+    expect(windowsCommand('C:\\tools\\rg.exe', ['--help'])).toEqual({ file: 'C:\\tools\\rg.exe', args: ['--help'], verbatim: false });
+  });
+
+  it('runs .cmd/.bat through cmd.exe /d /s /c with the path quoted', () => {
+    const { file, args, verbatim } = windowsCommand('C:\\Program Files (x86)\\npm\\tsc.CMD', ['build', '--help']);
+    expect(file).toMatch(/cmd\.exe$/i);
+    expect(args).toEqual(['/d', '/v:off', '/s', '/c', '""C:\\Program Files (x86)\\npm\\tsc.CMD" build --help"']);
+    expect(verbatim).toBe(true);
+    expect(windowsCommand('D:\\x.bat', ['-h']).args[4]).toBe('""D:\\x.bat" -h"');
+  });
+
+  it('refuses what cmd.exe would expand or split', () => {
+    for (const arg of ['a&b', '%PATH%', 'a b', '"', 'a^b', 'a|b', 'a,b', 'a=b', '']) {
+      expect(() => windowsCommand('D:\\x.cmd', [arg])).toThrow();
+    }
+    expect(() => windowsCommand('D:\\100%\\x.cmd', ['--help'])).toThrow();
+  });
+
+  it('runs .ps1 through PowerShell without profile, prompts or execution policy', () => {
+    expect(windowsCommand('C:\\s\\x.ps1', ['--help'])).toEqual({
+      file: 'powershell.exe',
+      args: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', 'C:\\s\\x.ps1', '--help'],
+      verbatim: false,
+    });
+  });
+});
+
+describe.runIf(!posix)('runSandboxed on Windows (real processes)', () => {
+  function file(name: string, body: string): string {
+    const path = join(dir, name);
+    writeFileSync(path, body);
+    return path;
+  }
+
+  it('runs a .cmd with its arguments, hidden, in a throwaway directory', async () => {
+    const bin = file('both.cmd', '@echo off\r\necho out %1 %2\r\ncd\r\nexit /b 2\r\n');
+    const result = await runSandboxed(bin, ['sub', '--help']);
+    const [line, cwd] = result.output.trim().split(/\r?\n/);
+    expect(line).toBe('out sub --help');
+    expect(cwd).toMatch(/shortty-help-/);
+    expect(result.exitCode).toBe(2);
+    expect(existsSync(cwd)).toBe(false);
+  });
+
+  it('runs a .ps1 through PowerShell', async () => {
+    const bin = file('hello.ps1', 'Write-Output "ps $($args -join \',\')"\r\n');
+    // A cold PowerShell start takes 5-15s on the runner (warm: under 0.5s)
+    const result = await runSandboxed(bin, ['--help'], { timeoutMs: 60000 });
+    expect(result).toMatchObject({ output: 'ps --help\r\n', timedOut: false });
+  }, 90000);
+
+  it('kills the whole tree at the timeout', async () => {
+    const bin = file('hang.cmd', '@echo off\r\nping -n 30 127.0.0.1 > nul\r\n');
+    const started = Date.now();
+    const result = await runSandboxed(bin, ['--help'], { timeoutMs: 500 });
+    expect(result.timedOut).toBe(true);
+    expect(Date.now() - started).toBeLessThan(5000);
+  });
+
+  it('never passes secrets from the environment', async () => {
+    process.env.SHORTTY_SECRET = 'leak';
+    try {
+      const bin = file('env.cmd', '@echo off\r\necho [%SHORTTY_SECRET%][%SystemRoot%]\r\n');
+      const result = await runSandboxed(bin, []);
+      // An unset variable expands to nothing in a batch file
+      expect(result.output.trim()).toMatch(/^\[\]\[.+Windows\]$/i);
+    } finally {
+      delete process.env.SHORTTY_SECRET;
+    }
   });
 });

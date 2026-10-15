@@ -1,4 +1,4 @@
-import { expect } from 'vitest';
+import { afterAll, beforeAll, expect } from 'vitest';
 import type { Shortcut, ParserMeta, Command } from '@shared/types';
 
 /**
@@ -11,6 +11,26 @@ export function assertDefined<T>(
 ): asserts val is T {
   expect(val).toBeDefined();
   expect(val).not.toBeNull();
+}
+
+/**
+ * Pretend to run on `platform` for the enclosing describe block, so each
+ * platform's branch is tested on every OS. Code under test must read
+ * `process.platform` at call time. A POSIX platform on a Windows host also
+ * gets a `process.getuid` (uid 501).
+ */
+export function withPlatform(platform: NodeJS.Platform): void {
+  let previous: NodeJS.Platform;
+  const hadGetuid = 'getuid' in process;
+  beforeAll(() => {
+    previous = process.platform;
+    Object.defineProperty(process, 'platform', { value: platform });
+    if (platform !== 'win32' && !hadGetuid) process.getuid = () => 501;
+  });
+  afterAll(() => {
+    Object.defineProperty(process, 'platform', { value: previous });
+    if (!hadGetuid) delete process.getuid;
+  });
 }
 
 /** Create a Shortcut with sensible defaults, merging any overrides. */

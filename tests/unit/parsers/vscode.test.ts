@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { join } from 'node:path';
 import { VscodeParser, stripJsonc } from '../../../src/main/parsers/vscode.parser';
-import { FIXTURES, rows, withPlatform } from './parser-helpers';
+import { FIXTURES, rows } from './parser-helpers';
+import { withPlatform } from '../../helpers';
 
 const FIXTURE_PATH = join(FIXTURES, 'vscode-keybindings.json');
 
