@@ -670,6 +670,17 @@ Select a source from the Sources section (Enter) → panel scopes to that source
 **Drill-in to command:**
 On a command row, Tab or → drills into command detail view. Shows subcommands, flags and arguments. Search filters within details. Tab/→ on a subcommand drills one level deeper (§7.4). Esc returns to the previous level, restored as it was.
 
+**Typed drill-down:**
+Typing a command line drills by itself, as deep as the subcommands go (`>gh auth lo` → gh › auth filtering "lo"; `>gcloud compute instances create`, `>az vm create`). The rules (`src/renderer/App.tsx`, `typedStep`):
+
+- The first word after `>` is matched against the command names (prefix mode only); at a detail level, the first word of the filter is matched against the last word of each subcommand name (`gh auth` → `auth`). Matching is exact and case-sensitive.
+- An exact match drills when a space follows it, or at once when no other name at that level starts with it: `>gh auth` opens gh › auth without a space, while `>git commit` keeps filtering git (there are `commit-graph` and `commit-tree`) until the space. Typing on (`commit-t`) keeps filtering the parent. Tab/→ still drills on the selected row as before.
+- Each drill becomes a breadcrumb chip; what follows the word becomes the filter of the new level, and is resolved again, so the last partial word filters the deepest level reached (`>git commit --am` filters commit's flags). A filter never starts with a space.
+- Details that arrive later continue the resolution: an unenriched command is enriched on demand and a subcommand's details load on demand (`useSubcommandDetail`, which drops answers for a level the user has left). Meanwhile the view shows "Loading...". A paste or fast typing therefore ends in the same state as slow typing.
+- A word that is not a subcommand (or a level with no subcommands) stops the descent: the rest of the text filters that level, with no error.
+- The level left behind keeps the text up to the drilled word (`>gh`, `auth`): Backspace on an empty filter, ← at the start and Esc on an empty filter go back one level and put that word back to edit. A restored query is not re-resolved, so going back never drills straight in again; editing it does.
+- Nothing drills during an IME composition; the text resolves when it is committed.
+
 ### 10.3 Search Behavior
 
 - **Instant** — no debouncing, Fuse.js responds in <5ms

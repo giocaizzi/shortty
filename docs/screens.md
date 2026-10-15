@@ -247,6 +247,7 @@ User presses Tab/→ on a command row. Detail view replaces results.
 - Typing filters the lists; Enter copies the selected subcommand, flag or argument
 - Tab/→ on a subcommand drills one level deeper (reads its man page or `--help` on demand; [spec.md](spec.md) §7.4)
 - Esc returns to the previous view (flat results, drilled source or parent command), restored as it was
+- Typing the command line drills by itself, to any depth: `>gh auth lo` shows the chips `gh` › `auth` with "lo" in the field. A word drills on the following space, or as soon as it is typed when no sibling starts with it (`>gh auth` drills at once, `>git commit` waits for the space because of `commit-tree`). Backspace on an empty field steps back one chip and puts its word back in the field ([spec.md](spec.md) §10.2)
 - "Source: man page" / "Source: --help" at the bottom of the content
 
 ---

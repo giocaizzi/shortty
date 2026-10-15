@@ -2,6 +2,7 @@
 import { act, render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import type { ElectronAPI } from '../../src/preload/preload';
 import type { AppSettings } from '../../src/shared/settings';
+import type { Command, SubcommandDetail } from '../../src/shared/types';
 import { DEFAULT_SETTINGS } from '../../src/shared/settings';
 import { App } from '../../src/renderer/App';
 import { SettingsProvider } from '../../src/renderer/context/SettingsContext';
@@ -83,7 +84,11 @@ function settingsWith(overrides: Partial<AppSettings>): AppSettings {
   };
 }
 
-function setup(overrides: Partial<AppSettings> = {}) {
+function setup(
+  overrides: Partial<AppSettings> = {},
+  commands: Command[] = COMMANDS,
+  apiOverrides: Record<string, ReturnType<typeof vi.fn>> = {},
+) {
   shownListeners = [];
   hiddenListeners = [];
   willHide = undefined;
@@ -98,7 +103,7 @@ function setup(overrides: Partial<AppSettings> = {}) {
         shownListeners = shownListeners.filter((l) => l !== cb);
       };
     }),
-    getAllCommands: vi.fn().mockResolvedValue(COMMANDS),
+    getAllCommands: vi.fn().mockResolvedValue(commands),
     getCommandsStats: vi.fn().mockResolvedValue({ total: 2, enriched: 2, running: false }),
     onCommandsUpdate: vi.fn(() => vi.fn()),
     getSubcommandDetail: vi.fn().mockResolvedValue(null),
@@ -114,6 +119,7 @@ function setup(overrides: Partial<AppSettings> = {}) {
       willHide = cb;
       return vi.fn();
     }),
+    ...apiOverrides,
   };
   window.electronAPI = api as unknown as ElectronAPI;
   render(
@@ -401,5 +407,268 @@ describe('App window lifecycle', () => {
     await waitFor(() => expect(api.getSources).toHaveBeenCalledTimes(2));
     expect(api.getAllKeybindings).toHaveBeenCalledOnce();
     expect(api.getAllCommands).toHaveBeenCalledOnce();
+  });
+});
+
+describe('App typed drill-down (docs/spec.md §10.2)', () => {
+  const sub = (name: string, description = '') => ({ name, description });
+  const detail = (name: string, subs: string[] = [], flags: string[] = []): SubcommandDetail => ({
+    name,
+    description: `${name} help`,
+    enrichment: 'full',
+    subcommands: subs.map((s) => sub(`${name} ${s}`)),
+    flags: flags.map((long) => ({ long, description: `${long} flag` })),
+    arguments: [],
+  });
+
+  const GH = makeCommand({
+    name: 'gh',
+    description: 'GitHub CLI',
+    bin: '/bin/gh',
+    subcommands: [sub('gh auth', 'Authenticate'), sub('gh pr', 'Pull requests')],
+  });
+  const DRILL_COMMANDS = [
+    GH,
+    makeCommand({ name: 'gh-dash', description: 'Dashboard', bin: '/bin/gh-dash' }),
+    makeCommand({
+      name: 'git',
+      bin: '/bin/git',
+      subcommands: [sub('git commit', 'Record changes'), sub('git commit-tree', 'Create a tree')],
+    }),
+    makeCommand({ name: 'cloud', description: 'Cloud CLI', bin: '/bin/cloud', subcommands: [sub('cloud compute')] }),
+  ];
+  const DETAILS: Record<string, SubcommandDetail> = Object.fromEntries(
+    [
+      detail('gh auth', ['login', 'logout', 'status'], ['--hostname']),
+      detail('gh pr', ['create', 'list']),
+      detail('gh pr create', [], ['--title', '--body']),
+      detail('git commit', [], ['--amend', '--all']),
+      detail('cloud compute', ['instances']),
+      detail('cloud compute instances', ['create', 'delete']),
+      detail('cloud compute instances create', ['from-template'], ['--zone']),
+      detail('cloud compute instances create from-template', [], ['--template']),
+    ].map((d) => [d.name, d]),
+  );
+
+  /** Subcommand details answer at once unless held with `hold(name)`. */
+  let held: Map<string, (() => void) | null>;
+  const hold = (name: string) => held.set(name, null);
+  async function release(name: string) {
+    const go = held.get(name);
+    held.delete(name);
+    await act(async () => go?.());
+  }
+
+  let pushUpdate: (batch: Command[]) => void;
+
+  function drillSetup(commands: Command[] = DRILL_COMMANDS) {
+    held = new Map();
+    pushUpdate = () => undefined;
+    return setup({ commandPrefixMode: true }, commands, {
+      getCommandDetail: vi.fn().mockResolvedValue(null),
+      getSubcommandDetail: vi.fn((name: string) => {
+        const answer = DETAILS[name] ?? { ...detail(name), enrichment: 'failed' as const };
+        if (!held.has(name)) return Promise.resolve(answer);
+        return new Promise((resolve) => held.set(name, () => resolve(answer)));
+      }),
+      onCommandsUpdate: vi.fn((cb: (batch: Command[]) => void) => {
+        pushUpdate = cb;
+        return vi.fn();
+      }),
+    });
+  }
+
+  /** Type `text` one keystroke at a time, as fast as events go. */
+  function typeKeys(input: HTMLElement, text: string) {
+    for (const ch of text) {
+      fireEvent.change(input, { target: { value: (input as HTMLInputElement).value + ch } });
+    }
+  }
+
+  const crumbs = () => screen.queryAllByTestId('breadcrumb').map((c) => c.textContent);
+  const rowNames = (testId: string) =>
+    screen.queryAllByTestId(testId).map((r) => r.querySelector('.font-mono')?.textContent);
+
+  it('a trailing space drills; the last partial word filters', async () => {
+    const input = drillSetup();
+    await type(input, '>gh auth ');
+    await waitFor(() => expect(crumbs()).toEqual(['gh', 'auth']));
+    expect(input).toHaveValue('');
+    await waitFor(() =>
+      expect(rowNames('subcommand-row')).toEqual(['gh auth login', 'gh auth logout', 'gh auth status']),
+    );
+
+    fireEvent.change(input, { target: { value: 'lo' } });
+    expect(rowNames('subcommand-row')).toEqual(['gh auth login', 'gh auth logout']);
+  });
+
+  it('an exact, unambiguous last word drills without a space', async () => {
+    const input = drillSetup();
+    await type(input, '>gh auth');
+    await waitFor(() => expect(crumbs()).toEqual(['gh', 'auth']));
+    expect(input).toHaveValue('');
+  });
+
+  it('an ambiguous exact word waits for the space; more letters keep filtering the parent', async () => {
+    const input = drillSetup();
+    await type(input, '>gh');
+    // gh-dash also starts with "gh"
+    expect(await screen.findAllByTestId('command-row')).toHaveLength(2);
+    expect(crumbs()).toEqual([]);
+
+    fireEvent.change(input, { target: { value: 'git commit' } });
+    await waitFor(() => expect(crumbs()).toEqual(['git']));
+    expect(input).toHaveValue('commit');
+    expect(rowNames('subcommand-row')).toEqual(['git commit', 'git commit-tree']);
+
+    fireEvent.change(input, { target: { value: 'commit-t' } });
+    expect(crumbs()).toEqual(['git']);
+    expect(rowNames('subcommand-row')).toEqual(['git commit-tree']);
+
+    fireEvent.change(input, { target: { value: 'commit ' } });
+    await waitFor(() => expect(crumbs()).toEqual(['git', 'commit']));
+    expect(input).toHaveValue('');
+  });
+
+  it('Tab still drills into an ambiguous exact match', async () => {
+    const input = drillSetup();
+    await type(input, '>git commit');
+    await waitFor(() => expect(crumbs()).toEqual(['git']));
+    press(input, 'Tab');
+    await waitFor(() => expect(crumbs()).toEqual(['git', 'commit']));
+  });
+
+  it('a word that is only a prefix filters the current level', async () => {
+    const input = drillSetup();
+    await type(input, '>gh au');
+    await waitFor(() => expect(crumbs()).toEqual(['gh']));
+    expect(input).toHaveValue('au');
+    expect(rowNames('subcommand-row')).toEqual(['gh auth']);
+  });
+
+  it('words after the subcommand filter its flags', async () => {
+    const input = drillSetup();
+    await type(input, '>git commit --am');
+    await waitFor(() => expect(crumbs()).toEqual(['git', 'commit']));
+    expect(input).toHaveValue('--am');
+    await waitFor(() => expect(rowNames('flag-row')).toEqual(['--amend']));
+  });
+
+  it('a pasted line resolves every level, 5 deep', async () => {
+    const input = drillSetup();
+    await type(input, '>cloud compute instances create from-template --tem');
+    await waitFor(() =>
+      expect(crumbs()).toEqual(['cloud', 'compute', 'instances', 'create', 'from-template']),
+    );
+    expect(input).toHaveValue('--tem');
+    await waitFor(() => expect(rowNames('flag-row')).toEqual(['--template']));
+  });
+
+  it('fast typing ahead of the --help answers ends where a paste does', async () => {
+    const input = drillSetup();
+    hold('gh pr');
+    hold('gh pr create');
+    await type(input, '>');
+    typeKeys(input, 'gh pr create --title');
+    expect(crumbs()).toEqual(['gh', 'pr']);
+    expect(input).toHaveValue('create --title');
+
+    await release('gh pr');
+    await waitFor(() => expect(crumbs()).toEqual(['gh', 'pr', 'create']));
+    expect(input).toHaveValue('--title');
+    await release('gh pr create');
+    await waitFor(() => expect(rowNames('flag-row')).toEqual(['--title']));
+  });
+
+  it('keeps resolving when a subcommand\'s details arrive later', async () => {
+    const input = drillSetup();
+    hold('gh pr');
+    await type(input, '>gh pr create --t');
+    await waitFor(() => expect(crumbs()).toEqual(['gh', 'pr']));
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    typeKeys(input, 'i');
+    await release('gh pr');
+    await waitFor(() => expect(crumbs()).toEqual(['gh', 'pr', 'create']));
+    expect(input).toHaveValue('--ti');
+  });
+
+  it('enriches an unenriched command on demand, then resolves the typed words', async () => {
+    const basic = { ...GH, enrichment: 'basic' as const, subcommands: [] };
+    const input = drillSetup([basic, ...DRILL_COMMANDS.slice(1)]);
+    await type(input, '>gh auth lo');
+    await waitFor(() => expect(crumbs()).toEqual(['gh']));
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    await waitFor(() => expect(api.getCommandDetail).toHaveBeenCalledWith('gh'));
+
+    act(() => pushUpdate([GH]));
+    await waitFor(() => expect(crumbs()).toEqual(['gh', 'auth']));
+    expect(input).toHaveValue('lo');
+  });
+
+  it('an unknown word stays at the last resolved level and filters', async () => {
+    const input = drillSetup();
+    await type(input, '>gh nope auth');
+    await waitFor(() => expect(crumbs()).toEqual(['gh']));
+    expect(input).toHaveValue('nope auth');
+    expect(screen.getByText(/No matches for/)).toBeInTheDocument();
+  });
+
+  it('Backspace on an empty filter pops a level and puts the word back; Esc does not re-drill', async () => {
+    const input = drillSetup();
+    await type(input, '>gh auth ');
+    await waitFor(() => expect(crumbs()).toEqual(['gh', 'auth']));
+
+    press(input, 'Backspace');
+    expect(crumbs()).toEqual(['gh']);
+    expect(input).toHaveValue('auth');
+
+    fireEvent.change(input, { target: { value: 'aut' } });
+    expect(crumbs()).toEqual(['gh']);
+    fireEvent.change(input, { target: { value: 'pr ' } });
+    await waitFor(() => expect(crumbs()).toEqual(['gh', 'pr']));
+
+    press(input, 'Escape');
+    expect(crumbs()).toEqual(['gh']);
+    expect(input).toHaveValue('pr');
+    press(input, 'Escape'); // clears "pr"
+    press(input, 'Escape'); // back to the results
+    expect(crumbs()).toEqual([]);
+    // Restored after the ">" badge, and not drilled again
+    expect(input).toHaveValue('gh');
+    expect(screen.getAllByTestId('command-row').length).toBeGreaterThan(0);
+  });
+
+  it('a late answer for a level the user left does not win', async () => {
+    const input = drillSetup();
+    hold('gh pr');
+    await type(input, '>gh pr ');
+    await waitFor(() => expect(crumbs()).toEqual(['gh', 'pr']));
+    press(input, 'Backspace');
+    fireEvent.change(input, { target: { value: 'auth ' } });
+    await waitFor(() => expect(crumbs()).toEqual(['gh', 'auth']));
+    await release('gh pr');
+    expect(crumbs()).toEqual(['gh', 'auth']);
+    await waitFor(() =>
+      expect(rowNames('subcommand-row')).toEqual(['gh auth login', 'gh auth logout', 'gh auth status']),
+    );
+  });
+
+  it('waits for an IME composition to end before drilling', async () => {
+    const input = drillSetup();
+    await type(input, '>');
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value: 'gh auth ' } });
+    await act(async () => {});
+    expect(crumbs()).toEqual([]);
+    fireEvent.compositionEnd(input);
+    await waitFor(() => expect(crumbs()).toEqual(['gh', 'auth']));
+  });
+
+  it('Enter copies the full command path', async () => {
+    const input = drillSetup();
+    await type(input, '>gh auth lo');
+    await waitFor(() => expect(rowNames('subcommand-row')).toEqual(['gh auth login', 'gh auth logout']));
+    press(input, 'Enter');
+    expect(writeText).toHaveBeenCalledWith('gh auth login');
   });
 });
