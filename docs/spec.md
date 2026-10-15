@@ -525,6 +525,27 @@ Structure:
 | Linux | PATH scan + whatis | zsh completions → bash completions → man pages → --help |
 | Windows | PATH scan | --help only (no man pages, no shell completions) |
 
+### 7.8 What Is Parsed
+
+`src/main/commands/parsers/` turns a man page (`man-parser.ts`) or `--help` output (`help-parser.ts`) into a `Command` / `SubcommandDetail` (`src/shared/types.ts`). Every field beyond name, description, synopsis, subcommands, flags and arguments is optional and only set when the output documents it:
+
+| Field | Taken from |
+|-------|-----------|
+| `description`, `longDescription` | Man `NAME` / `DESCRIPTION`; the first prose paragraph of `--help` (also under poetry/pip `Description:`, az `Group` / `Command`) |
+| `synopsis`, `arguments` | `SYNOPSIS` / `Usage:`; argument descriptions from `Arguments:` / `POSITIONAL ARGUMENTS` lists |
+| `subcommands[].group` | The section the entry is listed under: `Management Commands:`, gh `CORE COMMANDS`, gcloud `GROUPS` vs `COMMANDS`, az `Subgroups:` vs `Commands:`. Groups are drillable like commands |
+| `subcommands[].deprecated` | `(DEPRECATED)`, `--DEPRECATED--`, az `[Deprecated]` (the marker is removed from the text) |
+| `flags[].group` | The section title: `Global Flags:`, `INHERITED FLAGS`, `OPTIONS INHERITED FROM PARENT COMMANDS`, az `Global Arguments`, ffmpeg's man subsections (`Main options`, `Video Options`) |
+| `flags[].default` | `(default "open")`, `(default: 'x')`, `[default: json]`, az `Default: RSA.`, kubectl `--chunk-size=500:`, gcloud `; default="warning"`, tsc `default: es5` |
+| `flags[].choices` | `{a\|b}` / `[a\|b]` in the text or as the argument (`{json,yaml}`, `[yes\|ask\|no]`), `[possible values: …]`, `Possible values:` lists, az `Allowed values:`, gcloud `must be one of:` (inline or as a term list), absl `<a\|b>:` |
+| `flags[].required` / `deprecated` | `(required)`, `[required]`, az `[Required]`, gcloud `REQUIRED FLAGS`; `(DEPRECATED)`, `[deprecated]` |
+| `examples` | `EXAMPLES` / `Examples:` sections: a command line (`$ cmd`, a line starting with the program, or piping into it) with the comment or sentence before it as its description, or the indented text below it (BSD man pages). `\` continuations and az's hard-wrapped lines are joined |
+| `environment` | `ENVIRONMENT` / `ENVIRONMENT VARIABLES` sections (`NAME  text`, `NAME` over its text, names sharing one text) and clap's per-flag `[env: NAME=]` |
+| `aliases` | `ALIASES` / `Aliases:` sections, minus the command's own name |
+| `seeAlso` | Man `SEE ALSO` references and links; `LEARN MORE` / `See also` lines |
+
+Formats covered by golden tests (`tests/unit/commands/golden*.test.ts`, fixtures in `fixtures/commands/`): GNU and BSD man pages, ronn (brew), gcloud's man-style `--help` (pager set to `cat`), az/knack (its first-run "Welcome to Azure CLI" banner is skipped), cobra (gh, kubectl, docker, helm, gitleaks, chezmoi), clap (uv, fd, bws, deno), click, argparse, optparse (pip), cleo (poetry), absl (bq), commander (bw), yargs-style (pnpm), Go `flag` (actionlint, go), Haskell optparse (hadolint), terraform, openssl, ffmpeg, java and tsc single-dash options. Known gaps: aws (`--help` is an error; its help is `aws help` through a pager), openssl's multi-column command table, rsync's usage-only `--help`, words hard-wrapped mid-token in az's narrow description column.
+
 ---
 
 ## 8. Search Architecture

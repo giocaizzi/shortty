@@ -129,7 +129,7 @@ describe('golden: git (custom layout + man cross-references)', () => {
     const result = parse('git/man-commit.txt');
     assertDefined(result);
     expect(result.description).toBe('Record changes to the repository');
-    expect(flag('git/man-commit.txt', { short: '-m' })).toEqual({
+    expect(flag('git/man-commit.txt', { short: '-m' })).toMatchObject({
       short: '-m',
       long: '--message',
       arg: '<msg>',
@@ -140,7 +140,7 @@ describe('golden: git (custom layout + man cross-references)', () => {
   });
 
   it('git commit -h: --[no-] options and optional attached args', () => {
-    expect(flag('git/commit-help.txt', { short: '-m' })).toEqual({
+    expect(flag('git/commit-help.txt', { short: '-m' })).toMatchObject({
       short: '-m', long: '--[no-]message', arg: '<message>', description: 'commit message',
     });
     expect(flag('git/commit-help.txt', { short: '-S' })).toMatchObject({ long: '--[no-]gpg-sign', arg: '[<key-id>]', description: 'GPG sign commit' });
@@ -170,7 +170,7 @@ describe('golden: Go cobra (gh, docker, kubectl, chezmoi)', () => {
 
   it('gh pr --help: "name: description" with a single space', () => {
     expect(sub('gh/pr-help.txt', 'gh pr update-branch').description).toBe('Update a pull request branch');
-    expect(flag('gh/pr-help.txt', { short: '-R' })).toEqual({
+    expect(flag('gh/pr-help.txt', { short: '-R' })).toMatchObject({
       short: '-R', long: '--repo', arg: '[HOST/]OWNER/REPO',
       description: 'Select another repository using the [HOST/]OWNER/REPO format',
     });
@@ -181,10 +181,10 @@ describe('golden: Go cobra (gh, docker, kubectl, chezmoi)', () => {
     assertDefined(result);
     expect(result.synopsis).toBe('gh pr create [flags]');
     expect(result.longDescription).toBe('Create a pull request on GitHub.');
-    expect(flag('gh/pr-create-help.txt', { short: '-B' })).toEqual({
+    expect(flag('gh/pr-create-help.txt', { short: '-B' })).toMatchObject({
       short: '-B', long: '--base', arg: 'branch', description: 'The branch into which you want your code merged',
     });
-    expect(flag('gh/pr-create-help.txt', { short: '-d' })).toEqual({
+    expect(flag('gh/pr-create-help.txt', { short: '-d' })).toMatchObject({
       short: '-d', long: '--draft', arg: undefined, description: 'Mark pull request as a draft',
     });
   });
@@ -200,12 +200,14 @@ describe('golden: Go cobra (gh, docker, kubectl, chezmoi)', () => {
     expect(result.longDescription).toBe('A self-sufficient runtime for containers');
     expect(sub('docker/help.txt', 'docker compose').description).toBe('Docker Compose');
     expect(sub('docker/help.txt', 'docker wait').description).toBe('Block until one or more containers stop, then print their exit codes');
-    expect(flag('docker/help.txt', { short: '-H' })).toEqual({
+    expect(flag('docker/help.txt', { short: '-H' })).toMatchObject({
       short: '-H', long: '--host', arg: 'string', description: 'Daemon socket to connect to',
     });
-    expect(flag('docker/help.txt', { long: '--config' }).description).toBe(
-      'Location of client config files (default "/Users/user/.docker")',
-    );
+    expect(flag('docker/help.txt', { long: '--config' })).toMatchObject({
+      description: 'Location of client config files',
+      default: '/Users/user/.docker',
+      group: 'Global Options',
+    });
   });
 
   it('docker compose up --help: optional variadic SERVICE argument', () => {
@@ -234,7 +236,8 @@ describe('golden: Go cobra (gh, docker, kubectl, chezmoi)', () => {
   it('chezmoi --help: name filling its column, compound argument types', () => {
     expect(sub('chezmoi/help.txt', 'chezmoi edit-config-template').description).toBe('Edit the configuration file template');
     expect(flag('chezmoi/help.txt', { short: '-R' })).toMatchObject({ long: '--refresh-externals', arg: 'always|auto|never[=always]' });
-    expect(flag('chezmoi/help.txt', { long: '--color' })).toMatchObject({ arg: 'bool|auto', description: 'Colorize output (default auto)' });
+    expect(flag('chezmoi/help.txt', { long: '--color' })).toMatchObject({ arg: 'bool|auto', description: 'Colorize output', default: 'auto' });
+    expect(flag('chezmoi/help.txt', { long: '--color' }).choices).toBeUndefined();
   });
 });
 
@@ -246,8 +249,9 @@ describe('golden: clap (uv, fd)', () => {
     expect(result.longDescription).toBe('An extremely fast Python package manager.');
     expect(result.arguments).toEqual([{ name: 'COMMAND', required: true, variadic: false, description: '' }]);
     expect(sub('uv/help.txt', 'uv pip').description).toBe('Manage Python packages with a pip-compatible interface');
-    expect(flag('uv/help.txt', { long: '--cache-dir' })).toMatchObject({ arg: '<CACHE_DIR>', description: 'Path to the cache directory [env: UV_CACHE_DIR=]' });
-    expect(flag('uv/help.txt', { short: '-q' })).toEqual({ short: '-q', long: '--quiet', arg: undefined, description: 'Use quiet output' });
+    expect(flag('uv/help.txt', { long: '--cache-dir' })).toMatchObject({ arg: '<CACHE_DIR>', description: 'Path to the cache directory', group: 'Cache options' });
+    expect(result.environment).toContainEqual({ name: 'UV_CACHE_DIR', description: 'Same as --cache-dir' });
+    expect(flag('uv/help.txt', { short: '-q' })).toMatchObject({ short: '-q', long: '--quiet', arg: undefined, description: 'Use quiet output' });
   });
 
   it('fd --help: "-d, --max-depth <depth>", repeatable "--unrestricted..."', () => {
@@ -275,7 +279,7 @@ describe('golden: npm', () => {
     expect(result.synopsis).toBe('npm install [<package-spec> ...]');
     expect(result.longDescription).toBe('Install a package');
     expect(result.arguments).toEqual([{ name: 'package-spec', required: false, variadic: false, description: '' }]);
-    expect(flag('npm/install-help.txt', { short: '-S' })).toEqual({
+    expect(flag('npm/install-help.txt', { short: '-S' })).toMatchObject({
       short: '-S', long: '--save', arg: undefined,
       description: 'Save installed packages to a `package.json` file as dependencies.',
     });
@@ -284,7 +288,7 @@ describe('golden: npm', () => {
 
 describe('golden: GNU and other help layouts', () => {
   it('make --help: "-C DIRECTORY, --directory=DIRECTORY" with description on the next line', () => {
-    expect(flag('make/help.txt', { short: '-C' })).toEqual({
+    expect(flag('make/help.txt', { short: '-C' })).toMatchObject({
       short: '-C', long: '--directory', arg: 'DIRECTORY', description: 'Change to DIRECTORY before doing anything.',
     });
     expect(flag('make/help.txt', { short: '-j' })).toMatchObject({ long: '--jobs', arg: '[N]' });
@@ -300,7 +304,7 @@ describe('golden: GNU and other help layouts', () => {
     expect(result.synopsis).toBe('curl [options...] <url>');
     expect(result.longDescription).toBeUndefined();
     expect(result.arguments).toEqual([{ name: 'url', required: true, variadic: false, description: '' }]);
-    expect(flag('curl/help.txt', { short: '-u' })).toEqual({
+    expect(flag('curl/help.txt', { short: '-u' })).toMatchObject({
       short: '-u', long: '--user', arg: '<user:password>', description: 'Server user and password',
     });
   });
