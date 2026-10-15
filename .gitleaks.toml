@@ -1,7 +1,8 @@
 # Default rules, plus fixtures of captured tool output that trip generic-api-key.
+# Legacy [allowlist] table: CI runs gitleaks 8.24 (gitleaks-action), which ignored [[allowlists]] here.
 [extend]
 useDefault = true
 
-[[allowlists]]
+[allowlist]
 description = "Captured PSReadLine key handler output (function names, no secrets)"
 paths = ['''^fixtures/psreadline-key-handlers\.json$''']
