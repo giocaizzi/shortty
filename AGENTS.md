@@ -71,6 +71,7 @@ Main process (src/main)                          Renderer (src/renderer)
 - The launcher hides on blur: during `make e2e` nothing else may take focus. Runs are serialized machine-wide with `lockf` on `/tmp/shortty-e2e.lock`, so parallel worktrees wait instead of failing.
 - `make e2e` builds with `npm run package` and launches the Electron binary from `node_modules`, not the packaged app (its fuses block the debugger Playwright needs).
 - Dismissal goes through main (`hideWindow` IPC, exit animation, `window-hider.ts`); blur-to-hide is disabled in `make dev`.
+- Changing a commands parser (`src/main/commands/parsers/`) in a way that alters its output: bump `CACHE_VERSION` in `src/main/commands/cache.ts`, or users keep the old cached results.
 - Probed binaries must go through `runSandboxed` (`src/main/commands/sandbox-exec.ts`): env allowlist, timeout, blocklist. Never spawn a user binary another way.
 - The single-instance lock is per `userData` dir: `make dev` shares it with an installed Shortty, so quit the running app first or the dev instance exits immediately. E2E runs use their own dir and are unaffected.
 - Colours come from the light/dark tokens in `src/renderer/styles/globals.css` (launcher) and `src/renderer/preferences/styles/preferences.css`; don't hard-code white or black.

@@ -23,6 +23,15 @@ describe('CommandCache', () => {
     expect(existsSync(join(tempDir, 'commands-cache', 'details'))).toBe(true);
   });
 
+  it('drops a cache written by an older version, keeps a current one', () => {
+    const dir = join(tempDir, 'commands-cache');
+    cache.writeIndex([{ name: 'gh' } as Command]);
+    expect(new CommandCache(tempDir).readIndex()).toHaveLength(1);
+    writeFileSync(join(dir, 'version'), '1');
+    expect(new CommandCache(tempDir).readIndex()).toBeNull();
+    expect(existsSync(join(dir, 'details', 'sub'))).toBe(true);
+  });
+
   it('lives outside userData/cache (Chromium\'s Cache on case-insensitive APFS)', () => {
     expect(existsSync(join(tempDir, 'cache'))).toBe(false);
   });

@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -29,6 +29,12 @@ interface SubcommandCacheEntry extends BinaryIdentity {
 const CACHE_DIR_NAME = 'commands-cache';
 
 /**
+ * Bump when a parser change alters what gets cached: a cache written by an
+ * older version is dropped at start, so fixes reach already-enriched commands.
+ */
+const CACHE_VERSION = '2';
+
+/**
  * Remove what earlier versions wrote into userData/cache, and nothing else:
  * that directory is Chromium's userData/Cache on case-insensitive volumes.
  */
@@ -41,6 +47,21 @@ async function removeLegacyCache(userDataPath: string): Promise<void> {
   );
 }
 
+function dropIfOutdated(cacheDir: string): void {
+  const versionFile = join(cacheDir, 'version');
+  let version = '';
+  try {
+    version = readFileSync(versionFile, 'utf-8').trim();
+  } catch {
+    // no version file: written before versioning, drop it
+  }
+  if (version === CACHE_VERSION) return;
+  for (const name of ['meta.json', 'commands-index.json', 'details']) {
+    rmSync(join(cacheDir, name), { recursive: true, force: true });
+  }
+  writeFileSync(versionFile, CACHE_VERSION);
+}
+
 export class CommandCache {
   private cacheDir: string;
   /** Settles when the legacy cache files are gone (tests). */
@@ -49,6 +70,7 @@ export class CommandCache {
   constructor(userDataPath: string) {
     this.cacheDir = join(userDataPath, CACHE_DIR_NAME);
     mkdirSync(this.cacheDir, { recursive: true });
+    dropIfOutdated(this.cacheDir);
     mkdirSync(join(this.cacheDir, 'details'), { recursive: true });
     mkdirSync(join(this.cacheDir, 'details', 'sub'), { recursive: true });
     // The old index is not migrated: the next start rescans PATH.
