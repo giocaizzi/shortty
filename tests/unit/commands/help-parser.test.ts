@@ -274,6 +274,21 @@ describe('parseSubcommandHelp', () => {
     expect(mockRun).toHaveBeenCalledWith('/opt/homebrew/bin/git', ['commit', '--help']);
   });
 
+  it.each([
+    ['aws', [], ['help']],
+    ['aws', ['s3', 'ls'], ['s3', 'ls', 'help']],
+    ['bq', [], ['help']],
+    ['bq', ['query'], ['query', '--help']],
+    ['poetry', [], ['list']],
+    ['poetry', ['add'], ['add', '--help']],
+  ])('%s %j: asks for help the way the CLI documents it', async (name, parts, args) => {
+    setupMocks(SIMPLE_HELP);
+    const bin = `/opt/homebrew/bin/${name}`;
+    if (parts.length === 0) await parseHelp(name, bin);
+    else await parseSubcommandHelp(bin, parts, [name, ...parts].join(' '));
+    expect(mockRun).toHaveBeenCalledWith(bin, args);
+  });
+
   it('refuses blocklisted base commands (e.g. security)', async () => {
     setupMocks(SIMPLE_HELP);
     expect(await parseSubcommandHelp('/opt/homebrew/bin/security', ['dump-keychain'], 'security dump-keychain')).toBeNull();

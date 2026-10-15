@@ -92,6 +92,80 @@ const SUBCOMMAND_NAME_RE = /^[a-z0-9][\w+-]*(?:\.[\w+-]+)*$/;
 /** Sections that document flags: OPTIONS, GLOBAL FLAGS, OPTIONS INHERITED FROM PARENT COMMANDS... */
 const FLAG_SECTION_RE = /\b(?:OPTIONS|FLAGS)\b/;
 
+/** "   name [options] formula" over its deeper-indented description (ronn/brew, gcloud, openssl). */
+const ENTRY_LINE_RE = /^( {2,8})([a-z0-9][\w.+-]*)(?:,| |$)/;
+
+function firstSentenceOf(text: string): string {
+  return text.match(/^(.+?[.!?])(?:\s|$)/)?.[1] ?? text;
+}
+
+/** The column entry descriptions start at: the most common indent of a line under an entry line. */
+function entryDescColumn(lines: string[]): number | undefined {
+  const counts = new Map<number, number>();
+  for (let i = 0; i < lines.length - 1; i++) {
+    const entry = lines[i].match(ENTRY_LINE_RE);
+    const indent = lines[i + 1].match(/^( *)\S/)?.[1].length;
+    if (entry && indent !== undefined && indent > entry[1].length) counts.set(indent, (counts.get(indent) ?? 0) + 1);
+  }
+  return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
+}
+
+interface CommandBlock {
+  name: string;
+  /** "new-session [-AdDEPX] [-c start-directory] ...", wrapped lines joined */
+  usage: string;
+  alias: string;
+  body: string[];
+}
+
+/**
+ * tmux-style command blocks: a "name [flags] args" line at the body indent,
+ * maybe wrapped, then an "(alias: x)" line and the deeper-indented text.
+ * Only blocks with an alias line count: tmux lays out its copy-mode
+ * commands and option names the same way, without one.
+ */
+function commandBlocks(content: string): CommandBlock[] {
+  const lines = content.split('\n');
+  const blocks: CommandBlock[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const head = lines[i].match(/^( {3,8})([a-z][a-z0-9-]*)(?: \S.*)?$/);
+    if (!head) continue;
+    const indent = head[1].length;
+    const usage = [lines[i].trim()];
+    let j = i + 1;
+    for (; j < lines.length && j <= i + 4; j++) {
+      const alias = lines[j].match(/^\s+\(alias: ([\w-]+)\)\s*$/);
+      if (alias) {
+        const body: string[] = [];
+        let k = j + 1;
+        for (; k < lines.length && (!lines[k].trim() || (lines[k].match(/^ */)?.[0].length ?? 0) > indent); k++) {
+          if (!lines[k].trim() && body.length > 0) break;
+          if (lines[k].trim()) body.push(lines[k].trim());
+        }
+        blocks.push({ name: head[2], usage: joinWrapped(usage), alias: alias[1], body });
+        i = k - 1;
+        break;
+      }
+      if ((lines[j].match(/^ */)?.[0].length ?? 0) <= indent || !lines[j].trim()) break;
+      usage.push(lines[j].trim());
+    }
+  }
+  return blocks;
+}
+
+/**
+ * Flags named in a usage line: "[-AdDEPX]" (one per letter) and
+ * "[-c start-directory]". Their meaning is in prose, so no descriptions.
+ */
+function usageFlags(usage: string): FlagDetail[] {
+  const flags: FlagDetail[] = [];
+  for (const m of usage.matchAll(/\[-([A-Za-z0-9]+)\]/g)) {
+    for (const letter of m[1]) flags.push({ short: `-${letter}`, description: '' });
+  }
+  for (const m of usage.matchAll(/\[-([A-Za-z0-9]) ([\w:-]+)\]/g)) flags.push({ short: `-${m[1]}`, arg: m[2], description: '' });
+  return deduplicateFlags(flags);
+}
+
 function extractSubcommands(
   sections: Map<string, string>,
   commandName: string,
@@ -100,7 +174,8 @@ function extractSubcommands(
   const subcommands: CommandDetail[] = [];
   const seen = new Set<string>();
   const add = (name: string, description: string, group?: string) => {
-    if (!SUBCOMMAND_NAME_RE.test(name) || seen.has(name)) return;
+    // "brew analytics on" usage lines over their text name the program itself
+    if (!SUBCOMMAND_NAME_RE.test(name) || seen.has(name) || commandName.split(' ').includes(name)) return;
     seen.add(name);
     const [text, deprecated] = stripDeprecated(description);
     const entry: CommandDetail = { name: `${commandName} ${name}`, description: text };
@@ -111,10 +186,17 @@ function extractSubcommands(
 
   // Format 1: sections titled "COMMANDS", "SUBCOMMANDS", "ESSENTIAL COMMANDS", gcloud "GROUPS", ...
   for (const [title, body] of sections) {
-    if (!/\b(?:SUB)?COMMANDS?\b|^GROUPS$/.test(title) || FLAG_SECTION_RE.test(title)) continue;
+    if (!/\b(?:SUB)?COMMANDS?\b|^GROUPS$|^AVAILABLE SERVICES$/.test(title) || FLAG_SECTION_RE.test(title)) continue;
     const lines = body.split('\n');
+    const descColumn = entryDescColumn(lines);
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      // aws: "       o cp"
+      const bullet = line.match(/^\s{2,8}o\s+([a-z0-9][\w.+-]*)\s*$/);
+      if (bullet) {
+        add(bullet[1], '', title);
+        continue;
+      }
       // Table row: "   name     description"
       const row = line.match(/^\s{2,8}(\S+)\s{2,}(\S.*)$/);
       if (row) {
@@ -123,7 +205,14 @@ function extractSubcommands(
       }
       // Entry with its description on the next, deeper-indented line (ronn/brew, gcloud):
       // "   install [options] formula\n       Install formula."
-      const entry = line.match(/^( {2,5})([a-z0-9][\w.+-]*)(?:,| |$)/);
+      // A name that fills its tag column leaves one space (openssl: "       cms CMS (Cryptographic..."),
+      // after a blank line (a prose line can fit the pattern too)
+      const tight = line.match(/^( {2,8})([a-z0-9][\w.+-]*) (\S.*)$/);
+      if (tight && tight[1].length + tight[2].length + 1 === descColumn && !lines[i - 1]?.trim()) {
+        add(tight[2], firstSentenceOf(tight[3].trim()), title);
+        continue;
+      }
+      const entry = line.match(ENTRY_LINE_RE);
       if (entry) {
         const next = lines[i + 1] ?? '';
         const nextIndent = next.match(/^( *)/)?.[1].length ?? 0;
@@ -134,11 +223,14 @@ function extractSubcommands(
             paragraph.push(lines[j].trim());
           }
           const text = joinWrapped(paragraph);
-          add(entry[2], text.match(/^(.+?[.!?])(?:\s|$)/)?.[1] ?? text, title);
+          add(entry[2], firstSentenceOf(text), title);
         }
       }
     }
   }
+
+  // Format 3: tmux documents each command as a block, "new-session [-AdDEPX] ..." over its "(alias: new)"
+  for (const block of commandBlocks(fullContent)) add(block.name, firstSentenceOf(joinWrapped(block.body)));
 
   // Format 2: man page cross-references — "  cmd-subcmd(1)\n      description";
   // a subcommand's page names them with dashes ("gh auth" -> "gh-auth-login(1)")
@@ -265,6 +357,28 @@ export function parseManContent(content: string, commandName: string): ParsedMan
   return result;
 }
 
+/** A subcommand's details from its block in the parent's man page (tmux new-session). Pure. */
+export function parseCommandBlock(
+  content: string,
+  qualifiedName: string,
+): Omit<SubcommandDetail, 'enrichment' | 'enrichedAt'> | null {
+  const [program, name] = qualifiedName.split(' ');
+  const block = commandBlocks(normalizeText(content)).find(b => b.name === name);
+  if (!block) return null;
+  const synopsis = `${program} ${block.usage}`;
+  const longDescription = extractFirstParagraph(block.body.join('\n'));
+  return {
+    name: qualifiedName,
+    description: firstSentenceOf(longDescription),
+    synopsis,
+    longDescription,
+    subcommands: [],
+    flags: usageFlags(block.usage),
+    arguments: parseArgumentsFromSynopsis(synopsis),
+    aliases: [`${program} ${block.alias}`],
+  };
+}
+
 export async function parseManPage(commandName: string): Promise<ParsedMan | null> {
   let content: string;
   try {
@@ -285,6 +399,16 @@ export async function parseSubcommandManPage(
     content = await fetchManPage(manName);
   } catch {
     return null;
+  }
+  // No page of its own: a tmux-style block in the parent's page (man tmux)
+  if (!content.trim()) {
+    const parts = qualifiedName.split(' ');
+    if (parts.length !== 2) return null;
+    try {
+      return parseCommandBlock(await fetchManPage(parts[0]), qualifiedName);
+    } catch {
+      return null;
+    }
   }
 
   const parsed = parseManContent(content, qualifiedName);

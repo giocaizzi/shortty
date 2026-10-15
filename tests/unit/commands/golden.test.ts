@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FlagDetail } from '../../../src/shared/types';
-import { parseManContent } from '../../../src/main/commands/parsers/man-parser';
+import { parseCommandBlock, parseManContent } from '../../../src/main/commands/parsers/man-parser';
 import { parseHelpOutput } from '../../../src/main/commands/parsers/help-parser';
 import { extractUsageLine } from '../../../src/main/commands/parsers/parse-utils';
 import { assertDefined } from '../../helpers';
@@ -375,13 +375,43 @@ describe('golden: man pages (GNU, BSD mdoc, ronn)', () => {
     expect(flag('ssh/man.txt', { short: '-p' })).toMatchObject({ arg: 'port' });
   });
 
-  it('man tmux: CLI options from DESCRIPTION; no junk subcommands from the COMMANDS prose', () => {
+  it('man tmux: CLI options from DESCRIPTION; commands from their "(alias: x)" blocks, not the copy-mode list', () => {
     const result = parse('tmux/man.txt');
     assertDefined(result);
     expect(result.description).toBe('terminal multiplexer');
-    // tmux documents its ~90 commands in prose sections, not a list: not extracted (known gap)
-    expect(result.subcommands).toEqual([]);
+    expect(sub('tmux/man.txt', 'tmux new-session').description).toBe('Create a new session with name session-name.');
+    expect(sub('tmux/man.txt', 'tmux rename-session').description).toBe('Rename the session to new-name.');
+    // copy-mode commands and option names share the layout, without an alias line
+    expect(result.subcommands.map(s => s.name)).not.toContain('tmux append-selection');
+    expect(result.subcommands.map(s => s.name)).not.toContain('tmux kill-server'); // no alias: known gap
     expect(flag('tmux/man.txt', { short: '-c' })).toMatchObject({ arg: 'shell-command' });
+  });
+
+  it('tmux new-session: its block in the tmux page gives usage, flags, alias and text', () => {
+    const detail = parseCommandBlock(read('tmux/man.txt'), 'tmux new-session');
+    assertDefined(detail);
+    expect(detail.synopsis).toMatch(/^tmux new-session \[-AdDEPX\] \[-c start-directory\] .* \[-y height\] \[shell-command \[argument \.\.\.\]\]$/);
+    expect(detail.description).toBe('Create a new session with name session-name.');
+    expect(detail.aliases).toEqual(['tmux new']);
+    expect(detail.flags.map(f => f.short)).toEqual(['-A', '-d', '-D', '-E', '-P', '-X', '-c', '-e', '-f', '-F', '-n', '-s', '-t', '-x', '-y']);
+    expect(detail.flags.find(f => f.short === '-c')).toMatchObject({ arg: 'start-directory' });
+    expect(parseCommandBlock(read('tmux/man.txt'), 'tmux append-selection')).toBeNull();
+  });
+
+  it('man openssl: the COMMAND SUMMARY tag lists, incl. names that fill the tag column', () => {
+    const result = parse('openssl/man.txt');
+    assertDefined(result);
+    expect(sub('openssl/man.txt', 'openssl req').description).toBe('PKCS#10 X.509 Certificate Signing Request (CSR) Management.');
+    expect(sub('openssl/man.txt', 'openssl asn1parse').description).toBe('Parse an ASN.1 sequence.');
+    expect(sub('openssl/man.txt', 'openssl cms').description).toBe('CMS (Cryptographic Message Syntax) command.');
+    expect(sub('openssl/man.txt', 'openssl ca').description).toBe('Certificate Authority (CA) Management.');
+    expect(sub('openssl/man.txt', 'openssl x509').description).toBe('X.509 Certificate Data Management.');
+    // a prose line that fits "name text" at the tag column is not an entry
+    expect(result.subcommands.map(s => s.name)).not.toContain('openssl the');
+  });
+
+  it('man brew: "brew analytics on" usage lines do not list the program itself', () => {
+    expect(parse('brew/man.txt')?.subcommands.map(s => s.name)).not.toContain('brew brew');
   });
 
   it('man tar (bsdtar): mode flags from DESCRIPTION plus OPTIONS', () => {

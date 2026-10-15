@@ -138,6 +138,24 @@ async function isTrustedBinary(binPath: string): Promise<boolean> {
   }
 }
 
+/**
+ * CLIs whose `--help` does not list their commands, by command name: the
+ * words that print their help instead, after the subcommand path
+ * (docs/spec.md §7.5). aws's `--help` is an error, its help is
+ * `aws [<command> ...] help` (pager set to cat); poetry and bq list their
+ * commands with `poetry list` / `bq help` at the top level only.
+ */
+const HELP_WORDS: Record<string, { top: string[]; sub: string[] }> = {
+  aws: { top: ['help'], sub: ['help'] },
+  bq: { top: ['help'], sub: ['--help'] },
+  poetry: { top: ['list'], sub: ['--help'] },
+};
+
+function helpArgs(commandName: string, subcommandParts: string[] = []): string[] {
+  const words = HELP_WORDS[commandName];
+  return [...subcommandParts, ...(words ? (subcommandParts.length > 0 ? words.sub : words.top) : ['--help'])];
+}
+
 /** Run `bin args` sandboxed and return its output, or null if it hung or could not run. */
 async function captureHelp(bin: string, args: string[]): Promise<string | null> {
   try {
@@ -232,8 +250,10 @@ function splitHelpSections(lines: string[]): HelpSection[] {
 const ENTRY_RE = /^\s{1,8}([A-Za-z0-9][\w.+-]*)\*?((?:,\s*[\w.+-]+)*)(?:\s+\[(Preview|Experimental|Deprecated)\])?(?:\s+[<[][^\s\]>]*[\]>](?:\.\.\.)?)*(?:\s*:\s+|\s{2,}(?::\s+)?)(\S.*)$/;
 /** clap long help: name alone on its line, description on the following, deeper-indented line */
 const BARE_ENTRY_RE = /^(\s{1,8})([a-z0-9][\w.+-]*)\s*$/;
+/** clap: a name padded to the description column, with no description */
+const PADDED_ENTRY_RE = /^\s{1,8}([a-z0-9][\w.+-]*)\s{2,}$/;
 /** npm: "    access, adduser, audit, bugs," */
-const COMMA_LIST_RE = /^\s+[\w.-]+(?:,\s*[\w.-]+)+,?\s*$/;
+const COMMA_LIST_RE = /^\s{1,8}[\w.-]+(?:,\s*[\w.-]+)+,?\s*$/;
 
 function isPlausibleSubcommand(name: string): boolean {
   if (name.length > 40) return false;
@@ -315,9 +335,21 @@ function extractSubcommands(sections: HelpSection[], commandName: string): Comma
       }
 
       if (COMMA_LIST_RE.test(line)) {
-        for (const name of line.split(',')) {
+        // The list may wrap, splitting a name at its hyphen (bq: "remove-iam-policy-" / "binding,")
+        const list = [line.trim()];
+        while (/[,-]$/.test(list[list.length - 1]) && /^\s+[\w.-]+(?:,\s*[\w.-]+)*,?\s*$/.test(lines[i + 1] ?? '')) {
+          list.push(lines[++i].trim());
+        }
+        for (const name of joinWrapped(list).split(',')) {
           if (name.trim()) add(name.trim(), '');
         }
+        continue;
+      }
+
+      // clap pads a name without a description: "  create  "
+      const padded = line.match(PADDED_ENTRY_RE);
+      if (padded) {
+        add(padded[1], '');
         continue;
       }
 
@@ -326,7 +358,8 @@ function extractSubcommands(sections: HelpSection[], commandName: string): Comma
         const next = lines[i + 1] ?? '';
         const nextIndent = next.match(/^(\s*)/)?.[1].length ?? 0;
         if (next.trim() && nextIndent > bare[1].length) {
-          add(bare[2], next.trim());
+          // poetry's namespaces: " cache" over "  cache clear   Clear Poetry's caches."
+          add(bare[2], next.trim().startsWith(`${bare[2]} `) ? '' : next.trim());
           i++;
         }
       }
@@ -437,11 +470,13 @@ function firstSentence(text: string | undefined): string {
 
 /**
  * Output that is a rendered man page (gcloud prints NAME / SYNOPSIS /
- * DESCRIPTION... even through a pager set to cat).
+ * DESCRIPTION... even through a pager set to cat, aws's `help` too).
  */
 function isManStyle(text: string): boolean {
-  const first = text.split('\n').find(l => l.trim());
-  return first?.trim() === 'NAME' && /^SYNOPSIS\s*$/m.test(text);
+  const first = text.split('\n').find(l => l.trim())?.trim();
+  // aws starts with the page header: "AWS()          AWS()"
+  const header = first === 'NAME' || /^\S+\(\w*\)\s.*\S\(\w*\)$/.test(first ?? '');
+  return header && /^NAME\s*$/m.test(text) && /^SYNOPSIS\s*$/m.test(text);
 }
 
 /**
@@ -507,7 +542,7 @@ export async function parseHelp(commandName: string, binPath: string): Promise<P
   if (isBlocklisted(commandName)) return null;
   if (!(await isTrustedBinary(binPath))) return null;
 
-  const output = await captureHelp(binPath, ['--help']);
+  const output = await captureHelp(binPath, helpArgs(commandName));
   if (output === null) return null;
   return parseHelpOutput(output, commandName);
 }
@@ -525,7 +560,7 @@ export async function parseSubcommandHelp(
   if (subcommandParts.length === 0 || !subcommandParts.every(p => SUBCOMMAND_TOKEN_RE.test(p))) return null;
   if (!(await isTrustedBinary(baseBinPath))) return null;
 
-  const output = await captureHelp(baseBinPath, [...subcommandParts, '--help']);
+  const output = await captureHelp(baseBinPath, helpArgs(baseName, subcommandParts));
   if (output === null) return null;
 
   const parsed = parseHelpOutput(output, qualifiedName);
