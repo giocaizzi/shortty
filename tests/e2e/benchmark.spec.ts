@@ -6,7 +6,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
-import { test, expect, launchShortty, waitForEnrichment, type Shortty } from './fixtures';
+import { test, expect, launchShortty, screenshot, waitForEnrichment, type Shortty } from './fixtures';
 
 const LABEL = process.env.SHORTTY_E2E_BENCHMARK;
 const OUT = path.resolve(__dirname, '../../docs/wip/benchmark');
@@ -46,27 +46,8 @@ function median(values: number[]): number {
   return sorted[Math.floor(sorted.length / 2)];
 }
 
-const BACKDROPS: Record<'dark' | 'light', string> = { dark: '#1f1f23', light: '#ececef' };
-
-/**
- * The real panel is transparent with macOS vibrancy composited by the OS,
- * which page screenshots cannot capture (text on nothing). Paint an opaque
- * backdrop close to the vibrancy material, for readable screenshots only.
- */
-async function snap(win: Page, name: string, scheme: 'dark' | 'light' = 'dark'): Promise<void> {
-  await win.emulateMedia({ colorScheme: scheme });
-  await win.evaluate((color) => {
-    let style = document.getElementById('benchmark-backdrop');
-    if (!style) {
-      style = document.createElement('style');
-      style.id = 'benchmark-backdrop';
-      document.head.appendChild(style);
-    }
-    style.textContent = `html, body { background: ${color} !important; }`;
-  }, BACKDROPS[scheme]);
-  // Let the show animation (120ms) finish.
-  await win.waitForTimeout(200);
-  await win.screenshot({ path: path.join(OUT, `${LABEL}-${name}.png`) });
+function snap(win: Page, name: string, scheme: 'dark' | 'light' = 'dark'): Promise<void> {
+  return screenshot(win, path.join(OUT, `${LABEL}-${name}.png`), scheme);
 }
 
 test.skip(!LABEL, 'set SHORTTY_E2E_BENCHMARK=<label> (make e2e-benchmark)');
