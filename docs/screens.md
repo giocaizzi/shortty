@@ -222,7 +222,7 @@ User presses Tab/→ on a command row. Detail view replaces results.
 │  ┌────────────────────────────────────────────────────────┐  │
 │  │ git [--version] [--help] [-C <path>] <command> [<args>]│  │  ← synopsis
 │  └────────────────────────────────────────────────────────┘  │
-│  the stupid content tracker                                  │
+│  ◼ the stupid content tracker                                │  ← command icon + description
 │                                                              │
 │  Arguments                                                 1 │
 │ ▌<command>  required                                         │
@@ -252,7 +252,7 @@ User presses Tab/→ on a command row. Detail view replaces results.
 ```
 
 - Breadcrumb chips in the search bar show the path (`git`, then `commit`, …)
-- Description, aliases (`Alias  gh pr ls` chips), synopsis in a code block (wraps; very long ones scroll after 3 lines), then the long description
+- The command's icon tile (the same as its result row, also for a subcommand) beside the description, then aliases (`Alias  gh pr ls` chips), synopsis in a code block (wraps; very long ones scroll after 3 lines), then the long description
 - Sections, each with a count, in keyboard order: Arguments, Subcommands, Examples, Flags, Environment ([spec.md](spec.md) §7.8)
 - Subcommands and flags split into one header per group when the help groups them ("Core commands", "Inherited flags", gcloud "Groups"/"Commands", az "Subgroups"); a single group keeps the plain "Subcommands"/"Flags" title
 - Flag rows end with subtle badges: `required` (warning colour), `deprecated` (name dimmed), allowed values `a | b | c` (first four, full list on hover), default `= value`; deprecated subcommands get the same badge

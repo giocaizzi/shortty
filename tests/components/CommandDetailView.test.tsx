@@ -36,6 +36,13 @@ const mockCommandWithArgs = makeCommand({
 });
 
 describe('CommandDetailView', () => {
+  it('shows the command\'s icon in the header, for a subcommand too', () => {
+    const { container } = render(
+      <CommandDetailView data={{ ...mockCommand, name: 'git commit' }} filterQuery="" selectedIndex={0} copyFlashIndex={null} />,
+    );
+    expect(container.querySelector('[data-source-icon="commands"]')).toHaveAttribute('data-brand', 'Git');
+  });
+
   it('renders command name and description', () => {
     render(
       <CommandDetailView

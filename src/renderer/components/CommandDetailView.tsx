@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { Command, FlagDetail } from '../../shared/types';
 import { Row } from './Row';
 import { SectionHeader } from './SectionHeader';
+import { SourceIcon } from './SourceIcon';
 import { useCommandEnrichment } from '../hooks/useCommandEnrichment';
 import { buildDetailGroups, type DetailData, type DetailGroup, type DetailRow } from './detail-rows';
 
@@ -204,12 +205,15 @@ export function CommandDetailView({
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Header: what this command is */}
       <div className="shrink-0 space-y-2 px-[18px] pb-2 pt-1">
-        {(data.description || isEnriching) && (
-          <p className="text-[13px] leading-snug text-fg-2">
-            {data.description}
-            {isEnriching && itemCount > 0 && <span className="ml-2 text-[12px] text-fg-4">— Enriching...</span>}
-          </p>
-        )}
+        <div className="flex items-center gap-2.5">
+          {data.name && <SourceIcon id="commands" label="Shell" command={data.name.split(' ')[0]} />}
+          {(data.description || isEnriching) && (
+            <p className="min-w-0 text-[13px] leading-snug text-fg-2">
+              {data.description}
+              {isEnriching && itemCount > 0 && <span className="ml-2 text-[12px] text-fg-4">— Enriching...</span>}
+            </p>
+          )}
+        </div>
         {data.aliases && data.aliases.length > 0 && (
           <p data-testid="detail-aliases" className="flex flex-wrap items-baseline gap-1.5 text-[12px] text-fg-3">
             <span>{data.aliases.length > 1 ? 'Aliases' : 'Alias'}</span>
