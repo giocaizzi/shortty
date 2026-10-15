@@ -1,11 +1,13 @@
-import { useSyncExternalStore } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import {
   type KeyModifier,
+  type KeyPlatform,
   type KeyStroke,
   NAMED_KEY_GLYPHS,
+  PC_NAMED_KEY_LABELS,
   SYMBOL_NAMES,
   US_LAYOUT,
-  modsToGlyphs,
+  formatCombo,
 } from '../../shared/keys';
 import { type KnownLayout, detectLayout } from './keyboard-layouts.data';
 
@@ -20,6 +22,8 @@ import { type KnownLayout, detectLayout } from './keyboard-layouts.data';
  *   to type it (Italian `[` → "⌥è").
  * - Letters stay Latin on non-Latin layouts (Russian ⌘C stays ⌘C), as
  *   macOS and the apps themselves do.
+ * - Off macOS, modifiers and named keys are words: "Ctrl+Shift+P",
+ *   "Alt+Enter", and the ⌥ layer is typed with AltGr.
  */
 
 export interface KeyboardLayout {
@@ -27,10 +31,12 @@ export interface KeyboardLayout {
   map: ReadonlyMap<string, string>;
   /** Known layout with shift/option layers, when recognised. */
   known: KnownLayout | null;
+  /** Labels modifiers and named keys: glyphs on macOS, words elsewhere. */
+  platform: KeyPlatform;
 }
 
 export interface ResolvedStroke {
-  /** Modifier glyphs + key label, e.g. "⌥⌘È". */
+  /** Modifiers + key label, e.g. "⌥⌘È" (macOS) or "Ctrl+Alt+È". */
   text: string;
   /** Explanation when what to press differs from the US layout. */
   hint?: string;
@@ -40,8 +46,11 @@ const US_MAP: ReadonlyMap<string, string> = new Map(
   Object.entries(US_LAYOUT).map(([code, [base]]) => [code, base]),
 );
 
-export function makeLayout(map: ReadonlyMap<string, string>): KeyboardLayout {
-  return { map, known: detectLayout(map) };
+export function makeLayout(
+  map: ReadonlyMap<string, string>,
+  platform: KeyPlatform = 'darwin',
+): KeyboardLayout {
+  return { map, known: detectLayout(map), platform };
 }
 
 export const US_KEYBOARD: KeyboardLayout = makeLayout(US_MAP);
@@ -90,29 +99,30 @@ function usTypingCombo(ch: string): { code: string; mods: KeyModifier[] } | null
   return null;
 }
 
-function namedLabel(key: string): string | null {
-  if (NAMED_KEY_GLYPHS[key]) return NAMED_KEY_GLYPHS[key];
+function namedLabel(key: string, platform: KeyPlatform): string | null {
+  const labels = platform === 'darwin' ? NAMED_KEY_GLYPHS : PC_NAMED_KEY_LABELS;
+  if (labels[key]) return labels[key];
   if (/^F\d{1,2}$/.test(key) || /^Numpad\w+$/.test(key)) return key;
   return null;
 }
 
 /** Resolve one stroke for display on `layout`. */
 export function resolveStroke(stroke: KeyStroke, layout: KeyboardLayout): ResolvedStroke {
-  const mods = modsToGlyphs(stroke.mods);
-  const named = namedLabel(stroke.key);
-  if (named) return { text: `${mods}${named}` };
+  const combo = (label: string) => formatCombo(stroke.mods, label, layout.platform);
+  const named = namedLabel(stroke.key, layout.platform);
+  if (named) return { text: combo(named) };
 
   const chars = [...stroke.key];
-  if (chars.length !== 1) return { text: `${mods}${stroke.key}` };
+  if (chars.length !== 1) return { text: combo(stroke.key) };
 
   // Physical key position: show what is printed on that key.
   if (stroke.code) {
     const ch = layout.map.get(stroke.code);
-    if (!ch || !isLatinOrSymbol(ch)) return { text: `${mods}${stroke.key}` };
+    if (!ch || !isLatinOrSymbol(ch)) return { text: combo(stroke.key) };
     const label = keycap(ch);
-    if (label === stroke.key) return { text: `${mods}${label}` };
+    if (label === stroke.key) return { text: combo(label) };
     return {
-      text: `${mods}${label}`,
+      text: combo(label),
       hint: `Physical key: “${label}” on your keyboard is the “${stroke.key}” key of a US keyboard.`,
     };
   }
@@ -120,19 +130,21 @@ export function resolveStroke(stroke: KeyStroke, layout: KeyboardLayout): Resolv
   // Character key: the app expects this character.
   const ch = stroke.literal ? stroke.key : stroke.key.toLowerCase();
   const label = stroke.literal ? stroke.key : keycap(stroke.key);
-  const text = `${mods}${label}`;
+  const text = combo(label);
   if (/^[a-z]$/i.test(ch)) return { text }; // letters: always shown as Latin keycaps
   if (!hasLatinLetters(layout) && !layout.known) return { text };
 
-  const combo = typingCombo(ch, layout);
+  const typing = typingCombo(ch, layout);
   const us = usTypingCombo(ch);
-  if (combo) {
-    if (combo.mods.length === 0) return { text };
-    const sameAsUs = us && us.code === combo.code
-      && us.mods.join() === combo.mods.join() && layout.map.get(combo.code) === US_MAP.get(combo.code);
+  if (typing) {
+    if (typing.mods.length === 0) return { text };
+    const sameAsUs = us && us.code === typing.code
+      && us.mods.join() === typing.mods.join() && layout.map.get(typing.code) === US_MAP.get(typing.code);
     if (sameAsUs) return { text };
-    const keyLabel = keycap(layout.map.get(combo.code) ?? combo.code);
-    return { text, hint: `Type “${ch}” with ${modsToGlyphs(combo.mods)}${keyLabel} on your keyboard.` };
+    const keyLabel = keycap(layout.map.get(typing.code) ?? typing.code);
+    // The ⌥ layer of a Mac layout is the AltGr layer on Windows and Linux.
+    const keys = formatCombo(typing.mods, keyLabel, layout.platform).replace(/^Alt\+/, 'AltGr+');
+    return { text, hint: `Type “${ch}” with ${keys} on your keyboard.` };
   }
   // Unknown layout and the character is not on a base key.
   if (us && us.mods.length === 0) {
@@ -145,20 +157,27 @@ export function resolveStrokes(strokes: KeyStroke[], layout: KeyboardLayout): Re
   return strokes.map((s) => resolveStroke(s, layout));
 }
 
+/** Modifiers at the start of a resolved label: glyphs or "Ctrl+"-style words. */
+const LEADING_MODS = /^(?:[⌃⌥⇧⌘]+|(?:(?:Ctrl|AltGr|Alt|Shift|Win|Super)\+)+)/;
+
 /**
  * Extra search text for a shortcut on the active layout: the resolved
- * labels, how to type hinted characters, and the US shifted character of
- * ⇧+key strokes (so "?" finds ⇧/).
+ * labels in glyph and word forms ("⌃⇧P", "Ctrl Shift P", so every spelling,
+ * "ctrl+shift+p" included, matches on every platform), how to type hinted characters,
+ * and the US shifted character of ⇧+key strokes (so "?" finds ⇧/).
  */
 export function layoutSearchText(strokes: KeyStroke[] | undefined, layout: KeyboardLayout): string {
   if (!strokes || strokes.length === 0) return '';
   const words: string[] = [];
   for (const stroke of strokes) {
     const resolved = resolveStroke(stroke, layout);
-    const label = resolved.text.replace(/^[⌃⌥⇧⌘]+/, '');
-    words.push(resolved.text, label.toLowerCase());
+    const label = resolved.text.replace(LEADING_MODS, '');
+    // Word forms are indexed with spaces: a "+" separator would make the
+    // query "+" match every shortcut. "ctrl+shift+p" still matches fuzzily.
+    const pc = formatCombo(stroke.mods, label, layout.platform === 'linux' ? 'linux' : 'win32');
+    words.push(formatCombo(stroke.mods, label), pc.replace(/\+(?!$)/g, ' '), label.toLowerCase());
     const typed = resolved.hint?.match(/with ([^ ]+) on/)?.[1];
-    if (typed) words.push(typed, typed.replace(/^[⌃⌥⇧⌘]+/, '').toLowerCase());
+    if (typed) words.push(typed, typed.replace(LEADING_MODS, '').toLowerCase());
     if (stroke.code) {
       const ch = layout.map.get(stroke.code);
       if (ch) words.push(ch);
@@ -248,7 +267,18 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-/** The user's active keyboard layout (US until the real one is known). */
+/** The OS the renderer runs on, from the preload (macOS when unknown). */
+function keyboardPlatform(): KeyPlatform {
+  const platform = globalThis.window?.electronAPI?.platform;
+  return platform === 'win32' || platform === 'linux' ? platform : 'darwin';
+}
+
+/** The user's active keyboard layout (US until the real one is known), labelled for this OS. */
 export function useKeyboardLayout(): KeyboardLayout {
-  return useSyncExternalStore(subscribe, () => current, () => US_KEYBOARD);
+  const layout = useSyncExternalStore(subscribe, () => current, () => US_KEYBOARD);
+  const platform = keyboardPlatform();
+  return useMemo(
+    () => (layout.platform === platform ? layout : { ...layout, platform }),
+    [layout, platform],
+  );
 }

@@ -8,6 +8,9 @@
 
 export type KeyModifier = 'ctrl' | 'opt' | 'shift' | 'cmd';
 
+/** OS whose keyboard conventions label the keys (Node's process.platform values). */
+export type KeyPlatform = 'darwin' | 'win32' | 'linux';
+
 /** Canonical Apple HIG order: ⌃ ⌥ ⇧ ⌘ */
 const MODIFIER_ORDER: readonly KeyModifier[] = ['ctrl', 'opt', 'shift', 'cmd'];
 
@@ -16,6 +19,12 @@ const MODIFIER_GLYPHS: Record<KeyModifier, string> = {
   opt: '⌥',
   shift: '⇧',
   cmd: '⌘',
+};
+
+/** Windows/Linux modifier words; the order (Ctrl+Alt+Shift+Win) matches MODIFIER_ORDER. */
+const PC_MODIFIER_LABELS: Record<Exclude<KeyPlatform, 'darwin'>, Record<KeyModifier, string>> = {
+  win32: { ctrl: 'Ctrl', opt: 'Alt', shift: 'Shift', cmd: 'Win' },
+  linux: { ctrl: 'Ctrl', opt: 'Alt', shift: 'Shift', cmd: 'Super' },
 };
 
 /**
@@ -59,6 +68,21 @@ export const NAMED_KEY_GLYPHS: Record<string, string> = {
   Insert: 'Ins',
   CapsLock: '⇪',
   Help: 'Help',
+};
+
+/** Named keys → labels on Windows and Linux keyboards. Arrows keep their glyphs. */
+export const PC_NAMED_KEY_LABELS: Record<string, string> = {
+  ...NAMED_KEY_GLYPHS,
+  Return: 'Enter',
+  Tab: 'Tab',
+  Backspace: 'Backspace',
+  Delete: 'Delete',
+  Escape: 'Esc',
+  Home: 'Home',
+  End: 'End',
+  PageUp: 'PgUp',
+  PageDown: 'PgDn',
+  CapsLock: 'CapsLock',
 };
 
 /** Named keys → words used in the search index. */
@@ -227,8 +251,19 @@ export function strokeToDisplay(stroke: KeyStroke): string {
   return `${modsToGlyphs(stroke.mods)}${stroke.key}`;
 }
 
-export function modsToGlyphs(mods: readonly KeyModifier[]): string {
+function modsToGlyphs(mods: readonly KeyModifier[]): string {
   return sortMods(mods).map((m) => MODIFIER_GLYPHS[m]).join('');
+}
+
+/** A key with modifiers as written on `platform`: "⌃⇧P" on macOS, "Ctrl+Shift+P" elsewhere. */
+export function formatCombo(
+  mods: readonly KeyModifier[],
+  key: string,
+  platform: KeyPlatform = 'darwin',
+): string {
+  if (platform === 'darwin') return `${modsToGlyphs(mods)}${key}`;
+  const labels = PC_MODIFIER_LABELS[platform];
+  return [...sortMods(mods).map((m) => labels[m]), key].join('+');
 }
 
 export function sortMods(mods: readonly KeyModifier[]): KeyModifier[] {

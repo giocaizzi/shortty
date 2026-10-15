@@ -19,15 +19,16 @@ Config files describe keys in three different ways:
 Parsers emit `Shortcut.strokes: KeyStroke[]` (`src/shared/keys.ts`) next
 to the display string `key`:
 
-- `mods`: `ctrl | opt | shift | cmd`, in macOS order ⌃⌥⇧⌘.
+- `mods`: `ctrl | opt | shift | cmd`, in macOS order ⌃⌥⇧⌘ (the same as
+  Windows' Ctrl+Alt+Shift+Win).
 - `key`: canonical key: an uppercase letter, a character (`[`, `%`, `ò`), or
   a named key (`Return`, `Tab`, `↑`, `F5`, `Numpad1`).
 - `code`: only for physical keys, the `KeyboardEvent.code` (`BracketLeft`);
   `key` then holds the US label of that position.
 - `literal`: vim text shown verbatim (`dd`, `:wq`, case-sensitive).
 
-`key`/`searchKey` (main process) stay US-based; they are used for copy to
-clipboard and as a fallback when `strokes` is absent.
+`key`/`searchKey` (main process) stay US-based and macOS-labelled; they are
+the fallback when `strokes` is absent.
 
 ## Display rules (renderer)
 
@@ -39,7 +40,7 @@ window show, `layoutchange` and every 2 s while visible (macOS fires no
 event on an input-source switch).
 
 1. **Named keys** (Return, arrows, F-keys) are layout-independent: shown as
-   glyphs (↩ ⇥ ⎋ ⌫ ⌦ ⇞ ⇟).
+   glyphs (↩ ⇥ ⎋ ⌫ ⌦ ⇞ ⇟) on macOS, as words off macOS (see Platforms).
 2. **Physical keys** show the label printed on that key of the user's
    layout: `[BracketLeft]` is `È` on Italian, `Ü` on German; Ghostty
    `key_y` is `Z` on German. A dotted underline and tooltip explain that it
@@ -74,6 +75,33 @@ layers come from a built-in table of common macOS layouts
 French, Spanish, Dvorak, Russian). The active layout is recognised by
 comparing its base layer with that table. For an unrecognised layout the
 hint only says that the character is not on a key without modifiers.
+
+## Platforms
+
+The renderer labels modifiers and named keys for the OS it runs on
+(`window.electronAPI.platform`, read once in `useKeyboardLayout()`, which
+puts it on `KeyboardLayout.platform`; `formatCombo` in `src/shared/keys.ts`
+does the formatting). The row, the copied text and the typing hints use
+the same labels.
+
+| | macOS | Windows | Linux |
+|---|---|---|---|
+| Modifiers | `⌃⌥⇧⌘`, no separator | `Ctrl+Alt+Shift+Win+` | `Ctrl+Alt+Shift+Super+` |
+| Example | `⌃⇧P`, `⌥↩` | `Ctrl+Shift+P`, `Alt+Enter` | `Ctrl+Shift+P`, `Super+P` |
+| Named keys | `↩ ⇥ ⌫ ⌦ ⎋ ↖ ↘ ⇞ ⇟ ⇪` | `Enter Tab Backspace Delete Esc Home End PgUp PgDn CapsLock` | as Windows |
+| Option layer in hints | `⌥È` | `AltGr+È` | `AltGr+È` |
+
+- Arrows stay `← ↑ → ↓` everywhere: they are unambiguous and short.
+- Linux says Super, the name GNOME, KDE and Electron use; Windows says Win.
+- Sequences keep their separator (`Ctrl+K · Ctrl+S`; copied as
+  `Ctrl+K Ctrl+S`).
+- Typing hints use the macOS layout tables; Windows' AltGr layer matches
+  them for the common characters (`[` is AltGr+è on Italian on both).
+- Search indexes every spelling on every platform: `⌃⇧P`, `Ctrl+Shift+P`
+  and `Ctrl Shift P` (plus `searchKey`'s `ctrl shift p`).
+- The Settings shortcut recorder labels keys the same way off macOS and,
+  on Windows, refuses Alt+Tab, Alt+F4, Alt+Space, Alt+Esc, Ctrl+Esc,
+  Ctrl+Shift+Esc, Ctrl+Alt+Delete and every Win combo (the shell owns them).
 
 ## Per-source behavior
 
@@ -116,5 +144,7 @@ layout (Italian `?` is ⇧', `>` is ⇧<). Covered by
   the key left of Z as `Backquote` (verified with `getLayoutMap()` on an
   Italian Mac: `IntlBackslash` → `\`, `Backquote` → `<`). They are
   excluded from layout recognition.
-- Copy to clipboard (Enter) copies the US-based `key` string.
+- Copy to clipboard (Enter) copies the resolved labels (`⌘Ò` on Italian,
+  `Ctrl+Shift+P` on Windows); only shortcuts without `strokes` copy the
+  US-based `key`.
 - Terminal sources show Meta as ⌥ (macOS terminals with "Option as Meta").
