@@ -5,9 +5,12 @@ import { brandIconForCommand, brandIconForSource, weakTheme } from '../../../src
 const SOURCES = join(__dirname, '../../../src/cheatsheets/sources');
 
 describe('brand icons', () => {
-  it('covers every shipped source with an app icon, a glyph, or both', () => {
+  it('covers every shipped macOS source with an app icon, a glyph, or both', () => {
     for (const file of readdirSync(SOURCES)) {
       const cs = JSON.parse(readFileSync(join(SOURCES, file), 'utf-8'));
+      // `app` names a macOS bundle and simple-icons carries no Microsoft marks:
+      // Windows-only sources (Windows, File Explorer, Windows Terminal, PowerShell) use the monogram.
+      if (!cs.platforms.includes('darwin')) continue;
       expect(cs.app || brandIconForSource(cs.id), cs.id).toBeTruthy();
     }
   });

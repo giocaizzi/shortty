@@ -1,0 +1,401 @@
+{
+  "$schema": "../schema.json",
+  "id": "windows-system",
+  "label": "Windows",
+  "icon": "🪟",
+  "platforms": ["win32"],
+  "parser": null,
+  "lastVerified": { "version": "11 24H2", "date": "2026-10-15" },
+  "shortcuts": [
+    {
+      "command": "Open or Close Start",
+      "rawCommand": "windows.start",
+      "key": { "win32": "Ctrl+Esc" },
+      "category": "General"
+    },
+    {
+      "command": "Search",
+      "rawCommand": "windows.search",
+      "key": { "win32": "Win+S" },
+      "category": "General"
+    },
+    {
+      "command": "Run Dialog",
+      "rawCommand": "windows.run",
+      "key": { "win32": "Win+R" },
+      "category": "General"
+    },
+    {
+      "command": "Open Settings",
+      "rawCommand": "windows.settings",
+      "key": { "win32": "Win+I" },
+      "category": "General"
+    },
+    {
+      "command": "Open File Explorer",
+      "rawCommand": "windows.explorer",
+      "key": { "win32": "Win+E" },
+      "category": "General"
+    },
+    {
+      "command": "Quick Link Menu",
+      "rawCommand": "windows.quickLink",
+      "key": { "win32": "Win+X" },
+      "category": "General"
+    },
+    {
+      "command": "Lock the PC",
+      "rawCommand": "windows.lock",
+      "key": { "win32": "Win+L" },
+      "category": "General"
+    },
+    {
+      "command": "Open Task Manager",
+      "rawCommand": "windows.taskManager",
+      "key": { "win32": "Ctrl+Shift+Esc" },
+      "category": "General"
+    },
+    {
+      "command": "Security Screen (Lock, Sign Out, Task Manager)",
+      "rawCommand": "windows.securityScreen",
+      "key": { "win32": "Ctrl+Alt+Delete" },
+      "category": "General"
+    },
+    {
+      "command": "Clipboard History",
+      "rawCommand": "windows.clipboardHistory",
+      "key": { "win32": "Win+V" },
+      "category": "General"
+    },
+    {
+      "command": "Emoji Panel",
+      "rawCommand": "windows.emoji",
+      "key": { "win32": "Win+." },
+      "category": "General"
+    },
+    {
+      "command": "Voice Typing",
+      "rawCommand": "windows.voiceTyping",
+      "key": { "win32": "Win+H" },
+      "category": "General"
+    },
+    {
+      "command": "Open Copilot",
+      "rawCommand": "windows.copilot",
+      "key": { "win32": "Win+C" },
+      "category": "General"
+    },
+    {
+      "command": "Undo",
+      "rawCommand": "windows.undo",
+      "key": { "win32": "Ctrl+Z" },
+      "category": "General"
+    },
+    {
+      "command": "Redo",
+      "rawCommand": "windows.redo",
+      "key": { "win32": "Ctrl+Y" },
+      "category": "General"
+    },
+    {
+      "command": "Quick Settings",
+      "rawCommand": "windows.quickSettings",
+      "key": { "win32": "Win+A" },
+      "category": "Panels"
+    },
+    {
+      "command": "Notification Center and Calendar",
+      "rawCommand": "windows.notifications",
+      "key": { "win32": "Win+N" },
+      "category": "Panels"
+    },
+    {
+      "command": "Widgets",
+      "rawCommand": "windows.widgets",
+      "key": { "win32": "Win+W" },
+      "category": "Panels"
+    },
+    {
+      "command": "Game Bar",
+      "rawCommand": "windows.gameBar",
+      "key": { "win32": "Win+G" },
+      "category": "Panels"
+    },
+    {
+      "command": "Cast to a Display",
+      "rawCommand": "windows.cast",
+      "key": { "win32": "Win+K" },
+      "category": "Panels"
+    },
+    {
+      "command": "Presentation Display Mode",
+      "rawCommand": "windows.project",
+      "key": { "win32": "Win+P" },
+      "category": "Panels"
+    },
+    {
+      "command": "Accessibility Settings",
+      "rawCommand": "windows.accessibility",
+      "key": { "win32": "Win+U" },
+      "category": "Panels"
+    },
+    {
+      "command": "Switch Between Open Windows",
+      "rawCommand": "windows.switchApps",
+      "key": { "win32": "Alt+Tab" },
+      "category": "Windows"
+    },
+    {
+      "command": "Show All Open Apps",
+      "rawCommand": "windows.switchAppsSticky",
+      "key": { "win32": "Ctrl+Alt+Tab" },
+      "category": "Windows"
+    },
+    {
+      "command": "Cycle Windows in Opening Order",
+      "rawCommand": "windows.cycleWindows",
+      "key": { "win32": "Alt+Esc" },
+      "category": "Windows"
+    },
+    {
+      "command": "Close Active Window",
+      "rawCommand": "windows.close",
+      "key": { "win32": "Alt+F4" },
+      "category": "Windows"
+    },
+    {
+      "command": "Window Context Menu",
+      "rawCommand": "windows.windowMenu",
+      "key": { "win32": "Alt+Space" },
+      "category": "Windows"
+    },
+    {
+      "command": "Show or Hide the Desktop",
+      "rawCommand": "windows.showDesktop",
+      "key": { "win32": "Win+D" },
+      "category": "Windows"
+    },
+    {
+      "command": "Peek at the Desktop",
+      "rawCommand": "windows.peekDesktop",
+      "key": { "win32": "Win+," },
+      "category": "Windows"
+    },
+    {
+      "command": "Minimize All Windows",
+      "rawCommand": "windows.minimizeAll",
+      "key": { "win32": "Win+M" },
+      "category": "Windows"
+    },
+    {
+      "command": "Restore Minimized Windows",
+      "rawCommand": "windows.restoreMinimized",
+      "key": { "win32": "Win+Shift+M" },
+      "category": "Windows"
+    },
+    {
+      "command": "Minimize All but the Active Window",
+      "rawCommand": "windows.minimizeOthers",
+      "key": { "win32": "Win+Home" },
+      "category": "Windows"
+    },
+    {
+      "command": "Maximize Window",
+      "rawCommand": "windows.maximize",
+      "key": { "win32": "Win+Up" },
+      "category": "Snap"
+    },
+    {
+      "command": "Minimize Window",
+      "rawCommand": "windows.minimize",
+      "key": { "win32": "Win+Down" },
+      "category": "Snap"
+    },
+    {
+      "command": "Snap Window Left",
+      "rawCommand": "windows.snapLeft",
+      "key": { "win32": "Win+Left" },
+      "category": "Snap"
+    },
+    {
+      "command": "Snap Window Right",
+      "rawCommand": "windows.snapRight",
+      "key": { "win32": "Win+Right" },
+      "category": "Snap"
+    },
+    {
+      "command": "Snap Window to Top Half",
+      "rawCommand": "windows.snapTop",
+      "key": { "win32": "Win+Alt+Up" },
+      "category": "Snap"
+    },
+    {
+      "command": "Snap Window to Bottom Half",
+      "rawCommand": "windows.snapBottom",
+      "key": { "win32": "Win+Alt+Down" },
+      "category": "Snap"
+    },
+    {
+      "command": "Stretch Window to Top and Bottom",
+      "rawCommand": "windows.stretchVertical",
+      "key": { "win32": "Win+Shift+Up" },
+      "category": "Snap"
+    },
+    {
+      "command": "Restore Snapped or Maximized Window",
+      "rawCommand": "windows.restore",
+      "key": { "win32": "Win+Shift+Down" },
+      "category": "Snap"
+    },
+    {
+      "command": "Snap Layouts",
+      "rawCommand": "windows.snapLayouts",
+      "key": { "win32": "Win+Z" },
+      "category": "Snap"
+    },
+    {
+      "command": "Move Window to Left Monitor",
+      "rawCommand": "windows.moveMonitorLeft",
+      "key": { "win32": "Win+Shift+Left" },
+      "category": "Snap"
+    },
+    {
+      "command": "Move Window to Right Monitor",
+      "rawCommand": "windows.moveMonitorRight",
+      "key": { "win32": "Win+Shift+Right" },
+      "category": "Snap"
+    },
+    {
+      "command": "Task View",
+      "rawCommand": "windows.taskView",
+      "key": { "win32": "Win+Tab" },
+      "category": "Virtual Desktops"
+    },
+    {
+      "command": "New Virtual Desktop",
+      "rawCommand": "windows.desktopNew",
+      "key": { "win32": "Win+Ctrl+D" },
+      "category": "Virtual Desktops"
+    },
+    {
+      "command": "Next Virtual Desktop",
+      "rawCommand": "windows.desktopNext",
+      "key": { "win32": "Win+Ctrl+Right" },
+      "category": "Virtual Desktops"
+    },
+    {
+      "command": "Previous Virtual Desktop",
+      "rawCommand": "windows.desktopPrevious",
+      "key": { "win32": "Win+Ctrl+Left" },
+      "category": "Virtual Desktops"
+    },
+    {
+      "command": "Close Virtual Desktop",
+      "rawCommand": "windows.desktopClose",
+      "key": { "win32": "Win+Ctrl+F4" },
+      "category": "Virtual Desktops"
+    },
+    {
+      "command": "Screenshot a Region (Snipping Tool)",
+      "rawCommand": "windows.screenshotRegion",
+      "key": { "win32": "Win+Shift+S" },
+      "category": "Screenshots"
+    },
+    {
+      "command": "Record a Screen Region",
+      "rawCommand": "windows.recordRegion",
+      "key": { "win32": "Win+Shift+R" },
+      "category": "Screenshots"
+    },
+    {
+      "command": "Next Input Language or Layout",
+      "rawCommand": "windows.inputNext",
+      "key": { "win32": "Win+Space" },
+      "category": "Input"
+    },
+    {
+      "command": "Previous Input Language or Layout",
+      "rawCommand": "windows.inputPrevious",
+      "key": { "win32": "Win+Shift+Space" },
+      "category": "Input"
+    },
+    {
+      "command": "Magnifier Zoom In",
+      "rawCommand": "windows.magnifierIn",
+      "key": { "win32": "Win+Plus" },
+      "category": "Accessibility"
+    },
+    {
+      "command": "Magnifier Zoom Out",
+      "rawCommand": "windows.magnifierOut",
+      "key": { "win32": "Win+-" },
+      "category": "Accessibility"
+    },
+    {
+      "command": "Close Magnifier",
+      "rawCommand": "windows.magnifierClose",
+      "key": { "win32": "Win+Esc" },
+      "category": "Accessibility"
+    },
+    {
+      "command": "Open Narrator",
+      "rawCommand": "windows.narrator",
+      "key": { "win32": "Win+Ctrl+Enter" },
+      "category": "Accessibility"
+    },
+    {
+      "command": "Open Taskbar App 1",
+      "rawCommand": "windows.taskbar1",
+      "key": { "win32": "Win+1" },
+      "category": "Taskbar"
+    },
+    {
+      "command": "Open Taskbar App 2",
+      "rawCommand": "windows.taskbar2",
+      "key": { "win32": "Win+2" },
+      "category": "Taskbar"
+    },
+    {
+      "command": "Open Taskbar App 3",
+      "rawCommand": "windows.taskbar3",
+      "key": { "win32": "Win+3" },
+      "category": "Taskbar"
+    },
+    {
+      "command": "Open Taskbar App 4",
+      "rawCommand": "windows.taskbar4",
+      "key": { "win32": "Win+4" },
+      "category": "Taskbar"
+    },
+    {
+      "command": "Open Taskbar App 5",
+      "rawCommand": "windows.taskbar5",
+      "key": { "win32": "Win+5" },
+      "category": "Taskbar"
+    },
+    {
+      "command": "Open Taskbar App 6",
+      "rawCommand": "windows.taskbar6",
+      "key": { "win32": "Win+6" },
+      "category": "Taskbar"
+    },
+    {
+      "command": "Open Taskbar App 7",
+      "rawCommand": "windows.taskbar7",
+      "key": { "win32": "Win+7" },
+      "category": "Taskbar"
+    },
+    {
+      "command": "Open Taskbar App 8",
+      "rawCommand": "windows.taskbar8",
+      "key": { "win32": "Win+8" },
+      "category": "Taskbar"
+    },
+    {
+      "command": "Open Taskbar App 9",
+      "rawCommand": "windows.taskbar9",
+      "key": { "win32": "Win+9" },
+      "category": "Taskbar"
+    }
+  ]
+}

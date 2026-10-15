@@ -41,10 +41,10 @@ function validate(value: unknown, schema: Schema, path = '$'): string[] {
 const files = readdirSync(SOURCES).filter((f) => f.endsWith('.json'));
 
 describe('shipped cheatsheets', () => {
-  it('ships one file per v1 source', () => {
+  it('ships one file per source', () => {
     expect(files.sort()).toEqual([
-      'bash.json', 'chrome.json', 'finder.json', 'ghostty.json', 'macos-system.json',
-      'obsidian.json', 'tmux.json', 'vim.json', 'vscode.json', 'zsh.json',
+      'bash.json', 'chrome.json', 'explorer.json', 'finder.json', 'ghostty.json', 'macos-system.json',
+      'obsidian.json', 'tmux.json', 'vim.json', 'vscode.json', 'windows-system.json', 'zsh.json',
     ]);
   });
 
@@ -60,9 +60,9 @@ describe('shipped cheatsheets', () => {
       return [data.id, data.mergeMode ?? null];
     }));
     expect(modes).toEqual({
-      bash: 'additive', chrome: 'additive', finder: null, ghostty: 'additive',
+      bash: 'additive', chrome: 'additive', explorer: null, finder: null, ghostty: 'additive',
       'macos-system': 'replace', obsidian: 'replace', tmux: 'additive',
-      vim: 'additive', vscode: 'additive', zsh: 'additive',
+      vim: 'additive', vscode: 'additive', 'windows-system': null, zsh: 'additive',
     });
   });
 
