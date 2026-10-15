@@ -170,6 +170,17 @@ export function createHermeticEnv(
     copyFileSync(path.join(FIXTURES, fixture), dest);
   }
 
+  // A fake app bundle, so icon autofind has something to find without
+  // reading the machine's real /Applications (src/main/icons.ts).
+  const chromeApp = path.join(home, 'Applications', 'Google Chrome.app', 'Contents');
+  mkdirSync(chromeApp, { recursive: true });
+  writeFileSync(
+    path.join(chromeApp, 'Info.plist'),
+    '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict>' +
+      '<key>CFBundleIdentifier</key><string>com.google.Chrome</string>' +
+      '<key>CFBundlePackageType</key><string>APPL</string></dict></plist>\n',
+  );
+
   for (const [name, help] of Object.entries(FAKE_BINS)) writeFakeBin(bin, name, help);
   for (const [name, body] of Object.entries({ ...FAKE_SCRIPTS, ...extraBins })) {
     writeFileSync(path.join(bin, name), `#!/bin/sh\nPATH=/usr/bin:/bin\n${body}\n`);
