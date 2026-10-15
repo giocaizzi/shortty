@@ -358,6 +358,19 @@ describe('App window lifecycle', () => {
     expect(api.setWindowHeight).toHaveBeenLastCalledWith(580);
   });
 
+  it('grows at once but shrinks once, after a burst of deletes settles', async () => {
+    const input = setup();
+    await type(input, 'toggle');
+    expect(api.setWindowHeight).toHaveBeenLastCalledWith(580);
+    api.setWindowHeight.mockClear();
+    for (const value of ['toggl', 'zzzz', 'zzz', 'zz', 'z', '']) {
+      fireEvent.change(input, { target: { value } });
+    }
+    expect(api.setWindowHeight).not.toHaveBeenCalled();
+    await waitFor(() => expect(api.setWindowHeight).toHaveBeenCalledTimes(1));
+    expect(api.setWindowHeight).toHaveBeenCalledWith(72);
+  });
+
   it('resets the query when the window hides, so it never flashes on reopen', async () => {
     const input = setup();
     await type(input, 'toggle');

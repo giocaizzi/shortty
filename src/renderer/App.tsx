@@ -32,6 +32,8 @@ import { KeyboardHelp } from './components/KeyboardHelp';
 const WINDOW_HEIGHT_EXPANDED = 580;
 const WINDOW_HEIGHT_EMPTY_STATE = 180;
 const WINDOW_HEIGHT_COLLAPSED = 72;
+/** How long the height must stay smaller before the window shrinks. */
+const SHRINK_DELAY_MS = 150;
 const COPY_FLASH_MS = 300;
 const COPIED_STATUS_MS = 1500;
 const EXIT_ANIMATION_MS = 80;
@@ -214,8 +216,21 @@ export function App() {
         ? WINDOW_HEIGHT_EMPTY_STATE
         : WINDOW_HEIGHT_COLLAPSED;
 
+  // Grow at once (results must not be clipped); shrink only once typing or
+  // deleting settles. macOS animates each resize and keys queue behind it, so
+  // a burst of Backspaces must cost one resize, not one per keystroke.
+  const sentHeight = useRef<number | null>(null);
   useEffect(() => {
-    window.electronAPI?.setWindowHeight(windowHeight);
+    const send = () => {
+      sentHeight.current = windowHeight;
+      window.electronAPI?.setWindowHeight(windowHeight);
+    };
+    if (sentHeight.current === null || windowHeight > sentHeight.current) {
+      send();
+      return;
+    }
+    const timer = setTimeout(send, SHRINK_DELAY_MS);
+    return () => clearTimeout(timer);
   }, [windowHeight]);
 
   // Keep the selected row visible; at the top, show its section header too.
