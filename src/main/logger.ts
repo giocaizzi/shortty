@@ -26,7 +26,8 @@ export function rotateLogFiles(file: string, files = LOG_FILES): void {
 }
 
 // `app` is undefined when this module is imported outside Electron (unit tests).
-log.transports.file.level = app?.isPackaged === false ? 'debug' : 'info';
+// Tests must never write the developer's real ~/Library/Logs/Shortty/main.log.
+log.transports.file.level = process.env.VITEST ? false : app?.isPackaged === false ? 'debug' : 'info';
 log.transports.file.maxSize = 5 * 1024 * 1024; // 5MB per file
 log.transports.file.archiveLogFn = (file) => rotateLogFiles(file.toString());
 log.transports.file.format = '{y}-{m}-{d} {h}:{i}:{s}.{ms} [{level}] {text}';
