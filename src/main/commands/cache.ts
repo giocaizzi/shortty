@@ -32,7 +32,7 @@ const CACHE_DIR_NAME = 'commands-cache';
  * Bump when a parser change alters what gets cached: a cache written by an
  * older version is dropped at start, so fixes reach already-enriched commands.
  */
-const CACHE_VERSION = '2';
+const CACHE_VERSION = '3';
 
 /**
  * Remove what earlier versions wrote into userData/cache, and nothing else:

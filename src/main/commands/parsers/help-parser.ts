@@ -66,6 +66,17 @@ function trustedScriptPrefixes(): string[] {
   return prefixes;
 }
 
+/**
+ * The OS's own directories: never probed with --help, only described from
+ * their man pages. Apple's binaries there include Xcode shims that offer
+ * to download tools, dtrace scripts, Java stubs, keychain and disk-image
+ * tools, and helpers that open GUI apps when they ignore --help.
+ */
+const SYSTEM_PREFIXES = [
+  '/usr/bin/', '/usr/sbin/', '/usr/libexec/', '/bin/', '/sbin/',
+  '/System/', '/Library/Apple/', '/Library/Developer/', '/Applications/Xcode',
+];
+
 const NATIVE_MAGICS = [
   'feedface', 'feedfacf', 'cefaedfe', 'cffaedfe', // Mach-O 32/64, both byte orders
   'cafebabe', 'bebafeca', // Mach-O universal (fat)
@@ -88,7 +99,7 @@ async function readMagic(path: string): Promise<Buffer | null> {
 
 /**
  * Whether `binPath --help` may be run (docs/spec.md §7.5):
- * never as root; only files owned by root or the current user and not
+ * never as root; never in the OS's own directories; only files owned by root or the current user and not
  * writable by group or others; native executables anywhere, `#!` scripts
  * only under trusted install prefixes; never a blocklisted program reached
  * through a symlink with another name.
@@ -98,6 +109,7 @@ async function isTrustedBinary(binPath: string): Promise<boolean> {
   try {
     const real = await realpath(binPath);
     if (isBlocklisted(basename(real))) return false;
+    if (SYSTEM_PREFIXES.some((prefix) => real.startsWith(prefix) || binPath.startsWith(prefix))) return false;
     const s = await stat(real);
     if (s.uid !== 0 && s.uid !== process.getuid?.()) return false;
     if ((s.mode & 0o022) !== 0) return false;

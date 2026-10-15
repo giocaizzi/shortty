@@ -462,7 +462,8 @@ The index holds one entry per executable. Subcommand names are a search key of t
 
 1. Shortty is not running as root.
 2. Neither the command name nor the basename of its resolved path (symlinks followed) is on the blocklist below.
-3. The resolved file is owned by root or the current user, and is not writable by group or others (`mode & 022 == 0`).
+3. Neither the path on PATH nor the resolved file is in the OS's own directories (`/usr/bin`, `/usr/sbin`, `/usr/libexec`, `/bin`, `/sbin`, `/System`, `/Library/Apple`, `/Library/Developer`, Xcode): those are described from their man pages only. Probing them launched Xcode download prompts (the `/usr/bin` developer-tool shims), Keychain dialogs and GUI helpers.
+3b. The resolved file is owned by root or the current user, and is not writable by group or others (`mode & 022 == 0`).
 4. The resolved file is either a **native executable** (Mach-O, Mach-O universal or ELF magic), anywhere, or a **`#!` script under a trusted install prefix**:
 
    | Prefix | Why |
