@@ -105,9 +105,14 @@ function SourceCard({ source, enabled, override, onToggle, onCommitOverride }: S
   const inputId = useId();
   const hintId = useId();
 
-  // Follow external changes (Reset, another window) unless the user is typing.
+  // Follow external changes (another window, a saved edit) once the user is
+  // not typing. Only a new value counts: Reset clears the draft itself, and
+  // re-syncing the old value as editing ends would undo that.
+  const synced = useRef(current);
   useEffect(() => {
-    if (!editing) setDraft(current);
+    if (editing || current === synced.current) return;
+    synced.current = current;
+    setDraft(current);
   }, [current, editing]);
 
   const configChecks = usePathChecks(source.configPaths);
