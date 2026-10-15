@@ -1,4 +1,4 @@
-import { usCodeForChar } from '../../../shared/keys';
+import { PC_NAMED_KEY_LABELS, usCodeForChar } from '../../../shared/keys';
 import { resolveStroke, US_KEYBOARD, type KeyboardLayout } from '../../lib/keyboard-layout';
 
 /**
@@ -123,6 +123,18 @@ const MAC_RESERVED: Record<string, string> = {
   'Alt+Command+Escape': 'Force Quit',
 };
 
+/** Shortcuts Windows keeps for itself; every Win combo is also refused (see recordChord). */
+const WIN_RESERVED: Record<string, string> = {
+  'Alt+Tab': 'switching windows',
+  'Alt+Shift+Tab': 'switching windows',
+  'Alt+F4': 'closing windows',
+  'Alt+Space': 'the window menu',
+  'Alt+Escape': 'cycling windows',
+  'Control+Escape': 'the Start menu',
+  'Control+Shift+Escape': 'Task Manager',
+  'Control+Alt+Delete': 'the security screen',
+};
+
 /**
  * Normalize an accelerator for comparison: aliases resolved, modifiers in a
  * fixed order. `CommandOrControl` becomes Command on macOS, Control elsewhere.
@@ -178,7 +190,7 @@ function modifierFromToken(token: string, mac: boolean): Modifier | null {
  * Turn a keydown into a recorder outcome. Modifier-only presses keep the
  * recorder listening; a plain Escape cancels.
  */
-export function recordChord(chord: KeyChord, mac: boolean): RecordResult {
+export function recordChord(chord: KeyChord, mac: boolean, windows = false): RecordResult {
   if (MODIFIER_CODES.has(chord.code)) return { kind: 'modifiers' };
 
   const mods = modifiersOf(chord, mac);
@@ -203,6 +215,18 @@ export function recordChord(chord: KeyChord, mac: boolean): RecordResult {
       return {
         kind: 'invalid',
         reason: `macOS uses ${acceleratorToGlyphs(accelerator, mac).join('')} for ${owner}. Choose another shortcut.`,
+      };
+    }
+  }
+
+  if (windows) {
+    const canonical = canonicalAccelerator(accelerator, mac);
+    // The shell owns Win shortcuts; RegisterHotKey refuses or shadows them.
+    const owner = WIN_RESERVED[canonical] ?? (mods.includes('Super') ? 'the system' : undefined);
+    if (owner) {
+      return {
+        kind: 'invalid',
+        reason: `Windows uses ${acceleratorToGlyphs(accelerator, mac).join('+')} for ${owner}. Choose another shortcut.`,
       };
     }
   }
@@ -257,8 +281,8 @@ function physicalKey(key: string, layout: KeyboardLayout): { text: string; hint?
   return resolveStroke({ mods: [], key: key.toUpperCase(), code }, layout);
 }
 
-function keyLabel(key: string, layout: KeyboardLayout): string {
-  const glyph = KEY_GLYPHS[key];
+function keyLabel(key: string, layout: KeyboardLayout, mac: boolean): string {
+  const glyph = (mac ? undefined : PC_NAMED_KEY_LABELS[key]) ?? KEY_GLYPHS[key];
   if (glyph) return glyph;
   const numpad = /^num(\d)$/.exec(key);
   if (numpad) return `Num ${numpad[1]}`;
@@ -285,7 +309,7 @@ export function acceleratorToGlyphs(
   const labels = mac ? MAC_MODIFIER_GLYPHS : OTHER_MODIFIER_LABELS;
   return canonical.map((part) => {
     const mod = modifierFromToken(part, mac);
-    return mod ? labels[mod] : keyLabel(part, layout);
+    return mod ? labels[mod] : keyLabel(part, layout, mac);
   });
 }
 
