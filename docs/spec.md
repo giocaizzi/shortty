@@ -361,7 +361,7 @@ Rebuild triggers:
 | Obsidian | Metadata only | hotkeys.json per vault | all |
 | Chrome | Curated (~50-60) | extension shortcuts | all |
 | macOS System | Metadata only | symbolichotkeys.plist | darwin |
-| vim | Curated (~100-150) | .vimrc (vimscript only) | darwin, linux |
+| vim | Curated (~100-150) | `~/.vimrc`, `~/.vim/vimrc`, `~/.config/vim/vimrc` (vim 9.1 XDG; vimscript only) | darwin, linux |
 | Finder | Curated (~40-50) | None | darwin |
 
 ---

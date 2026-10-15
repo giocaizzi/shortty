@@ -1,4 +1,4 @@
-.PHONY: help check install lint typecheck test knip precommit dev package make setup-hooks e2e e2e-benchmark
+.PHONY: help check install lint typecheck test knip precommit dev package make setup-hooks e2e e2e-benchmark readme-screenshots
 
 help: ## Show this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*##/ { printf "  %-12s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -42,6 +42,9 @@ e2e: ## Build, then run the Playwright e2e suite on the real app (slow, not in c
 LABEL ?= baseline
 e2e-benchmark: ## Build, then write timings and screenshots to docs/wip/benchmark (LABEL=baseline).
 	$(E2E_RUN) sh -c 'npm run package && SHORTTY_E2E_BENCHMARK=$(LABEL) npx playwright test benchmark'
+
+readme-screenshots: ## Build, then regenerate the README screenshots in docs/assets.
+	$(E2E_RUN) sh -c 'npm run package && SHORTTY_E2E_README=1 npx playwright test tests/e2e/readme.spec.ts'
 
 setup-hooks: ## Install the pre-commit hook.
 	@echo "#!/bin/sh\nmake precommit" > .git/hooks/pre-commit
