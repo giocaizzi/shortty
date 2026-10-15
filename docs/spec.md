@@ -235,7 +235,7 @@ A `schema.json` file validates cheatsheet structure. All cheatsheet files must p
 
 The cheatsheets are bundled into the main-process build with Vite's `import.meta.glob('../../cheatsheets/sources/*.json', { eager: true })` (`src/main/cheatsheets/loader.ts`), so dev, e2e and the packaged app read the same data with no runtime path to resolve. Tests can still point the loader at a directory.
 
-The `icon` field is kept as metadata; the UI draws a monogram tile per source instead (§10.4).
+The `icon` field is kept as metadata; the UI draws a source tile instead (§10.4). The optional `app` field (`{ "bundleId": "com.google.Chrome", "name": "Google Chrome" }`) names the macOS app whose real icon represents the source.
 
 ### 6.2 Parser System
 
@@ -692,7 +692,13 @@ Typing a command line drills by itself, as deep as the subcommands go (`>gh auth
 
 ### 10.4 Entry Anatomy
 
-Rows follow a single-line layout inspired by the Vaise launcher: identity on the left, keys on the right. Every row starts with a **source tile**, a small tinted monogram like a Dock icon (`VS`, `Gh`, `tm`, `>_` for commands; `src/renderer/components/SourceIcon.tsx`), instead of the cheatsheet emoji.
+Rows follow a single-line layout inspired by the Vaise launcher: identity on the left, keys on the right. Every row starts with a **source tile** (`src/renderer/components/SourceIcon.tsx`), instead of the cheatsheet emoji. The tile is, in order of preference:
+
+1. **The real app icon**, autofound on macOS: main (`src/main/icons.ts`) finds the bundle of the cheatsheet's `app` by bundle id with Spotlight (`mdfind`, argv only, 2 s timeout), else by name in `/Applications`, `~/Applications`, `/System/Applications` and `/System/Library/CoreServices`, and renders it with Quick Look (`nativeImage.createThumbnailFromPath`, 64 px; `app.getFileIcon` stops at 32 px on macOS and its `large` size aborts the process). Commands whose binary resolves (after symlinks) into an `.app` get that app's icon (`code` → Visual Studio Code). The renderer asks through `icons:get` with a known source id or command name only, never a path; main caches hits and misses for the session, and the renderer sends one request per icon.
+2. **A brand glyph** from `simple-icons` (`src/renderer/lib/brand-icons.ts`): for sources whose app is missing or that are CLIs (tmux, vim, zsh, bash), and for ~150 common CLIs (`git`, `gh`, `docker`, `kubectl`, `terraform`, `gcloud`, `node`, `uv`, `brew`, `psql`, …; version suffixes like `python3.12` or `psql-17` are stripped). For commands a curated glyph wins over the app bundle, because a binary's bundle is not always its brand (`kubectl` ships inside Docker.app). The glyph takes the brand colour on a quiet tile; a colour under 3:1 contrast on the current theme is mixed toward the foreground colour.
+3. **A tinted monogram** like a Dock icon (`VS`, `Gh`, `tm`, `>_` for other commands); an unknown source gets its initial on a hue derived from its id.
+
+Tiles have a fixed size, so rows never jump when an icon arrives. In e2e runs autofind skips Spotlight and looks only in the fake HOME's `Applications`, where the fixtures put a fake `Google Chrome.app`.
 
 **Shortcut row:**
 - Left: source tile (flat mode only), command name, then the `rawCommand` in muted monospace when it differs
@@ -922,6 +928,7 @@ Where v1 deliberately departs from the original plan. Each row is implemented; e
 | Footer with status and key hints (§10.4) | "No footer, no pills, no hints" | Shows what Enter/Tab/Esc do on the selected row and confirms copies without a modal. |
 | Vaise-style single-line rows, keys on the right (§10.4) | Key pills on the left, command in the middle | Command names are what users scan; right-aligned caps line up in a column. |
 | Source monogram tiles (§10.4) | Cheatsheet emoji icon | Emoji render inconsistently next to text and clash with the vibrancy material. |
+| Real app icons, then brand glyphs, then monograms (§10.4) | Cheatsheet emoji icon | Users recognise their apps and tools by logo. App icons come from the installed apps (nothing bundled); glyphs come from `simple-icons`, which is CC0. Brand marks are used only to identify the tool they belong to, with no endorsement implied. Logos simple-icons does not carry (VS Code, Finder, Azure, AWS, OpenAI, Java) fall back to the app icon or the monogram. |
 | Light/dark tokens following Theme (§10.4) | Theme setting with no launcher palette | Hard-coded white text was unreadable on light vibrancy. |
 | No-results line with a hint (§10.3) | Blank panel | Confirms the query ran and matched nothing, and points to the `>` prefix when prefix mode is on. |
 | Esc clears the query first (§10.7) | Esc dismisses / goes back | Matches Spotlight and lets users retype without leaving the level. |

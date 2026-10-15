@@ -560,7 +560,7 @@ Esc always clears a non-empty query first; with an empty query it goes back one 
   ↑ tile + name                                  ↑ entry count
 ```
 
-Source tiles are tinted monograms (`VS`, `Ch`, `Gh`, `tm`, `vi`, `z`, `$`, `Ob`, `F`, `⌘`, `>_` for commands); an unknown source gets its initial on a hue derived from its id.
+Source tiles show the installed app's real icon (Chrome, VS Code, Ghostty, Obsidian, Finder, System Settings), else a brand glyph in the brand colour (tmux, vim, zsh, bash; for commands `git`, `docker`, `kubectl`, …), else a tinted monogram (`VS`, `Ch`, `Gh`, `tm`, `vi`, `z`, `$`, `Ob`, `F`, `⌘`, `>_` for commands); an unknown source gets its initial on a hue derived from its id. Command rows use the command's own tile instead of the shell tile when there is one. Precedence and lookup: [spec.md §10.4](spec.md#104-entry-anatomy).
 
 ### 8.5 "Show All" Row
 

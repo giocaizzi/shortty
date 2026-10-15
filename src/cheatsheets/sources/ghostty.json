@@ -2,6 +2,7 @@
   "id": "ghostty",
   "label": "Ghostty",
   "icon": "👻",
+  "app": { "bundleId": "com.mitchellh.ghostty", "name": "Ghostty" },
   "platforms": ["darwin", "linux"],
   "parser": "ghostty",
   "mergeMode": "additive",

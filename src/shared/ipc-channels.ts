@@ -20,6 +20,9 @@ export const IPC_CHANNELS = {
   COMMANDS_GET_STATS: 'commands:getStats',
   COMMANDS_GET_SUBCOMMAND_DETAIL: 'commands:getSubcommandDetail',
 
+  /** App icon (PNG data URL) of a source or a command inside an .app, or null. */
+  ICONS_GET: 'icons:get',
+
   SET_WINDOW_HEIGHT: 'app:setWindowHeight',
 
   // --- Launcher window lifecycle (main-process package) ---

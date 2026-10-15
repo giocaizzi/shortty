@@ -2,6 +2,7 @@
   "id": "vscode",
   "label": "VS Code",
   "icon": "💻",
+  "app": { "bundleId": "com.microsoft.VSCode", "name": "Visual Studio Code" },
   "platforms": ["darwin", "win32", "linux"],
   "parser": "vscode",
   "mergeMode": "additive",
