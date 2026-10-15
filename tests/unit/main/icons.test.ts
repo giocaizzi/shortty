@@ -72,7 +72,7 @@ describe('findAppBundle', () => {
   });
 
   it('is hermetic in e2e: no Spotlight, only the fake HOME', () => {
-    const e2e = defaultBundleSearch(true);
+    const e2e = defaultBundleSearch(true, 'darwin');
     expect(e2e.spotlight).toBe(false);
     expect(e2e.roots).toHaveLength(1);
     expect(e2e.roots[0]).toMatch(/Applications$/);
@@ -100,6 +100,7 @@ describe('createIconService', () => {
       sourceApp: (id) => (id === 'chrome' ? CHROME : id === 'tmux' ? null : undefined),
       commandBin: (name) => (name === 'code' ? '/usr/local/bin/code' : undefined),
       search: { spotlight: false, roots: ['/Applications'] },
+      platform: 'darwin',
       toDataUrl,
     });
     return { getIcon, toDataUrl };

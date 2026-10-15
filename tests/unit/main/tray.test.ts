@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { withPlatform } from '../../helpers';
 
 interface FakeTray {
   destroy: ReturnType<typeof vi.fn>;
@@ -55,34 +56,38 @@ describe('syncTray (Show in Menu Bar)', () => {
   });
 });
 
-describe('tray per platform', () => {
-  const platform = process.platform;
-  const setPlatform = (value: NodeJS.Platform) => Object.defineProperty(process, 'platform', { value });
+function freshTray() {
+  destroyTray();
+  trays.length = 0;
+  createFromPath.mockClear();
+  syncTray(true, callbacks);
+}
 
-  beforeEach(() => {
-    destroyTray();
-    trays.length = 0;
-    createFromPath.mockClear();
-  });
-  afterEach(() => setPlatform(platform));
+describe('tray on macOS', () => {
+  withPlatform('darwin');
 
-  it('macOS: template image, the click opens the menu', () => {
-    setPlatform('darwin');
-    syncTray(true, callbacks);
+  it('uses the template image; a click opens the menu', () => {
+    freshTray();
     expect(createFromPath.mock.calls[0][0]).toMatch(/tray-iconTemplate\.png$/);
     expect(trays[0].on).not.toHaveBeenCalled();
   });
+});
 
-  it('Windows: colour app icon, left-click toggles the launcher', () => {
-    setPlatform('win32');
-    syncTray(true, callbacks);
+describe('tray on Windows', () => {
+  withPlatform('win32');
+
+  it('uses the colour app icon; left-click toggles the launcher', () => {
+    freshTray();
     expect(createFromPath.mock.calls[0][0]).toMatch(/icon\.ico$/);
     expect(trays[0].on).toHaveBeenCalledWith('click', callbacks.onToggle);
   });
+});
 
-  it('Linux: colour app icon as PNG', () => {
-    setPlatform('linux');
-    syncTray(true, callbacks);
+describe('tray on Linux', () => {
+  withPlatform('linux');
+
+  it('uses the colour app icon as PNG', () => {
+    freshTray();
     expect(createFromPath.mock.calls[0][0]).toMatch(/icon\.png$/);
   });
 });
