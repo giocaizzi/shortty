@@ -189,22 +189,7 @@ describe.runIf(!posix)('runSandboxed on Windows (real processes)', () => {
     const result = await runSandboxed(bin, ['--help'], { timeoutMs: 15000 });
     expect(result).toMatchObject({ output: 'ps --help\r\n', timedOut: false });
   }, 20000);
-
-  it('DIAG powershell', async () => {
-    const bin = file('diag.ps1', 'Write-Output "ps ok"\r\n');
-    const ok = async (extra: NodeJS.ProcessEnv) => (await runSandboxed(bin, [], { timeoutMs: 4000, env: extra })).output.includes('ps ok');
-    const base = sandboxEnv();
-    const missing = Object.keys(process.env).filter((k) => !(k in base));
-    console.log('DIAG missing', JSON.stringify(missing));
-    const pick = (keys: string[]) => Object.fromEntries(keys.map((k) => [k, process.env[k]]));
-    console.log('DIAG all-missing ok', await ok(pick(missing)));
-    let needed = [...missing];
-    for (const k of missing) {
-      const without = needed.filter((n) => n !== k);
-      if (await ok(pick(without))) needed = without;
-    }
-    console.log('DIAG needed', JSON.stringify(needed));
-  }, 300000); // PowerShell takes seconds to start on a cold runner
+ // PowerShell takes seconds to start on a cold runner
 
   it('kills the whole tree at the timeout', async () => {
     const bin = file('hang.cmd', '@echo off\r\nping -n 30 127.0.0.1 > nul\r\n');
