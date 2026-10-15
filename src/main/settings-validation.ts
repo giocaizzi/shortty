@@ -77,6 +77,7 @@ const CHECKS: Record<keyof AppSettings, Check> = {
   commandPrefixMode: boolean,
   resultLimits: objectOf(RESULT_LIMIT_FIELDS),
   commandsEnabled: boolean,
+  autoUpdate: boolean,
 };
 
 export function isSettingKey(key: unknown): key is keyof AppSettings {

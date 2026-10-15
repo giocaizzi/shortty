@@ -5,7 +5,7 @@ import { resolvePath } from './utils/path-resolver';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import type { ParserRegistry } from './parsers/registry';
 import type { AppSettings } from '../shared/settings';
-import type { SourceStatus } from '../shared/types';
+import type { SourceStatus, UpdateStatus } from '../shared/types';
 import { getSettings, setSetting } from './settings-store';
 import { isSettingKey, validateSetting } from './settings-validation';
 import type { CommandsEngine } from './commands/engine';
@@ -23,6 +23,10 @@ export interface IpcCallbacks {
   changeGlobalShortcut: (accelerator: string) => string | null;
   /** Drop the commands cache and index commands and shortcut sources again. */
   rebuildIndex: () => Promise<void>;
+  getUpdateStatus: () => UpdateStatus;
+  checkForUpdates: () => Promise<void>;
+  /** Restart into a downloaded update, or open the newer release's page. */
+  installUpdate: () => void;
 }
 
 /**
@@ -165,6 +169,10 @@ export function registerIpcHandlers(
     await Promise.all([ready.shortcuts, ready.commands]);
     await callbacks.rebuildIndex();
   });
+
+  ipcMain.handle(IPC_CHANNELS.UPDATES_GET_STATUS, () => callbacks.getUpdateStatus());
+  ipcMain.handle(IPC_CHANNELS.UPDATES_CHECK, () => callbacks.checkForUpdates());
+  ipcMain.handle(IPC_CHANNELS.UPDATES_INSTALL, () => callbacks.installUpdate());
 
   ipcMain.handle(IPC_CHANNELS.PREFS_PICK_PATH, async (event, defaultPath: unknown) => {
     let start: string | undefined;

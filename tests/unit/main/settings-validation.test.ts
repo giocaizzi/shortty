@@ -19,6 +19,7 @@ describe('validateSetting', () => {
     ['theme', 1],
     ['windowPosition', 'left'],
     ['showMenuBar', 'yes'],
+    ['autoUpdate', 'on'],
     ['globalShortcut', ''],
     ['globalShortcut', 42],
     ['disabledParsers', 'vscode'],

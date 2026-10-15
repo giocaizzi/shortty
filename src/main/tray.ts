@@ -1,11 +1,16 @@
 import { Tray, Menu, nativeImage, app } from 'electron';
 import path from 'node:path';
+import type { UpdateStatus } from '../shared/types';
 
 let tray: Tray | null = null;
+let trayCallbacks: TrayCallbacks | null = null;
+let update: UpdateStatus | null = null;
 
 interface TrayCallbacks {
   onToggle: () => void;
   onPreferences: () => void;
+  /** Restart into a downloaded update or open the newer release's page. */
+  onInstallUpdate: () => void;
 }
 
 /**
@@ -32,18 +37,42 @@ function createTray(callbacks: TrayCallbacks): void {
 
   tray = new Tray(icon);
   tray.setToolTip('Shortty');
-
-  const contextMenu = Menu.buildFromTemplate([
-    { label: 'Show/Hide', click: callbacks.onToggle },
-    { type: 'separator' },
-    { label: 'Preferences...', click: callbacks.onPreferences },
-    { type: 'separator' },
-    { label: 'Quit Shortty', click: () => app.quit() },
-  ]);
-
-  tray.setContextMenu(contextMenu);
+  trayCallbacks = callbacks;
+  buildMenu();
   // Windows convention: left-click opens the app, right-click the menu.
   if (process.platform === 'win32') tray.on('click', callbacks.onToggle);
+}
+
+/** Tray menu label for an update the user can act on, or null. */
+function updateMenuLabel(status: UpdateStatus | null): string | null {
+  if (status?.state === 'ready') return 'Restart to Update';
+  if (status?.state === 'available') return `Update Available (v${status.version})...`;
+  return null;
+}
+
+function buildMenu(): void {
+  if (!tray || !trayCallbacks) return;
+  const callbacks = trayCallbacks;
+  const updateLabel = updateMenuLabel(update);
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      ...(updateLabel
+        ? [{ label: updateLabel, click: callbacks.onInstallUpdate }, { type: 'separator' as const }]
+        : []),
+      { label: 'Show/Hide', click: callbacks.onToggle },
+      { type: 'separator' },
+      { label: 'Preferences...', click: callbacks.onPreferences },
+      { type: 'separator' },
+      { label: 'Quit Shortty', click: () => app.quit() },
+    ]),
+  );
+}
+
+/** Show (or drop) the update item at the top of the tray menu. */
+export function setTrayUpdate(status: UpdateStatus): void {
+  const changed = updateMenuLabel(status) !== updateMenuLabel(update);
+  update = status;
+  if (changed) buildMenu();
 }
 
 export function destroyTray(): void {

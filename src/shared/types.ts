@@ -123,6 +123,16 @@ export interface SourceStatus {
   shortcutCount: number;
 }
 
+/** Update check state shown in Preferences and the tray (src/main/updates.ts). */
+export interface UpdateStatus {
+  /** Running version (app.getVersion()). */
+  current: string;
+  /** `disabled`: development and e2e builds never check. `idle`: not checked yet. */
+  state: 'disabled' | 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'ready' | 'error';
+  /** The newer version, when known (available, downloading, ready). */
+  version?: string;
+}
+
 /**
  * Stable shortcut id. `discriminator` (key + context) keeps ids unique when
  * one config binds the same command to several keys or contexts.
