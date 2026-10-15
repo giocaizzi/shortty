@@ -19,6 +19,8 @@ interface SearchInputProps {
   /** id of the selected option, for aria-activedescendant. */
   activeDescendant?: string;
   inputRef?: RefObject<HTMLInputElement | null>;
+  /** An IME composition started (true) or ended (false). */
+  onCompositionChange?: (composing: boolean) => void;
 }
 
 function getPlaceholder(navMode: NavMode, sourceLabel?: string): string {
@@ -76,6 +78,7 @@ export function SearchInput({
   hotkey,
   activeDescendant,
   inputRef: externalRef,
+  onCompositionChange,
 }: SearchInputProps) {
   const internalRef = useRef<HTMLInputElement>(null);
   const inputRef = externalRef ?? internalRef;
@@ -113,7 +116,7 @@ export function SearchInput({
           {breadcrumbs.map((crumb, i) => (
             <span key={`${i}:${crumb}`} className="flex items-center gap-1">
               {i > 0 && <ChevronRight aria-hidden="true" className="h-3 w-3 text-fg-4" />}
-              <span className="rounded-[6px] bg-fill-selected px-2 py-0.5 font-mono text-[12.5px] font-medium text-fg">
+              <span data-testid="breadcrumb" className="rounded-[6px] bg-fill-selected px-2 py-0.5 font-mono text-[12.5px] font-medium text-fg">
                 {crumb}
               </span>
             </span>
@@ -129,6 +132,8 @@ export function SearchInput({
           // Keep the > prefix in the underlying state
           onChange(commandPrefixActive ? '>' + val : val);
         }}
+        onCompositionStart={() => onCompositionChange?.(true)}
+        onCompositionEnd={() => onCompositionChange?.(false)}
         onKeyDown={(e) => {
           if (isImeComposing(e)) return;
           // Backspace on empty input with prefix active → deactivate prefix
