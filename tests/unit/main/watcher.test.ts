@@ -63,6 +63,22 @@ describe('startWatching', () => {
     current = null;
     await expect(listeners.get('change')!('/cfg/keybindings.json')).resolves.toBeUndefined();
   });
+
+  it('matches an event to its source across separators and case on Windows', async () => {
+    const platform = process.platform;
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+    try {
+      const registry = {
+        getWatchPaths: () => new Map([['vscode', ['C:/Users/Me/AppData/Roaming/Code/User/keybindings.json']]]),
+        parseSingleSource: vi.fn(async () => []),
+      };
+      startWatching(registry as never, () => fakeWindow() as never);
+      await listeners.get('change')!('c:\\users\\me\\AppData\\Roaming\\Code\\User\\keybindings.json');
+      expect(registry.parseSingleSource).toHaveBeenCalledWith('vscode');
+    } finally {
+      Object.defineProperty(process, 'platform', { value: platform });
+    }
+  });
 });
 
 /**

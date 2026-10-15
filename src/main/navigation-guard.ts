@@ -2,6 +2,7 @@ import type { WebContents } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import log from './logger';
+import { pathKey } from './utils/path-key';
 
 /** Where the app's own pages are served from. */
 export interface AppLocations {
@@ -21,8 +22,8 @@ export function isAppUrl(url: string, locations: AppLocations): boolean {
   }
   if (parsed.protocol === 'file:') {
     try {
-      const file = path.resolve(fileURLToPath(parsed));
-      return locations.files.some((f) => path.resolve(f) === file);
+      const file = pathKey(path.resolve(fileURLToPath(parsed)));
+      return locations.files.some((f) => pathKey(path.resolve(f)) === file);
     } catch {
       return false;
     }
