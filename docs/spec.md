@@ -229,7 +229,7 @@ Key schema decisions:
 
 #### JSON Schema Validation
 
-A `schema.json` file validates cheatsheet structure. All cheatsheet files must pass validation. Errors are caught by the test suite (`tests/unit/cheatsheets/shipped.test.ts` validates every shipped file against `schema.json`), not at runtime; the runtime loader still skips an invalid file with a warning.
+A `schema.json` file validates cheatsheet structure. All cheatsheet files must pass validation. Errors are caught by the test suite (`tests/unit/cheatsheets/shipped.test.ts` validates every shipped file against `schema.json`), not at runtime; the runtime loader still skips an invalid file with a warning. Every cheatsheet starts with `"$schema": "../schema.json"`, so editors (VS Code, JetBrains) validate and autocomplete it as you type; the schema's `$id` is its raw GitHub URL on `main` for tools outside the repo.
 
 #### Bundling
 

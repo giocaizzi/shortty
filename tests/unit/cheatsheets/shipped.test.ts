@@ -48,6 +48,12 @@ describe('shipped cheatsheets', () => {
     ]);
   });
 
+  it('each file points editors at the schema', () => {
+    for (const f of files) {
+      expect(JSON.parse(readFileSync(join(SOURCES, f), 'utf-8')).$schema, f).toBe('../schema.json');
+    }
+  });
+
   it('declares how each parsed source merges user bindings (docs/spec.md §6.2)', () => {
     const modes = Object.fromEntries(files.map((f) => {
       const data = JSON.parse(readFileSync(join(SOURCES, f), 'utf-8'));
