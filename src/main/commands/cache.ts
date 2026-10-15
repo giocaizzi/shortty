@@ -47,6 +47,9 @@ async function removeLegacyCache(userDataPath: string): Promise<void> {
   );
 }
 
+/** Everything but the version file: the index, its stats and the details. */
+const CACHE_ENTRIES = ['meta.json', 'commands-index.json', 'details'];
+
 function dropIfOutdated(cacheDir: string): void {
   const versionFile = join(cacheDir, 'version');
   let version = '';
@@ -56,7 +59,7 @@ function dropIfOutdated(cacheDir: string): void {
     // no version file: written before versioning, drop it
   }
   if (version === CACHE_VERSION) return;
-  for (const name of ['meta.json', 'commands-index.json', 'details']) {
+  for (const name of CACHE_ENTRIES) {
     rmSync(join(cacheDir, name), { recursive: true, force: true });
   }
   writeFileSync(versionFile, CACHE_VERSION);
@@ -75,6 +78,14 @@ export class CommandCache {
     mkdirSync(join(this.cacheDir, 'details', 'sub'), { recursive: true });
     // The old index is not migrated: the next start rescans PATH.
     this.legacyRemoved = removeLegacyCache(userDataPath).catch(() => undefined);
+  }
+
+  /** Delete the index, stats and every details file (kept: the version). */
+  clear(): void {
+    for (const name of CACHE_ENTRIES) {
+      rmSync(join(this.cacheDir, name), { recursive: true, force: true });
+    }
+    mkdirSync(join(this.cacheDir, 'details', 'sub'), { recursive: true });
   }
 
   async computePathHash(): Promise<string> {

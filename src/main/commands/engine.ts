@@ -120,6 +120,17 @@ export class CommandsEngine {
     this.updateCallback?.(changed);
   }
 
+  /** Forget every cached result and index PATH from scratch (Rebuild index). */
+  async rebuild(): Promise<Command[]> {
+    this.worker.stop();
+    clearTimeout(this.persistTimer);
+    this.persistTimer = undefined;
+    this.persistDirty = false;
+    this.commands = [];
+    this.cache.clear();
+    return this.fullScan();
+  }
+
   /** PATH hash check (cheap); rescans only when PATH or a PATH directory changed. */
   async checkAndRefresh(): Promise<boolean> {
     if (await this.cache.isValid()) return false;

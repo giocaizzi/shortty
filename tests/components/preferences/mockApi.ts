@@ -42,6 +42,7 @@ export function installMockApi(
     onCommandsUpdate: vi.fn(() => () => undefined),
     getSubcommandDetail: vi.fn(async () => null),
     getCommandsStats: vi.fn(async () => ({ total: 0, enriched: 0, running: false })),
+    rebuildIndex: vi.fn(async () => undefined),
     setWindowHeight: vi.fn(),
     platform,
     hideWindow: vi.fn(),

@@ -106,6 +106,20 @@ describe('CommandsEngine', () => {
     expect(workerStart).toHaveBeenLastCalledWith(engine.getAll());
   });
 
+  it('rebuild drops the cache and re-enriches every command', async () => {
+    mockScan.mockResolvedValue([{ name: 'git', bin: '/opt/homebrew/bin/git', mtime: 1 }]);
+    const engine = new CommandsEngine(userData);
+    await engine.initialize();
+    batchCallback()(engine.getAll().map(c => ({ ...c, enrichment: 'full' as const })));
+    expect(engine.getEnrichmentStats().enriched).toBe(1);
+
+    const rebuilt = await engine.rebuild();
+
+    expect(rebuilt.map(c => [c.name, c.enrichment])).toEqual([['git', 'basic']]);
+    expect(new CommandCache(userData).readIndex()?.[0].enrichment).toBe('basic');
+    expect(workerStart).toHaveBeenLastCalledWith(rebuilt);
+  });
+
   it('ignores a finished enrichment for a binary that was replaced meanwhile', async () => {
     mockScan.mockResolvedValue([{ name: 'jq', bin: '/opt/homebrew/bin/jq', mtime: 1 }]);
     const engine = new CommandsEngine(userData);
