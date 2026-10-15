@@ -98,7 +98,7 @@ interface AutoUpdater {
   setFeedURL(options: { url: string }): void;
   checkForUpdates(): void;
   quitAndInstall(): void;
-  on(event: string, listener: (...args: never[]) => void): unknown;
+  on(event: string, listener: (...args: unknown[]) => void): unknown;
 }
 
 export interface UpdaterDeps {
