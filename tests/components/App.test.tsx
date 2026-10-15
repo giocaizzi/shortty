@@ -388,6 +388,42 @@ describe('App window lifecycle', () => {
     expect(screen.queryByTestId('shortcut-row')).not.toBeInTheDocument();
   });
 
+  function emitHidden() {
+    act(() => {
+      for (const listener of [...hiddenListeners]) listener();
+    });
+  }
+
+  it('resumes the last screen when reopened within the reset delay', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const input = setup({ resetLauncher: '90s' });
+      await type(input, 'toggle');
+      await screen.findAllByTestId('shortcut-row');
+      emitHidden();
+      vi.setSystemTime(Date.now() + 60_000);
+      emitShown();
+      expect(input).toHaveValue('toggle');
+      expect(screen.getAllByTestId('shortcut-row').length).toBeGreaterThan(0);
+
+      emitHidden();
+      vi.setSystemTime(Date.now() + 90_000);
+      emitShown();
+      expect(input).toHaveValue('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('never resets when set to never', async () => {
+    const input = setup({ resetLauncher: 'never' });
+    await type(input, 'toggle');
+    await screen.findAllByTestId('shortcut-row');
+    emitHidden();
+    emitShown();
+    expect(input).toHaveValue('toggle');
+  });
+
   it('resets everything on show, replays the show animation and does not refetch the data', async () => {
     const input = setup();
     await type(input, 'vsc');

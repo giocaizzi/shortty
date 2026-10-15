@@ -17,6 +17,8 @@ export interface AppSettings {
   showDockIcon: boolean;
   showMenuBar: boolean;
   dismissAfterCopy: boolean;
+  /** When a reopened launcher starts blank again instead of on its last screen. */
+  resetLauncher: 'immediately' | '90s' | 'never';
   theme: 'light' | 'dark' | 'system';
   globalShortcut: string;
   windowPosition: 'center' | 'top-center' | 'mouse';
@@ -34,6 +36,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   showDockIcon: false,
   showMenuBar: true,
   dismissAfterCopy: true,
+  resetLauncher: 'immediately',
   theme: 'system',
   globalShortcut: 'CommandOrControl+Shift+Space',
   windowPosition: 'top-center',
