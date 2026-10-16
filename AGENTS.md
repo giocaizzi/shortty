@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Practical instructions for AI coding agents working in this repository (`CLAUDE.md` is a symlink to this file). The documentation lives in [docs/](docs/README.md); this file links to it rather than repeating it.
+Practical instructions for AI coding agents working in this repository. The documentation lives in [docs/](docs/README.md); this file links to it rather than repeating it.
 
 Shortty is an Electron app (React 19 + TypeScript + Tailwind CSS 4) that puts the keyboard shortcuts of your tools and the CLI commands on your PATH in one Spotlight-style launcher, opened with `Cmd+Shift+Space`. macOS first.
 
