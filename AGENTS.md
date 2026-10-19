@@ -41,7 +41,7 @@ Main process (src/main)                          Renderer (src/renderer)
 │ ipc.ts, tray.ts, preferences-window.ts│        │  ├─ useSearch (2× Fuse)   │
 │ Shortcuts engine                      │        │  └─ components/           │
 │  ├─ cheatsheets/loader.ts (bundled)   │        │ preferences/ (2nd window) │
-│  ├─ parsers/registry.ts (11 parsers)  │        └───────────────────────────┘
+│  ├─ parsers/registry.ts (12 parsers)  │        └───────────────────────────┘
 │  ├─ shortcuts/merge.ts                │          contextBridge
 │  └─ watcher.ts (chokidar)             │          (src/preload/preload.ts)
 │ Commands engine (commands/)           │

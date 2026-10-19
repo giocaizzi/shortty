@@ -24,6 +24,7 @@ const TILES: Record<string, Tile> = {
   obsidian: { glyph: 'Ob', hue: '#7048e8' },
   finder: { glyph: 'F', hue: '#1c8ce6' },
   'macos-system': { glyph: '⌘', hue: '#6e6e76' },
+  powertoys: { glyph: 'PT', hue: '#5b5fc7' },
   commands: { glyph: '>_', hue: '#3a3a40' },
 };
 

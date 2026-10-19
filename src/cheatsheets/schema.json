@@ -10,10 +10,10 @@
     "icon": { "type": "string", "description": "Emoji icon" },
     "app": {
       "type": "object",
-      "required": ["bundleId", "name"],
-      "description": "macOS app bundle whose icon is shown for this source (docs/spec.md §15)",
+      "required": ["name"],
+      "description": "App whose icon is shown for this source: the macOS bundle, or on Windows the .exe known by `name` (docs/spec.md §15)",
       "properties": {
-        "bundleId": { "type": "string", "description": "CFBundleIdentifier, e.g. 'com.google.Chrome'" },
+        "bundleId": { "type": "string", "description": "CFBundleIdentifier, e.g. 'com.google.Chrome'; omit for a Windows-only app" },
         "name": { "type": "string", "description": "Bundle name without .app, e.g. 'Google Chrome'" }
       }
     },

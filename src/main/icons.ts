@@ -13,7 +13,8 @@ import { promisify } from 'node:util';
  */
 
 export interface AppRef {
-  bundleId: string;
+  /** macOS bundle id; absent for a Windows-only app. */
+  bundleId?: string;
   name: string;
 }
 
@@ -65,7 +66,7 @@ export function defaultBundleSearch(
 
 /** Locate an installed app bundle: Spotlight by bundle id, then by name. */
 export async function findAppBundle(ref: AppRef, search: BundleSearch): Promise<string | null> {
-  if (search.spotlight && BUNDLE_ID.test(ref.bundleId)) {
+  if (search.spotlight && ref.bundleId && BUNDLE_ID.test(ref.bundleId)) {
     try {
       const { stdout } = await runFile('mdfind', [`kMDItemCFBundleIdentifier == '${ref.bundleId}'`], {
         timeout: 2000,
@@ -91,6 +92,8 @@ const WINDOWS_EXES = new Map([
   ['Visual Studio Code', 'Microsoft VS Code\\Code.exe'],
   ['Google Chrome', 'Google\\Chrome\\Application\\chrome.exe'],
   ['Obsidian', 'Obsidian\\Obsidian.exe'],
+  // Machine-wide in %ProgramFiles%, per-user in %LOCALAPPDATA%
+  ['PowerToys', 'PowerToys\\PowerToys.exe'],
 ]);
 
 /** Locate an installed app's .exe on Windows under the search roots. */

@@ -30,6 +30,8 @@ describe('SourceIcon precedence: app icon > brand glyph > monogram', () => {
   it('falls back to the monogram without a glyph or an app', () => {
     const { container } = render(<SourceIcon id="vscode" label="VS Code" />);
     expect(container.querySelector('[data-source-icon="vscode"]')).toHaveAttribute('data-glyph', 'VS');
+    const { container: pt } = render(<SourceIcon id="powertoys" label="PowerToys" />);
+    expect(pt.querySelector('[data-source-icon="powertoys"]')).toHaveAttribute('data-glyph', 'PT');
   });
 
   it('prefers a command glyph over the bundle it ships in, without asking main', () => {

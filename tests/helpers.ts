@@ -16,20 +16,22 @@ export function assertDefined<T>(
 /**
  * Pretend to run on `platform` for the enclosing describe block, so each
  * platform's branch is tested on every OS. Code under test must read
- * `process.platform` at call time. A POSIX platform on a Windows host also
- * gets a `process.getuid` (uid 501).
+ * `process.platform` at call time. A POSIX platform runs as a regular user
+ * (`process.getuid()` is 501), also on a Windows host or as root in a container.
  */
 export function withPlatform(platform: NodeJS.Platform): void {
   let previous: NodeJS.Platform;
   const hadGetuid = 'getuid' in process;
+  const getuid = process.getuid;
   beforeAll(() => {
     previous = process.platform;
     Object.defineProperty(process, 'platform', { value: platform });
-    if (platform !== 'win32' && !hadGetuid) process.getuid = () => 501;
+    if (platform !== 'win32') process.getuid = () => 501;
   });
   afterAll(() => {
     Object.defineProperty(process, 'platform', { value: previous });
-    if (!hadGetuid) delete process.getuid;
+    if (hadGetuid) process.getuid = getuid;
+    else delete process.getuid;
   });
 }
 

@@ -206,6 +206,13 @@ describe('parseHelp', () => {
     expect(mockRun).not.toHaveBeenCalled();
   });
 
+  it('never probes anything when running as root', async () => {
+    setupMocks(SIMPLE_HELP);
+    vi.spyOn(process, 'getuid').mockReturnValueOnce(0);
+    expect(await parseHelp('mytool', '/opt/homebrew/bin/mytool')).toBeNull();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
   it('probes native executables anywhere, including user-owned ones', async () => {
     setupMocks(SIMPLE_HELP);
     setStat(process.getuid?.() ?? 501);

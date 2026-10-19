@@ -1,0 +1,189 @@
+{
+  "$schema": "../schema.json",
+  "id": "powertoys",
+  "label": "PowerToys",
+  "icon": "🧰",
+  "app": { "name": "PowerToys" },
+  "platforms": ["win32"],
+  "parser": "powertoys",
+  "mergeMode": "replace",
+  "lastVerified": { "version": "0.95", "date": "2026-10-19" },
+  "defaultPaths": {
+    "win32": [
+      "%LOCALAPPDATA%/Microsoft/PowerToys/settings.json",
+      "%LOCALAPPDATA%/Microsoft/PowerToys/AdvancedPaste/settings.json",
+      "%LOCALAPPDATA%/Microsoft/PowerToys/AlwaysOnTop/settings.json",
+      "%LOCALAPPDATA%/Microsoft/PowerToys/ColorPicker/settings.json",
+      "%LOCALAPPDATA%/Microsoft/PowerToys/CropAndLock/settings.json",
+      "%LOCALAPPDATA%/Microsoft/PowerToys/FancyZones/settings.json",
+      "%LOCALAPPDATA%/Microsoft/PowerToys/Measure Tool/settings.json",
+      "%LOCALAPPDATA%/Microsoft/PowerToys/MouseHighlighter/settings.json",
+      "%LOCALAPPDATA%/Microsoft/PowerToys/MouseJump/settings.json",
+      "%LOCALAPPDATA%/Microsoft/PowerToys/MousePointerCrosshairs/settings.json",
+      "%LOCALAPPDATA%/Microsoft/PowerToys/Peek/settings.json",
+      "%LOCALAPPDATA%/Microsoft/PowerToys/PowerToys Run/settings.json",
+      "%LOCALAPPDATA%/Microsoft/PowerToys/Shortcut Guide/settings.json",
+      "%LOCALAPPDATA%/Microsoft/PowerToys/TextExtractor/settings.json",
+      "%LOCALAPPDATA%/Microsoft/PowerToys/Workspaces/settings.json",
+      "%LOCALAPPDATA%/Microsoft/PowerToys/Keyboard Manager/default.json"
+    ]
+  },
+  "shortcuts": [
+    {
+      "command": "Open Advanced Paste",
+      "rawCommand": "AdvancedPaste.advanced-paste-ui-hotkey",
+      "key": { "win32": "Win+Shift+V" },
+      "category": "Advanced Paste"
+    },
+    {
+      "command": "Paste as Plain Text",
+      "rawCommand": "AdvancedPaste.paste-as-plain-hotkey",
+      "key": { "win32": "Win+Ctrl+Alt+V" },
+      "category": "Advanced Paste"
+    },
+    {
+      "command": "Pin Window Always on Top",
+      "rawCommand": "AlwaysOnTop.hotkey",
+      "key": { "win32": "Win+Ctrl+T" },
+      "category": "Always On Top"
+    },
+    {
+      "command": "Open Command Palette",
+      "rawCommand": "CmdPal.Hotkey",
+      "key": { "win32": "Win+Alt+Space" },
+      "category": "Command Palette"
+    },
+    {
+      "command": "Open Color Picker",
+      "rawCommand": "ColorPicker.ActivationShortcut",
+      "key": { "win32": "Win+Shift+C" },
+      "category": "Color Picker"
+    },
+    {
+      "command": "Crop and Lock (Reparent)",
+      "rawCommand": "CropAndLock.reparent-hotkey",
+      "key": { "win32": "Win+Ctrl+Shift+R" },
+      "category": "Crop And Lock"
+    },
+    {
+      "command": "Crop and Lock (Thumbnail)",
+      "rawCommand": "CropAndLock.thumbnail-hotkey",
+      "key": { "win32": "Win+Ctrl+Shift+T" },
+      "category": "Crop And Lock"
+    },
+    {
+      "command": "Open FancyZones Editor",
+      "rawCommand": "FancyZones.fancyzones_editor_hotkey",
+      "key": { "win32": "Win+Shift+`" },
+      "category": "FancyZones"
+    },
+    {
+      "command": "Next Window in Zone",
+      "rawCommand": "FancyZones.fancyzones_nextTab_hotkey",
+      "key": { "win32": "Win+PageDown" },
+      "category": "FancyZones"
+    },
+    {
+      "command": "Previous Window in Zone",
+      "rawCommand": "FancyZones.fancyzones_prevTab_hotkey",
+      "key": { "win32": "Win+PageUp" },
+      "category": "FancyZones"
+    },
+    {
+      "command": "Open Screen Ruler",
+      "rawCommand": "Measure Tool.ActivationShortcut",
+      "key": { "win32": "Win+Ctrl+Shift+M" },
+      "category": "Screen Ruler"
+    },
+    {
+      "command": "Toggle Mouse Highlighter",
+      "rawCommand": "MouseHighlighter.activation_shortcut",
+      "key": { "win32": "Win+Shift+H" },
+      "category": "Mouse Utilities"
+    },
+    {
+      "command": "Mouse Jump",
+      "rawCommand": "MouseJump.activation_shortcut",
+      "key": { "win32": "Win+Shift+D" },
+      "category": "Mouse Utilities"
+    },
+    {
+      "command": "Toggle Mouse Pointer Crosshairs",
+      "rawCommand": "MousePointerCrosshairs.activation_shortcut",
+      "key": { "win32": "Win+Alt+P" },
+      "category": "Mouse Utilities"
+    },
+    {
+      "command": "Peek at Selected File",
+      "rawCommand": "Peek.ActivationShortcut",
+      "key": { "win32": "Ctrl+Space" },
+      "category": "Peek"
+    },
+    {
+      "command": "Open PowerToys Run",
+      "rawCommand": "PowerToys Run.open_powerlauncher",
+      "key": { "win32": "Alt+Space" },
+      "category": "PowerToys Run"
+    },
+    {
+      "command": "Open Shortcut Guide",
+      "rawCommand": "Shortcut Guide.open_shortcutguide",
+      "key": { "win32": "Win+Shift+/" },
+      "category": "Shortcut Guide"
+    },
+    {
+      "command": "Extract Text from Screen",
+      "rawCommand": "TextExtractor.ActivationShortcut",
+      "key": { "win32": "Win+Shift+T" },
+      "category": "Text Extractor"
+    },
+    {
+      "command": "Open Workspaces Editor",
+      "rawCommand": "Workspaces.hotkey",
+      "key": { "win32": "Win+Ctrl+`" },
+      "category": "Workspaces"
+    },
+    {
+      "command": "Zoom",
+      "rawCommand": "ZoomIt.ToggleKey",
+      "key": { "win32": "Ctrl+1" },
+      "category": "ZoomIt"
+    },
+    {
+      "command": "Draw",
+      "rawCommand": "ZoomIt.DrawToggleKey",
+      "key": { "win32": "Ctrl+2" },
+      "category": "ZoomIt"
+    },
+    {
+      "command": "Break Timer",
+      "rawCommand": "ZoomIt.BreakTimerKey",
+      "key": { "win32": "Ctrl+3" },
+      "category": "ZoomIt"
+    },
+    {
+      "command": "Live Zoom",
+      "rawCommand": "ZoomIt.LiveZoomToggleKey",
+      "key": { "win32": "Ctrl+4" },
+      "category": "ZoomIt"
+    },
+    {
+      "command": "Record Screen",
+      "rawCommand": "ZoomIt.RecordToggleKey",
+      "key": { "win32": "Ctrl+5" },
+      "category": "ZoomIt"
+    },
+    {
+      "command": "Snip",
+      "rawCommand": "ZoomIt.SnipToggleKey",
+      "key": { "win32": "Ctrl+6" },
+      "category": "ZoomIt"
+    },
+    {
+      "command": "DemoType",
+      "rawCommand": "ZoomIt.DemoTypeToggleKey",
+      "key": { "win32": "Ctrl+7" },
+      "category": "ZoomIt"
+    }
+  ]
+}

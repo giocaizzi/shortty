@@ -239,7 +239,7 @@ A `schema.json` file validates cheatsheet structure. All cheatsheet files must p
 
 The cheatsheets are bundled into the main-process build with Vite's `import.meta.glob('../../cheatsheets/sources/*.json', { eager: true })` (`src/main/cheatsheets/loader.ts`), so dev, e2e and the packaged app read the same data with no runtime path to resolve. Tests can still point the loader at a directory.
 
-The `icon` field is kept as metadata; the UI draws a source tile instead (§10.4). The optional `app` field (`{ "bundleId": "com.google.Chrome", "name": "Google Chrome" }`) names the macOS app whose real icon represents the source; on Windows its `name` picks the app's `.exe` (§10.4).
+The `icon` field is kept as metadata; the UI draws a source tile instead (§10.4). The optional `app` field (`{ "bundleId": "com.google.Chrome", "name": "Google Chrome" }`) names the macOS app whose real icon represents the source; on Windows its `name` picks the app's `.exe` (§10.4). A Windows-only app has no `bundleId` (PowerToys: `{ "name": "PowerToys" }`).
 
 ### 6.2 Parser System
 
@@ -277,6 +277,7 @@ Parsers are **optional enhancers** that detect user customizations from config f
 | macOS System | replace | replaces the hotkey | hotkey disabled |
 | Windows Terminal | additive | adds a key | `"command": "unbound"` / `null`, or `"id": null` (matches by key) |
 | PowerShell (PSReadLine) | additive | replaces the handler on that key (merged inside the parser) | `Remove-PSReadLineKeyHandler` |
+| PowerToys | replace | replaces the hotkey | hotkey cleared, or module turned off |
 | Finder, Windows, File Explorer | — | cheatsheet only, no parser | — |
 
 Rules (overrides match defaults by `source` + `rawCommand`, ignoring the VS Code `-` removal prefix):
@@ -295,6 +296,8 @@ Parser provides all data (defaults + user config). Cheatsheet has empty `shortcu
 Zsh and Bash defaults come from the shell itself, started without rc files through the `--help` sandbox (`src/main/parsers/shell-defaults.ts`: temp cwd, stdin closed, env allowlist, timeout; Bash also gets `INPUTRC=/dev/null`) and cached per binary path + mtime. Noise is dropped (self-insert, digit arguments, unbound functions, keys listed twice). A config binding replaces the default on the same keymap + key, an unbind marks it unbound; a missing shell leaves only the config bindings.
 
 PowerShell (PSReadLine) defaults come from `pwsh.exe`, else `powershell.exe` (PATH, then `%SystemRoot%\System32\WindowsPowerShell\v1.0`), run with `-NoProfile -NonInteractive` through the same sandbox (20 s timeout: a cold start takes 5-15 s) as `Get-PSReadLineKeyHandler -Bound | ConvertTo-Json`, after `Set-PSReadLineOption -EditMode` when the profile selects Emacs or Vi. When no PowerShell runs, the parser uses its bundled Windows-mode list (`src/main/parsers/data/psreadline-defaults.ts`, from about_PSReadLine_Functions). `Set-PSReadLineKeyHandler` lines of the `$PROFILE` files (`-Chord`/`-Key`, `-Function` or `-ScriptBlock` with `-BriefDescription`) replace the handler on their key. Chords: `Ctrl+x,Ctrl+e` is a sequence, an upper-case letter means Shift (`Ctrl+C`).
+
+PowerToys: each module's `%LOCALAPPDATA%\Microsoft\PowerToys\<module>\settings.json` holds its hotkeys as `{ win, ctrl, alt, shift, code }` (`code` a Windows virtual-key code, 0 when cleared), directly or under `value`, also nested (Advanced Paste custom actions, labelled by their `name`). `rawCommand` is `<module folder>.<property>`; the hotkeys the cheatsheet lists are in `src/main/parsers/data/powertoys-hotkeys.ts`. A hotkey still on its default is skipped, a changed one replaces the default, a cleared one unbinds it, and every hotkey of a module turned off in the general `settings.json` (`enabled`) is unbound, on its configured key. Keyboard Manager's `Keyboard Manager\default.json` adds the remapped keys and shortcuts (to keys, text, a program or a URI; per app as context). Command Palette and ZoomIt keep their settings elsewhere: only their defaults are listed.
 
 Windows Terminal: `settings.json` (JSONC) in the legacy format (`command` + `keys` in `actions`/`keybindings`) and the 1.21+ split format (`actions` with `id`, `keybindings` with `id` + `keys`). A binding whose command equals a default action (`src/main/parsers/data/windows-terminal-actions.ts`, from the app's `defaults.json`) gets that action's id (`Terminal.OpenNewTab`) as `rawCommand`, so it merges with the cheatsheet entry.
 
@@ -381,6 +384,7 @@ Rebuild triggers:
 | File Explorer | Curated (~45) | None | win32 |
 | Windows Terminal | Curated (60, from `defaults.json`) | settings.json (packaged, Preview, unpackaged) | win32 |
 | PowerShell | Metadata only | $PROFILE `Set-PSReadLineKeyHandler` + `Get-PSReadLineKeyHandler -Bound` (bundled Windows-mode fallback) | win32 |
+| PowerToys | Curated (26 module hotkeys) | each module's settings.json, general settings.json (`enabled`), Keyboard Manager `default.json` | win32 |
 
 ---
 
@@ -754,9 +758,9 @@ Typing a command line drills by itself, as deep as the subcommands go (`>gh auth
 
 Rows follow a single-line layout inspired by the Vaise launcher: identity on the left, keys on the right. Every row starts with a **source tile** (`src/renderer/components/SourceIcon.tsx`), instead of the cheatsheet emoji. The tile is, in order of preference:
 
-1. **The real app icon**, autofound on macOS: main (`src/main/icons.ts`) finds the bundle of the cheatsheet's `app` by bundle id with Spotlight (`mdfind`, argv only, 2 s timeout), else by name in `/Applications`, `~/Applications`, `/System/Applications` and `/System/Library/CoreServices`, and renders it with Quick Look (`nativeImage.createThumbnailFromPath`, 64 px; `app.getFileIcon` stops at 32 px on macOS and its `large` size aborts the process). Commands whose binary resolves (after symlinks) into an `.app` get that app's icon (`code` → Visual Studio Code). On Windows, main looks for the cheatsheet app's `.exe` (VS Code, Chrome, Obsidian) under `%LOCALAPPDATA%\Programs`, `%ProgramFiles%`, `%ProgramFiles(x86)%` and `%LOCALAPPDATA%`, and a command whose binary resolves to an `.exe` uses that file's icon (`.cmd`/`.bat` shims do not); both are drawn with `app.getFileIcon` (`large`, 32 px). Linux has no app icons. The renderer asks through `icons:get` with a known source id or command name only, never a path; main caches hits and misses for the session, and the renderer sends one request per icon.
+1. **The real app icon**, autofound on macOS: main (`src/main/icons.ts`) finds the bundle of the cheatsheet's `app` by bundle id with Spotlight (`mdfind`, argv only, 2 s timeout), else by name in `/Applications`, `~/Applications`, `/System/Applications` and `/System/Library/CoreServices`, and renders it with Quick Look (`nativeImage.createThumbnailFromPath`, 64 px; `app.getFileIcon` stops at 32 px on macOS and its `large` size aborts the process). Commands whose binary resolves (after symlinks) into an `.app` get that app's icon (`code` → Visual Studio Code). On Windows, main looks for the cheatsheet app's `.exe` (VS Code, Chrome, Obsidian, PowerToys) under `%LOCALAPPDATA%\Programs`, `%ProgramFiles%`, `%ProgramFiles(x86)%` and `%LOCALAPPDATA%`, and a command whose binary resolves to an `.exe` uses that file's icon (`.cmd`/`.bat` shims do not); both are drawn with `app.getFileIcon` (`large`, 32 px). Linux has no app icons. The renderer asks through `icons:get` with a known source id or command name only, never a path; main caches hits and misses for the session, and the renderer sends one request per icon.
 2. **A brand glyph** from `simple-icons` (`src/renderer/lib/brand-icons.ts`): for sources whose app is missing or that are CLIs (tmux, vim, zsh, bash), and for ~150 common CLIs (`git`, `gh`, `docker`, `kubectl`, `terraform`, `gcloud`, `node`, `uv`, `brew`, `psql`, …; version suffixes like `python3.12` or `psql-17` are stripped). For commands a curated glyph wins over the app bundle, because a binary's bundle is not always its brand (`kubectl` ships inside Docker.app). The glyph takes the brand colour on a quiet tile; a colour under 3:1 contrast on the current theme is mixed toward the foreground colour.
-3. **A tinted monogram** like a Dock icon (`VS`, `Gh`, `tm`, `>_` for other commands); an unknown source gets its initial on a hue derived from its id.
+3. **A tinted monogram** like a Dock icon (`VS`, `Gh`, `tm`, `PT`, `>_` for other commands); an unknown source gets its initial on a hue derived from its id.
 
 Tiles have a fixed size, so rows never jump when an icon arrives. In e2e runs autofind skips Spotlight and looks only in the fake HOME's `Applications` (on Windows it looks nowhere), where the fixtures put a fake `Google Chrome.app`.
 
