@@ -23,7 +23,7 @@ Forgot the tmux binding to break out a pane? The vim motion for the end of a WOR
 
 ## Your keybindings, as you configured them
 
-Shortty ships curated defaults for **tmux, vim, VS Code, Ghostty, Zsh, Bash, Obsidian, Chrome, Finder and macOS**, and on Windows **Windows, File Explorer, Windows Terminal and PowerShell**, then merges in your config files: a remap in `~/.config/vim/vimrc` or `.tmux.conf` shows up as you set it, live, without a restart. Drill into one source to browse it on its own.
+Shortty ships curated defaults for **tmux, vim, VS Code, Ghostty, Zsh, Bash, Obsidian, Chrome, Finder and macOS**, and on Windows **Windows, File Explorer, Windows Terminal, PowerShell and PowerToys**, then merges in your config files: a remap in `~/.config/vim/vimrc` or `.tmux.conf` shows up as you set it, live, without a restart. Drill into one source to browse it on its own.
 
 <div align="center">
 <img src="docs/assets/readme-vim.png" alt="vim drilled in, filtered by &quot;word&quot;: w, b, e, diw, ciw, yiw" width="720">

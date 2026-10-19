@@ -277,6 +277,7 @@ Parsers are **optional enhancers** that detect user customizations from config f
 | macOS System | replace | replaces the hotkey | hotkey disabled |
 | Windows Terminal | additive | adds a key | `"command": "unbound"` / `null`, or `"id": null` (matches by key) |
 | PowerShell (PSReadLine) | additive | replaces the handler on that key (merged inside the parser) | `Remove-PSReadLineKeyHandler` |
+| PowerToys | replace | replaces the hotkey | hotkey cleared, or module turned off |
 | Finder, Windows, File Explorer | — | cheatsheet only, no parser | — |
 
 Rules (overrides match defaults by `source` + `rawCommand`, ignoring the VS Code `-` removal prefix):
@@ -295,6 +296,8 @@ Parser provides all data (defaults + user config). Cheatsheet has empty `shortcu
 Zsh and Bash defaults come from the shell itself, started without rc files through the `--help` sandbox (`src/main/parsers/shell-defaults.ts`: temp cwd, stdin closed, env allowlist, timeout; Bash also gets `INPUTRC=/dev/null`) and cached per binary path + mtime. Noise is dropped (self-insert, digit arguments, unbound functions, keys listed twice). A config binding replaces the default on the same keymap + key, an unbind marks it unbound; a missing shell leaves only the config bindings.
 
 PowerShell (PSReadLine) defaults come from `pwsh.exe`, else `powershell.exe` (PATH, then `%SystemRoot%\System32\WindowsPowerShell\v1.0`), run with `-NoProfile -NonInteractive` through the same sandbox (20 s timeout: a cold start takes 5-15 s) as `Get-PSReadLineKeyHandler -Bound | ConvertTo-Json`, after `Set-PSReadLineOption -EditMode` when the profile selects Emacs or Vi. When no PowerShell runs, the parser uses its bundled Windows-mode list (`src/main/parsers/data/psreadline-defaults.ts`, from about_PSReadLine_Functions). `Set-PSReadLineKeyHandler` lines of the `$PROFILE` files (`-Chord`/`-Key`, `-Function` or `-ScriptBlock` with `-BriefDescription`) replace the handler on their key. Chords: `Ctrl+x,Ctrl+e` is a sequence, an upper-case letter means Shift (`Ctrl+C`).
+
+PowerToys: each module's `%LOCALAPPDATA%\Microsoft\PowerToys\<module>\settings.json` holds its hotkeys as `{ win, ctrl, alt, shift, code }` (`code` a Windows virtual-key code, 0 when cleared), directly or under `value`, also nested (Advanced Paste custom actions, labelled by their `name`). `rawCommand` is `<module folder>.<property>`; the hotkeys the cheatsheet lists are in `src/main/parsers/data/powertoys-hotkeys.ts`. A hotkey still on its default is skipped, a changed one replaces the default, a cleared one unbinds it, and every default of a module turned off in the general `settings.json` (`enabled`) is unbound. Keyboard Manager's `Keyboard Manager\default.json` adds the remapped keys and shortcuts (to keys, text, a program or a URI; per app as context). Command Palette and ZoomIt keep their settings elsewhere: only their defaults are listed.
 
 Windows Terminal: `settings.json` (JSONC) in the legacy format (`command` + `keys` in `actions`/`keybindings`) and the 1.21+ split format (`actions` with `id`, `keybindings` with `id` + `keys`). A binding whose command equals a default action (`src/main/parsers/data/windows-terminal-actions.ts`, from the app's `defaults.json`) gets that action's id (`Terminal.OpenNewTab`) as `rawCommand`, so it merges with the cheatsheet entry.
 
@@ -381,6 +384,7 @@ Rebuild triggers:
 | File Explorer | Curated (~45) | None | win32 |
 | Windows Terminal | Curated (60, from `defaults.json`) | settings.json (packaged, Preview, unpackaged) | win32 |
 | PowerShell | Metadata only | $PROFILE `Set-PSReadLineKeyHandler` + `Get-PSReadLineKeyHandler -Bound` (bundled Windows-mode fallback) | win32 |
+| PowerToys | Curated (26 module hotkeys) | each module's settings.json, general settings.json (`enabled`), Keyboard Manager `default.json` | win32 |
 
 ---
 

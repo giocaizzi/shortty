@@ -16,6 +16,7 @@ import { VimParser } from './vim.parser';
 import { BashParser } from './bash.parser';
 import { WindowsTerminalParser } from './windows-terminal.parser';
 import { PsReadLineParser } from './psreadline.parser';
+import { PowerToysParser } from './powertoys.parser';
 import { BaseParser } from './base-parser';
 import { formatCheatsheetKey } from './key-normalizer';
 
@@ -37,6 +38,7 @@ const PARSERS: Record<string, new () => BaseParser> = {
   bash: BashParser,
   'windows-terminal': WindowsTerminalParser,
   psreadline: PsReadLineParser,
+  powertoys: PowerToysParser,
 };
 
 interface SourceInfo {

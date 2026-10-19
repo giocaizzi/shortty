@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { join } from 'node:path';
 import type { Shortcut } from '../../../src/shared/types';
 import { FIXTURES } from './parser-helpers';
+import { POWERTOYS_HOTKEYS } from '../../../src/main/parsers/data/powertoys-hotkeys';
 import { withPlatform } from '../../helpers';
 
 vi.mock('../../../src/main/logger', () => ({
@@ -149,6 +150,8 @@ describe('ParserRegistry on Windows', () => {
     registry = new ParserRegistry();
     await registry.initialize(['vscode', 'chrome', 'obsidian', 'vim', 'psreadline'], {
       'windows-terminal': join(FIXTURES, 'windows-terminal-settings.json'),
+      powertoys: ['settings.json', 'ColorPicker/settings.json', 'FancyZones/settings.json', 'Peek/settings.json']
+        .map((f) => join(FIXTURES, 'powertoys', f)),
     });
   });
 
@@ -169,6 +172,17 @@ describe('ParserRegistry on Windows', () => {
     expect(wt.find((s) => s.rawCommand === 'Terminal.CopyToClipboard' && s.origin === 'user-config')?.command)
       .toBe('Copy');
     expect(registry.getCachedBySource('windows-system').length).toBeGreaterThan(40);
+  });
+
+  it('replaces PowerToys default hotkeys with the configured ones', () => {
+    const pt = registry.getCachedBySource('powertoys');
+    const byCommand = (raw: string) => pt.filter((s) => s.rawCommand === raw)
+      .map((s) => [s.origin, (s.strokes ?? []).map((st) => [...st.mods, st.key].join('+')).join(' '), s.isUnbound]);
+    expect(byCommand('ColorPicker.ActivationShortcut')).toEqual([['cheatsheet', 'shift+cmd+C', false]]);
+    expect(byCommand('FancyZones.fancyzones_editor_hotkey')).toEqual([['user-config', 'ctrl+cmd+`', false]]);
+    expect(byCommand('FancyZones.fancyzones_prevTab_hotkey')).toEqual([['user-config', 'cmd+PageUp', true]]);
+    expect(byCommand('Peek.ActivationShortcut')).toEqual([['user-config', 'ctrl+Space', true]]);
+    expect(pt.length).toBe(Object.keys(POWERTOYS_HOTKEYS).length);
     expect(registry.getCachedBySource('explorer').length).toBeGreaterThan(40);
   });
 });

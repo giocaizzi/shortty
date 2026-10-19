@@ -44,7 +44,7 @@ describe('shipped cheatsheets', () => {
   it('ships one file per source', () => {
     expect(files.sort()).toEqual([
       'bash.json', 'chrome.json', 'explorer.json', 'finder.json', 'ghostty.json', 'macos-system.json',
-      'obsidian.json', 'psreadline.json', 'tmux.json', 'vim.json', 'vscode.json', 'windows-system.json',
+      'obsidian.json', 'powertoys.json', 'psreadline.json', 'tmux.json', 'vim.json', 'vscode.json', 'windows-system.json',
       'windows-terminal.json', 'zsh.json',
     ]);
   });
@@ -62,7 +62,7 @@ describe('shipped cheatsheets', () => {
     }));
     expect(modes).toEqual({
       bash: 'additive', chrome: 'additive', explorer: null, finder: null, ghostty: 'additive',
-      'macos-system': 'replace', obsidian: 'replace', psreadline: 'additive', tmux: 'additive',
+      'macos-system': 'replace', obsidian: 'replace', powertoys: 'replace', psreadline: 'additive', tmux: 'additive',
       vim: 'additive', vscode: 'additive', 'windows-system': null, 'windows-terminal': 'additive',
       zsh: 'additive',
     });
