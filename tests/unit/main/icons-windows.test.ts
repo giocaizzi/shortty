@@ -54,6 +54,14 @@ describe('findWindowsExe', () => {
     expect(findWindowsExe(CHROME, search)).toBe('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe');
   });
 
+  it('finds PowerToys installed machine-wide or per user (no macOS bundle id)', () => {
+    const POWERTOYS = { name: 'PowerToys' };
+    existing.add('C:\\Users\\me\\AppData\\Local\\PowerToys\\PowerToys.exe');
+    expect(findWindowsExe(POWERTOYS, search)).toBe('C:\\Users\\me\\AppData\\Local\\PowerToys\\PowerToys.exe');
+    existing.add('C:\\Program Files\\PowerToys\\PowerToys.exe');
+    expect(findWindowsExe(POWERTOYS, search)).toBe('C:\\Program Files\\PowerToys\\PowerToys.exe');
+  });
+
   it('returns null for apps it does not know or that are not installed', () => {
     expect(findWindowsExe({ bundleId: 'com.apple.finder', name: 'Finder' }, search)).toBeNull();
     expect(findWindowsExe(VSCODE, search)).toBeNull();

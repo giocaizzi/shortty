@@ -20,7 +20,7 @@ export interface CheatsheetDefinition {
   id: string;
   label: string;
   icon: string;
-  /** macOS app bundle whose icon represents the source (main/icons.ts). */
+  /** App whose icon represents the source: macOS bundle, or by name the Windows .exe (main/icons.ts). */
   app?: AppRef;
   platforms: Platform[];
   parser?: string | null;

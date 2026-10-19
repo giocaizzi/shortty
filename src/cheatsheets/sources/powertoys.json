@@ -3,6 +3,7 @@
   "id": "powertoys",
   "label": "PowerToys",
   "icon": "🧰",
+  "app": { "name": "PowerToys" },
   "platforms": ["win32"],
   "parser": "powertoys",
   "mergeMode": "replace",
