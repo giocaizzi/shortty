@@ -94,11 +94,12 @@ function isHotkey(v: unknown): v is Hotkey {
   return typeof o.code === 'number' && ['win', 'ctrl', 'alt', 'shift'].some((m) => typeof o[m] === 'boolean');
 }
 
-/** `fancyzones_editor_hotkey` / `ActivationShortcut` → "Fancyzones Editor Hotkey" / "Activation Shortcut". */
+/** `paste-as-json-hotkey` / `MouseJump` → "Paste As Json" / "Mouse Jump". */
 function humanize(s: string): string {
   return s
-    .replace(/[-_]+/g, ' ')
+    .replace(/[-_.]+/g, ' ')
     .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s(?:hotkey|shortcut)$/i, '')
     .replace(/\b\w/g, (c) => c.toUpperCase())
     .trim();
 }
@@ -175,16 +176,14 @@ export class PowerToysParser extends BaseParser {
     const isOff = (module: string) => enabled[module] === false;
 
     const shortcuts: Shortcut[] = [];
-
-    // A module turned off: its default hotkeys do nothing.
-    for (const [rawCommand, def] of Object.entries(POWERTOYS_HOTKEYS)) {
-      if (!general || !isOff(rawCommand.slice(0, rawCommand.indexOf('.')))) continue;
-      const { displayKey, searchKey, strokes } = formatCheatsheetKey(def.key);
+    // A removal without a key unbinds the cheatsheet entry of that command, whatever its key.
+    const unbind = (rawCommand: string, filePath: string) => {
+      const def = POWERTOYS_HOTKEYS[rawCommand];
       shortcuts.push(this.makeShortcut({
-        key: displayKey, searchKey, strokes, command: def.command, rawCommand, category: def.category,
-        isDefault: false, isUnbound: true, filePath: general.filePath,
+        key: '', searchKey: '', strokes: [], command: def.command, rawCommand, category: def.category,
+        isDefault: false, isUnbound: true, filePath,
       }));
-    }
+    };
 
     for (const { filePath, data } of files) {
       if (data === general?.data) continue;
@@ -193,7 +192,6 @@ export class PowerToysParser extends BaseParser {
         if (!isOff(module)) shortcuts.push(...this.parseRemaps(data, filePath));
         continue;
       }
-      if (isOff(module)) continue;
 
       for (const { path, name, hotkey } of findHotkeys(data.properties, '')) {
         const rawCommand = `${module}.${path}`;
@@ -201,12 +199,7 @@ export class PowerToysParser extends BaseParser {
         const parsed = hotkeyToKey(hotkey);
         if (!parsed) {
           // Cleared (code 0): the default no longer applies.
-          if (def && hotkey.code === 0) {
-            shortcuts.push(this.makeShortcut({
-              key: '', searchKey: '', strokes: [], command: def.command, rawCommand, category: def.category,
-              isDefault: false, isUnbound: true, filePath,
-            }));
-          }
+          if (def && hotkey.code === 0) unbind(rawCommand, filePath);
           continue;
         }
         const { displayKey, searchKey, strokes } = normalizeSequence([parsed]);
@@ -219,9 +212,17 @@ export class PowerToysParser extends BaseParser {
           rawCommand,
           category: def?.category ?? humanize(module),
           isDefault: false,
-          isUnbound: false,
+          // A known hotkey of a module turned off is unbound below, keeping its configured key.
+          isUnbound: !def && isOff(module),
           filePath,
         }));
+      }
+    }
+
+    // A module turned off: its hotkeys do nothing.
+    if (general) {
+      for (const rawCommand of Object.keys(POWERTOYS_HOTKEYS)) {
+        if (isOff(rawCommand.slice(0, rawCommand.indexOf('.')))) unbind(rawCommand, general.filePath);
       }
     }
 

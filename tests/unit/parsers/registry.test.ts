@@ -181,7 +181,8 @@ describe('ParserRegistry on Windows', () => {
     expect(byCommand('ColorPicker.ActivationShortcut')).toEqual([['cheatsheet', 'shift+cmd+C', false]]);
     expect(byCommand('FancyZones.fancyzones_editor_hotkey')).toEqual([['user-config', 'ctrl+cmd+`', false]]);
     expect(byCommand('FancyZones.fancyzones_prevTab_hotkey')).toEqual([['user-config', 'cmd+PageUp', true]]);
-    expect(byCommand('Peek.ActivationShortcut')).toEqual([['user-config', 'ctrl+Space', true]]);
+    // turned off: unbound on the configured key, not the default one
+    expect(byCommand('Peek.ActivationShortcut')).toEqual([['user-config', 'ctrl+shift+Space', true]]);
     expect(pt.length).toBe(Object.keys(POWERTOYS_HOTKEYS).length);
     expect(registry.getCachedBySource('explorer').length).toBeGreaterThan(40);
   });

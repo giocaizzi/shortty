@@ -33,12 +33,11 @@ describe('PowerToysParser', () => {
 
   it('lists changed, cleared, extra and turned-off hotkeys and Keyboard Manager remaps', async () => {
     expect(view(await parser.parse())).toEqual([
-      // Peek is turned off in the general settings.json
-      ['Peek.ActivationShortcut', 'Peek at Selected File', 'ctrl+Space', null, true],
-      ['AdvancedPaste.paste-as-markdown-hotkey', 'Advanced Paste: Paste As Markdown Hotkey', 'ctrl+cmd+M', null, false],
+      ['AdvancedPaste.paste-as-markdown-hotkey', 'Advanced Paste: Paste As Markdown', 'ctrl+cmd+M', null, false],
       ['AdvancedPaste.custom-actions[0].shortcut', 'Translate to Italian', 'opt+cmd+I', null, false],
       ['FancyZones.fancyzones_editor_hotkey', 'Open FancyZones Editor', 'ctrl+cmd+`', null, false],
       ['FancyZones.fancyzones_prevTab_hotkey', 'Previous Window in Zone', '', null, true],
+      ['Peek.ActivationShortcut', 'Peek at Selected File', 'ctrl+shift+Space', null, false],
       ['PowerToys Run.open_powerlauncher', 'Open PowerToys Run', 'ctrl+Space', null, false],
       ['KeyboardManager.remapKeys', 'Remapped to Ctrl', 'CapsLock', null, false],
       ['KeyboardManager.remapKeys', 'Disabled', 'ContextMenu', null, false],
@@ -47,6 +46,8 @@ describe('PowerToysParser', () => {
       ['KeyboardManager.remapShortcuts', 'Open https://github.com', 'ctrl+opt+G', null, false],
       ['KeyboardManager.remapShortcuts', 'Remapped to Ctrl+F4', 'ctrl+W', 'msedge', false],
       ['KeyboardManager.remapShortcutsToText', 'Type “Kind regards”', 'ctrl+opt+S', null, false],
+      // Peek is turned off in the general settings.json: unbound whatever its key
+      ['Peek.ActivationShortcut', 'Peek at Selected File', '', null, true],
     ]);
   });
 
