@@ -954,7 +954,7 @@ Principle: **never crash the app, never block the user.** Each subsystem fails i
 
 ### 12.5 Distribution
 
-- **v1:** GitHub Releases — DMG + ZIP for macOS; Squirrel installer (per user, into `%LOCALAPPDATA%\shortty`, icon `src/assets/icon.ico`) + portable ZIP for Windows, and deb/rpm (Linux) makers are configured but untested in v1. Launch at login on a Squirrel install registers the stub launcher `%LOCALAPPDATA%\shortty\shortty.exe`, which starts the latest installed version, so the login item survives updates (`src/main/login-item.ts`). Procedure: [runbooks/release-macos.md](runbooks/release-macos.md)
+- **v1:** GitHub Releases — DMG + ZIP for macOS; Squirrel installer (per user, into `%LOCALAPPDATA%\shortty`, icon `src/assets/icon.ico`) + portable ZIP for Windows, and deb/rpm (Linux) makers are configured but untested in v1. Launch at login on a Squirrel install registers the stub launcher `%LOCALAPPDATA%\shortty\shortty.exe`, which starts the latest installed version, so the login item survives updates (`src/main/login-item.ts`). Only a packaged app registers the login item: a `make dev` run would register the bare Electron binary, which opens the default Electron window at login. Procedure: [runbooks/release-macos.md](runbooks/release-macos.md)
 - **Post-v1:** Homebrew Cask formula
 - **Deferred:** Mac App Store (sandboxing conflicts)
 - **Code signing:** Apple Developer account, sign + notarize from v1; enabled only through environment variables (`APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`), unsigned otherwise
