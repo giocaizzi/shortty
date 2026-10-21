@@ -317,8 +317,10 @@ function applyInitialSettings(): void {
     return;
   }
 
-  // Launch at login
-  app.setLoginItemSettings(loginItemSettings(settings.launchAtLogin));
+  // Launch at login (only a packaged app: a dev run would register the bare Electron binary)
+  if (app.isPackaged) {
+    app.setLoginItemSettings(loginItemSettings(settings.launchAtLogin));
+  }
 
   // Global shortcut
   registerGlobalShortcut(settings.globalShortcut);
@@ -362,8 +364,8 @@ function applySettingsChange(newSettings: AppSettings, oldSettings: AppSettings)
     syncTray(newSettings.showMenuBar, trayCallbacks);
   }
 
-  // Launch at login (never registered by e2e runs)
-  if (newSettings.launchAtLogin !== oldSettings.launchAtLogin && !isE2E) {
+  // Launch at login (never registered by e2e or dev runs)
+  if (newSettings.launchAtLogin !== oldSettings.launchAtLogin && !isE2E && app.isPackaged) {
     app.setLoginItemSettings(loginItemSettings(newSettings.launchAtLogin));
   }
 
