@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/giocaizzi/shortty/compare/v0.2.1...v0.3.0) (2026-10-21)
+
+
+### Added
+
+* **sources:** add PowerToys hotkeys and Keyboard Manager remaps ([#88](https://github.com/giocaizzi/shortty/issues/88)) ([d05b0ba](https://github.com/giocaizzi/shortty/commit/d05b0bab99b175ed4523fa511f2364be4a1c4e35))
+
+
+### Fixed
+
+* **main:** register the login item only from a packaged app ([#90](https://github.com/giocaizzi/shortty/issues/90)) ([525884c](https://github.com/giocaizzi/shortty/commit/525884ce3ff4af4bfe82de8561d320e53a8499a0))
+
 ## [0.2.1](https://github.com/giocaizzi/shortty/compare/v0.2.0...v0.2.1) (2026-10-15)
 
 
