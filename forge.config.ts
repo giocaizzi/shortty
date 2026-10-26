@@ -84,6 +84,9 @@ const config: ForgeConfig = {
     // Installs per user into %LOCALAPPDATA%\shortty (src/main/login-item.ts, docs/runbooks/reset-settings.md).
     new MakerSquirrel({
       name: 'shortty',
+      // Squirrel writes this into Setup.exe's ProductName; SignPath Foundation
+      // requires the product name to be the project name (docs/runbooks/signpath-application.md).
+      description: 'Shortty',
       setupIcon: 'src/assets/icon.ico',
       // Shown in Apps & features; Squirrel needs a URL, not a path.
       iconUrl: 'https://raw.githubusercontent.com/giocaizzi/shortty/main/src/assets/icon.ico',
