@@ -28,7 +28,9 @@ to the display string `key`:
 - `literal`: vim text shown verbatim (`dd`, `:wq`, case-sensitive).
 
 `key`/`searchKey` (main process) stay US-based and macOS-labelled; they are
-the fallback when `strokes` is absent.
+the fallback when `strokes` is absent. Off macOS the renderer turns the
+fallback's leading modifier glyphs and named keys into words
+(`fallbackLabel`: `⌘⇧P` is `Shift+Super+P` on Linux).
 
 ## Display rules (renderer)
 
@@ -102,6 +104,7 @@ the same labels.
 - The Settings shortcut recorder labels keys the same way off macOS and,
   on Windows, refuses Alt+Tab, Alt+F4, Alt+Space, Alt+Esc, Ctrl+Esc,
   Ctrl+Shift+Esc, Ctrl+Alt+Delete and every Win combo (the shell owns them).
+  It names the Super key Win on Windows and Super on Linux.
 
 ## Per-source behavior
 
@@ -146,5 +149,5 @@ layout (Italian `?` is ⇧', `>` is ⇧<). Covered by
   excluded from layout recognition.
 - Copy to clipboard (Enter) copies the resolved labels (`⌘Ò` on Italian,
   `Ctrl+Shift+P` on Windows); only shortcuts without `strokes` copy the
-  US-based `key`.
+  US-based `key`, with the platform's modifier names off macOS.
 - Terminal sources show Meta as ⌥ (macOS terminals with "Option as Meta").
