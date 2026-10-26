@@ -25,6 +25,19 @@ export function rotateLogFiles(file: string, files = LOG_FILES): void {
   renameSync(file, archive(1));
 }
 
+/**
+ * A closed stdout/stderr pipe (the terminal that launched the app went away)
+ * makes the next console write fail with EPIPE, emitted as an `error` event
+ * that would otherwise become an "Uncaught Exception" dialog. Ignore EPIPE and
+ * stop console logging (the file log keeps going); rethrow anything else.
+ */
+export function ignoreBrokenPipe(stream: NodeJS.EventEmitter): void {
+  stream.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code !== 'EPIPE') throw err;
+    log.transports.console.level = false;
+  });
+}
+
 // `app` is undefined when this module is imported outside Electron (unit tests).
 // Tests must never write the developer's real ~/Library/Logs/Shortty/main.log.
 log.transports.file.level = process.env.VITEST ? false : app?.isPackaged === false ? 'debug' : 'info';

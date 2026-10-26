@@ -12,6 +12,7 @@ Source of truth for how Shortty works and how to operate it. Quickstart: [../REA
 
 ## Runbooks
 
+- [runbooks/run-unit-tests.md](runbooks/run-unit-tests.md): run the Vitest suite and fix the failures that only show in a fresh checkout or on a busy machine.
 - [runbooks/run-e2e-tests.md](runbooks/run-e2e-tests.md): run and write the Playwright end-to-end suite.
 - [runbooks/release.md](runbooks/release.md): cut a release (release-please, macOS and Windows installers), test installers without releasing, roll back.
 - [runbooks/signpath-application.md](runbooks/signpath-application.md): apply to SignPath Foundation and configure SignPath for Windows signing (policy text, artifact configurations, secrets).

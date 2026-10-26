@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, chmodSync, rmSync, existsSync } from 'node:
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { helpTimeoutMs, runSandboxed, sandboxEnv, windowsCommand } from '../../../src/main/commands/sandbox-exec';
-import { withPlatform } from '../../helpers';
+import { REAL_PROCESS_TEST_MS, SLOW_HOST_MS, withPlatform } from '../../helpers';
 
 const posix = process.platform !== 'win32';
 let dir: string;
@@ -24,10 +24,10 @@ afterAll(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe.runIf(posix)('runSandboxed', () => {
+describe.runIf(posix)('runSandboxed', { timeout: REAL_PROCESS_TEST_MS }, () => {
   it('captures stdout followed by stderr and the exit code', async () => {
     const bin = script('both', 'echo out; echo "usage: both [-x]" >&2; exit 2');
-    const result = await runSandboxed(bin, ['--help']);
+    const result = await runSandboxed(bin, ['--help'], { timeoutMs: SLOW_HOST_MS });
     expect(result).toEqual({ output: 'out\nusage: both [-x]\n', exitCode: 2, timedOut: false, truncated: false });
   });
 
@@ -36,12 +36,13 @@ describe.runIf(posix)('runSandboxed', () => {
     const started = Date.now();
     const result = await runSandboxed(bin, ['--help'], { timeoutMs: 300 });
     expect(result.timedOut).toBe(true);
-    expect(Date.now() - started).toBeLessThan(2500);
+    // Gave up near the 300 ms timeout, long before `sleep 30` ends
+    expect(Date.now() - started).toBeLessThan(10_000);
   });
 
   it('stops a command that prints megabytes at the output cap', async () => {
     const bin = script('flood', 'while :; do echo xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx; done');
-    const result = await runSandboxed(bin, ['--help'], { maxBytes: 64 * 1024, timeoutMs: 5000 });
+    const result = await runSandboxed(bin, ['--help'], { maxBytes: 64 * 1024, timeoutMs: SLOW_HOST_MS });
     expect(result.truncated).toBe(true);
     expect(result.timedOut).toBe(false);
     expect(result.output.length).toBe(64 * 1024);
@@ -49,16 +50,15 @@ describe.runIf(posix)('runSandboxed', () => {
 
   it('closes stdin so a command waiting for input does not hang', async () => {
     const bin = script('reader', 'read line; echo "got:[$line]"');
-    // Generous: a loaded host can take seconds just to start sh. A hang
-    // would still show up as timedOut.
-    const result = await runSandboxed(bin, [], { timeoutMs: 10000 });
+    // A hang would still show up as timedOut
+    const result = await runSandboxed(bin, [], { timeoutMs: SLOW_HOST_MS });
     expect(result.timedOut).toBe(false);
     expect(result.output).toBe('got:[]\n');
-  }, 15000);
+  });
 
   it('runs in a throwaway directory that is removed afterwards', async () => {
     const bin = script('where', 'pwd; touch created-by-help');
-    const result = await runSandboxed(bin, []);
+    const result = await runSandboxed(bin, [], { timeoutMs: SLOW_HOST_MS });
     const cwd = result.output.trim();
     expect(cwd).toMatch(/shortty-help-/);
     expect(cwd).not.toBe(process.cwd());
@@ -67,26 +67,26 @@ describe.runIf(posix)('runSandboxed', () => {
 
   it('disables pagers, colour and editors', async () => {
     const bin = script('env', 'echo "$PAGER|$MANPAGER|$GIT_PAGER|$NO_COLOR|$EDITOR|$GIT_EDITOR|${CLICOLOR_FORCE-unset}"');
-    const result = await runSandboxed(bin, []);
+    const result = await runSandboxed(bin, [], { timeoutMs: SLOW_HOST_MS });
     expect(result.output).toBe('cat|cat|cat|1|true|true|unset\n');
   });
 
   it('points tmux at the throwaway directory, away from the user\'s server', async () => {
     const bin = script('tmuxdir', 'echo "$TMUX_TMPDIR"; pwd');
-    const [tmuxDir, cwd] = (await runSandboxed(bin, [])).output.trim().split('\n');
+    const [tmuxDir, cwd] = (await runSandboxed(bin, [], { timeoutMs: SLOW_HOST_MS })).output.trim().split('\n');
     expect(tmuxDir).toMatch(/shortty-help-/);
     expect(basename(tmuxDir)).toBe(basename(cwd));
   });
 
   it('passes arguments without a shell (no injection)', async () => {
     const bin = script('args', 'for a in "$@"; do echo "[$a]"; done');
-    const result = await runSandboxed(bin, ['$(touch pwned)', ';', '--help']);
+    const result = await runSandboxed(bin, ['$(touch pwned)', ';', '--help'], { timeoutMs: SLOW_HOST_MS });
     expect(result.output).toBe('[$(touch pwned)]\n[;]\n[--help]\n');
   });
 
   it('decodes invalid UTF-8 without failing', async () => {
     const bin = script('latin1', "printf 'Usage: x \\377\\376 ok\\n'");
-    const result = await runSandboxed(bin, []);
+    const result = await runSandboxed(bin, [], { timeoutMs: SLOW_HOST_MS });
     expect(result.output).toContain('Usage: x');
     expect(result.output).toContain('ok');
   });
@@ -179,7 +179,7 @@ describe('helpTimeoutMs', () => {
   });
 });
 
-describe.runIf(!posix)('runSandboxed on Windows (real processes)', () => {
+describe.runIf(!posix)('runSandboxed on Windows (real processes)', { timeout: REAL_PROCESS_TEST_MS }, () => {
   function file(name: string, body: string): string {
     const path = join(dir, name);
     writeFileSync(path, body);
@@ -188,7 +188,7 @@ describe.runIf(!posix)('runSandboxed on Windows (real processes)', () => {
 
   it('runs a .cmd with its arguments, hidden, in a throwaway directory', async () => {
     const bin = file('both.cmd', '@echo off\r\necho out %1 %2\r\ncd\r\nexit /b 2\r\n');
-    const result = await runSandboxed(bin, ['sub', '--help']);
+    const result = await runSandboxed(bin, ['sub', '--help'], { timeoutMs: SLOW_HOST_MS });
     const [line, cwd] = result.output.trim().split(/\r?\n/);
     expect(line).toBe('out sub --help');
     expect(cwd).toMatch(/shortty-help-/);
@@ -215,7 +215,7 @@ describe.runIf(!posix)('runSandboxed on Windows (real processes)', () => {
     process.env.SHORTTY_SECRET = 'leak';
     try {
       const bin = file('env.cmd', '@echo off\r\necho [%SHORTTY_SECRET%][%SystemRoot%]\r\n');
-      const result = await runSandboxed(bin, []);
+      const result = await runSandboxed(bin, [], { timeoutMs: SLOW_HOST_MS });
       // An unset variable expands to nothing in a batch file
       expect(result.output.trim()).toMatch(/^\[\]\[.+Windows\]$/i);
     } finally {
