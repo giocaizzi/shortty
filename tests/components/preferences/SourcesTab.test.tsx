@@ -184,6 +184,22 @@ describe('SourcesTab', () => {
     expect(await screen.findByText(/Nothing exists at this path yet/)).toBeInTheDocument();
   });
 
+  it('clearing the path forgets its check: retyping it waits for a fresh one', async () => {
+    setup();
+    const field = await customPathField();
+    fireEvent.focus(field);
+    fireEvent.change(field, { target: { value: '/home/me/missing/file' } });
+    expect(await screen.findByText(/Nothing exists at this path yet/)).toBeInTheDocument();
+
+    fireEvent.change(field, { target: { value: '' } });
+    expect(screen.queryByText(/Nothing exists at this path yet/)).not.toBeInTheDocument();
+
+    // No stale answer from before the field was cleared
+    fireEvent.change(field, { target: { value: '/home/me/missing/file' } });
+    expect(screen.queryByText(/Nothing exists at this path yet/)).not.toBeInTheDocument();
+    expect(await screen.findByText(/Nothing exists at this path yet/)).toBeInTheDocument();
+  });
+
   it('toggles a source through disabledParsers', async () => {
     const { onUpdate } = setup([makeSource()], { disabledParsers: ['vim'] });
     fireEvent.click(await screen.findByRole('switch', { name: 'Use Ghostty' }));
