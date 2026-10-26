@@ -2,12 +2,14 @@
 // and wait for "App ready" in its log. Catches what tests running against the
 // repo's node_modules cannot: a packaged app that crashes on start.
 // Usage: node scripts/smoke-packaged.mjs   (after `make package`)
+// SMOKE_TIMEOUT_MS raises the limit, e.g. for an x64 app's first launch under
+// Rosetta, which translates the whole Electron framework first.
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-const TIMEOUT_MS = 60_000; // a start-up crash shows a modal dialog, so it surfaces as this timeout
+const TIMEOUT_MS = Number(process.env.SMOKE_TIMEOUT_MS) || 60_000; // a start-up crash shows a modal dialog, so it surfaces as this timeout
 const out = path.resolve('out');
 const dir = readdirSync(out).find((d) => d.startsWith(`Shortty-${process.platform}-`));
 if (!dir) throw new Error(`no packaged app for ${process.platform} in out/: run make package`);
@@ -41,6 +43,6 @@ const started = Date.now();
 const timer = setInterval(() => {
   if (/Uncaught|Cannot find module/.test(output)) finish(false, 'app crashed on start');
   else if (output.includes('App ready')) finish(true, `App ready after ${Date.now() - started} ms`);
-  else if (Date.now() - started > TIMEOUT_MS) finish(false, 'no "App ready" within 60 s');
+  else if (Date.now() - started > TIMEOUT_MS) finish(false, `no "App ready" within ${TIMEOUT_MS / 1000} s`);
 }, 500);
 timer.unref?.();
