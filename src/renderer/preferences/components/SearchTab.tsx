@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useId, useState } from 'react';
 import type { AppSettings, SearchSettings, ResultLimits } from '../../../shared/settings';
 import type { UpdateSetting } from '../hooks/useSettings';
 import { PaneHeader, Row, Section, SwitchRow } from './controls';
@@ -62,7 +62,13 @@ function NumberRow({
 }) {
   const id = useId();
   const [draft, setDraft] = useState(String(value));
-  useEffect(() => setDraft(String(value)), [value]);
+  // A value changed elsewhere (another window, a clamped commit) replaces the
+  // draft; adjusted while rendering so the old draft never shows.
+  const [shownValue, setShownValue] = useState(value);
+  if (!Object.is(value, shownValue)) {
+    setShownValue(value);
+    setDraft(String(value));
+  }
 
   const commit = () => {
     const parsed = parseInt(draft, 10);

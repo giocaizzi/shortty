@@ -438,6 +438,26 @@ describe('App window lifecycle', () => {
     }
   });
 
+  it('a reset delay changed while open applies to the next hide', async () => {
+    let emitSettings: (s: AppSettings) => void = () => undefined;
+    const input = setup({ resetLauncher: 'immediately' }, COMMANDS, {
+      onSettingsChange: vi.fn((cb: (s: AppSettings) => void) => {
+        emitSettings = cb;
+        return vi.fn();
+      }),
+    });
+    await type(input, 'toggle');
+    await screen.findAllByTestId('shortcut-row');
+    act(() => emitSettings(settingsWith({ resetLauncher: 'never' })));
+    emitHidden();
+    emitShown();
+    expect(input).toHaveValue('toggle');
+
+    act(() => emitSettings(settingsWith({ resetLauncher: 'immediately' })));
+    emitHidden();
+    expect(input).toHaveValue('');
+  });
+
   it('never resets when set to never', async () => {
     const input = setup({ resetLauncher: 'never' });
     await type(input, 'toggle');
@@ -559,6 +579,36 @@ describe('App typed drill-down (docs/spec.md §10.2)', () => {
 
     fireEvent.change(input, { target: { value: 'lo' } });
     expect(rowNames('subcommand-row')).toEqual(['gh auth login', 'gh auth logout']);
+  });
+
+  it('drills within the keystroke that completes a word, so the next one lands in the drilled field', async () => {
+    const input = drillSetup();
+    await type(input, '>');
+    typeKeys(input, 'gh ');
+    // No waiting: the drill is done before the next key event is handled
+    expect(crumbs()).toEqual(['gh']);
+    expect(input).toHaveValue('');
+    typeKeys(input, 'auth ');
+    expect(crumbs()).toEqual(['gh', 'auth']);
+    expect(input).toHaveValue('');
+    typeKeys(input, 'lo');
+    expect(input).toHaveValue('lo');
+    await waitFor(() => expect(rowNames('subcommand-row')).toEqual(['gh auth login', 'gh auth logout']));
+
+    // The level left behind kept the word that drilled it, for Backspace to put back
+    fireEvent.change(input, { target: { value: '' } });
+    press(input, 'Backspace');
+    expect(crumbs()).toEqual(['gh']);
+    expect(input).toHaveValue('auth');
+  });
+
+  it('a pasted line drills every level in one keystroke', async () => {
+    const input = drillSetup();
+    await type(input, '>');
+    // The ">" is a badge now, outside the field's text
+    fireEvent.change(input, { target: { value: 'gh auth lo' } });
+    expect(crumbs()).toEqual(['gh', 'auth']);
+    expect(input).toHaveValue('lo');
   });
 
   it('an exact, unambiguous last word drills without a space', async () => {
