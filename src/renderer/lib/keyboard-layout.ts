@@ -157,6 +157,28 @@ export function resolveStrokes(strokes: KeyStroke[], layout: KeyboardLayout): Re
   return strokes.map((s) => resolveStroke(s, layout));
 }
 
+const GLYPH_MODIFIERS: Record<string, KeyModifier> = { '⌃': 'ctrl', '⌥': 'opt', '⇧': 'shift', '⌘': 'cmd' };
+const NAMED_KEY_BY_GLYPH = new Map(Object.entries(NAMED_KEY_GLYPHS).map(([name, glyph]) => [glyph, name]));
+
+/**
+ * One chord of a shortcut that has no `strokes`, from its macOS-style
+ * display text ("⌘⇧P", "⌥Return"), labelled for `platform`: "Ctrl+Shift+P"-
+ * style words off macOS, unchanged on macOS.
+ */
+export function fallbackLabel(text: string, platform: KeyPlatform): string {
+  if (platform === 'darwin') return text;
+  const chars = [...text];
+  const mods: KeyModifier[] = [];
+  // The last character is always the key, so a lone "⇧" stays a key.
+  while (mods.length < chars.length - 1 && GLYPH_MODIFIERS[chars[mods.length]]) {
+    mods.push(GLYPH_MODIFIERS[chars[mods.length]]);
+  }
+  const key = chars.slice(mods.length).join('');
+  const label = namedLabel(NAMED_KEY_BY_GLYPH.get(key) ?? key, platform) ?? key;
+  if (mods.length === 0 && label === key) return text;
+  return formatCombo(mods, label, platform);
+}
+
 /** Modifiers at the start of a resolved label: glyphs or "Ctrl+"-style words. */
 const LEADING_MODS = /^(?:[⌃⌥⇧⌘]+|(?:(?:Ctrl|AltGr|Alt|Shift|Win|Super)\+)+)/;
 

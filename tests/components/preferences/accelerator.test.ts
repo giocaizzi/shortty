@@ -4,6 +4,7 @@ import {
   acceleratorHint,
   acceleratorToGlyphs,
   canonicalAccelerator,
+  heldModifierGlyphs,
   keyFromCode,
   recordChord,
   sameAccelerator,
@@ -37,66 +38,66 @@ describe('keyFromCode', () => {
 
 describe('recordChord (macOS)', () => {
   it('records the default Cmd+Shift+Space', () => {
-    expect(recordChord(chord('Space', { metaKey: true, shiftKey: true }), true)).toEqual({
+    expect(recordChord(chord('Space', { metaKey: true, shiftKey: true }), 'darwin')).toEqual({
       kind: 'ok',
       accelerator: 'Shift+Command+Space',
     });
   });
 
   it('keeps Control and Command distinct', () => {
-    const result = recordChord(chord('KeyK', { ctrlKey: true, metaKey: true }), true);
+    const result = recordChord(chord('KeyK', { ctrlKey: true, metaKey: true }), 'darwin');
     expect(result).toEqual({ kind: 'ok', accelerator: 'Control+Command+K' });
   });
 
   it('uses the physical key with Option held (e.key would be a symbol)', () => {
     // Option+Shift+K types "Ò" on Italian and "" on US layouts.
-    expect(recordChord(chord('KeyK', { altKey: true, shiftKey: true }), true)).toEqual({
+    expect(recordChord(chord('KeyK', { altKey: true, shiftKey: true }), 'darwin')).toEqual({
       kind: 'ok',
       accelerator: 'Alt+Shift+K',
     });
   });
 
   it('uses the US name of the position for Italian Shift+3 (e.key "£")', () => {
-    expect(recordChord(chord('Digit3', { ctrlKey: true, shiftKey: true }), true)).toEqual({
+    expect(recordChord(chord('Digit3', { ctrlKey: true, shiftKey: true }), 'darwin')).toEqual({
       kind: 'ok',
       accelerator: 'Control+Shift+3',
     });
   });
 
   it('keeps listening while only modifiers are held', () => {
-    expect(recordChord(chord('MetaLeft', { metaKey: true }), true)).toEqual({ kind: 'modifiers' });
-    expect(recordChord(chord('AltRight', { altKey: true }), true)).toEqual({ kind: 'modifiers' });
+    expect(recordChord(chord('MetaLeft', { metaKey: true }), 'darwin')).toEqual({ kind: 'modifiers' });
+    expect(recordChord(chord('AltRight', { altKey: true }), 'darwin')).toEqual({ kind: 'modifiers' });
   });
 
   it('cancels on a plain Escape', () => {
-    expect(recordChord(chord('Escape'), true)).toEqual({ kind: 'cancel' });
+    expect(recordChord(chord('Escape'), 'darwin')).toEqual({ kind: 'cancel' });
   });
 
   it('requires a non-Shift modifier, except for function keys', () => {
-    expect(recordChord(chord('KeyK'), true).kind).toBe('invalid');
-    expect(recordChord(chord('KeyK', { shiftKey: true }), true).kind).toBe('invalid');
-    expect(recordChord(chord('F13'), true)).toEqual({ kind: 'ok', accelerator: 'F13' });
+    expect(recordChord(chord('KeyK'), 'darwin').kind).toBe('invalid');
+    expect(recordChord(chord('KeyK', { shiftKey: true }), 'darwin').kind).toBe('invalid');
+    expect(recordChord(chord('F13'), 'darwin')).toEqual({ kind: 'ok', accelerator: 'F13' });
   });
 
   it('refuses shortcuts macOS reserves', () => {
-    const result = recordChord(chord('Space', { metaKey: true }), true);
+    const result = recordChord(chord('Space', { metaKey: true }), 'darwin');
     expect(result).toEqual({
       kind: 'invalid',
       reason: 'macOS uses ⌘Space for Spotlight. Choose another shortcut.',
     });
-    expect(recordChord(chord('Digit4', { metaKey: true, shiftKey: true }), true).kind).toBe(
+    expect(recordChord(chord('Digit4', { metaKey: true, shiftKey: true }), 'darwin').kind).toBe(
       'invalid',
     );
   });
 
   it('rejects keys without an accelerator name', () => {
-    expect(recordChord(chord('IntlBackslash', { metaKey: true }), true).kind).toBe('invalid');
+    expect(recordChord(chord('IntlBackslash', { metaKey: true }), 'darwin').kind).toBe('invalid');
   });
 });
 
 describe('recordChord (Windows/Linux)', () => {
   it('maps the Windows key to Super and does not apply macOS reservations', () => {
-    expect(recordChord(chord('Space', { metaKey: true }), false)).toEqual({
+    expect(recordChord(chord('Space', { metaKey: true }), 'linux')).toEqual({
       kind: 'ok',
       accelerator: 'Super+Space',
     });
@@ -109,21 +110,29 @@ describe('recordChord (Windows/Linux)', () => {
     [chord('Delete', { ctrlKey: true, altKey: true }), 'Windows uses Ctrl+Alt+Delete for the security screen. Choose another shortcut.'],
     [chord('KeyE', { metaKey: true }), 'Windows uses Win+E for the system. Choose another shortcut.'],
   ])('refuses shortcuts Windows reserves', (c, reason) => {
-    expect(recordChord(c, false, true)).toEqual({ kind: 'invalid', reason });
+    expect(recordChord(c, 'win32')).toEqual({ kind: 'invalid', reason });
   });
 
   it('allows them on Linux', () => {
-    expect(recordChord(chord('Tab', { altKey: true }), false)).toEqual({ kind: 'ok', accelerator: 'Alt+Tab' });
+    expect(recordChord(chord('Tab', { altKey: true }), 'linux')).toEqual({ kind: 'ok', accelerator: 'Alt+Tab' });
+  });
+
+  it.each([
+    ['darwin', 'Include ⌘, ⌃ or ⌥ so the shortcut doesn\'t block typing.'],
+    ['win32', 'Include Ctrl, Alt or Win so the shortcut doesn\'t block typing.'],
+    ['linux', 'Include Ctrl, Alt or Super so the shortcut doesn\'t block typing.'],
+  ] as const)('names the modifiers of %s when one is missing', (platform, reason) => {
+    expect(recordChord(chord('KeyK'), platform)).toEqual({ kind: 'invalid', reason });
   });
 });
 
 describe('acceleratorToGlyphs', () => {
   it('renders the default in macOS order', () => {
-    expect(acceleratorToGlyphs('CommandOrControl+Shift+Space', true)).toEqual(['⇧', '⌘', 'Space']);
+    expect(acceleratorToGlyphs('CommandOrControl+Shift+Space', 'darwin')).toEqual(['⇧', '⌘', 'Space']);
   });
 
   it('orders modifiers ⌃⌥⇧⌘ regardless of input order', () => {
-    expect(acceleratorToGlyphs('Command+Shift+Alt+Control+K', true)).toEqual([
+    expect(acceleratorToGlyphs('Command+Shift+Alt+Control+K', 'darwin')).toEqual([
       '⌃',
       '⌥',
       '⇧',
@@ -133,20 +142,38 @@ describe('acceleratorToGlyphs', () => {
   });
 
   it('uses words on other platforms', () => {
-    expect(acceleratorToGlyphs('CommandOrControl+Shift+Space', false)).toEqual([
+    expect(acceleratorToGlyphs('CommandOrControl+Shift+Space', 'win32')).toEqual([
       'Ctrl',
       'Shift',
       'Space',
     ]);
   });
 
+  it('names the Super key Win on Windows and Super on Linux', () => {
+    expect(acceleratorToGlyphs('Control+Alt+Shift+Super+K', 'win32')).toEqual(['Ctrl', 'Alt', 'Shift', 'Win', 'K']);
+    expect(acceleratorToGlyphs('Control+Alt+Shift+Super+K', 'linux')).toEqual(['Ctrl', 'Alt', 'Shift', 'Super', 'K']);
+    expect(acceleratorToGlyphs('Super+K', 'darwin')).toEqual(['⌘', 'K']);
+  });
+
   it('draws named keys as glyphs', () => {
-    expect(acceleratorToGlyphs('Alt+Return', true)).toEqual(['⌥', '↩']);
+    expect(acceleratorToGlyphs('Alt+Return', 'darwin')).toEqual(['⌥', '↩']);
   });
 
   it('names named keys with words on other platforms', () => {
-    expect(acceleratorToGlyphs('Alt+Return', false)).toEqual(['Alt', 'Enter']);
-    expect(acceleratorToGlyphs('Control+Escape', false)).toEqual(['Ctrl', 'Esc']);
+    expect(acceleratorToGlyphs('Alt+Return', 'win32')).toEqual(['Alt', 'Enter']);
+    expect(acceleratorToGlyphs('Control+Escape', 'win32')).toEqual(['Ctrl', 'Esc']);
+  });
+});
+
+describe('heldModifierGlyphs', () => {
+  const held = { metaKey: true, ctrlKey: true, altKey: false, shiftKey: false };
+
+  it.each([
+    ['darwin', ['⌃', '⌘']],
+    ['win32', ['Ctrl', 'Win']],
+    ['linux', ['Ctrl', 'Super']],
+  ] as const)('labels the held modifiers on %s', (platform, labels) => {
+    expect(heldModifierGlyphs(held, platform)).toEqual(labels);
   });
 });
 
@@ -155,19 +182,19 @@ describe('keycaps on the user\'s layout', () => {
 
   it('labels a punctuation key as printed on an Italian keyboard', () => {
     // Electron's "-" is the US Minus position, which is the "'" key on Italian.
-    expect(acceleratorToGlyphs('Control+Alt+-', true, italian)).toEqual(['⌃', '⌥', "'"]);
+    expect(acceleratorToGlyphs('Control+Alt+-', 'darwin', italian)).toEqual(['⌃', '⌥', "'"]);
     expect(acceleratorHint('Control+Alt+-', true, italian)).toMatch(/Physical key/);
   });
 
   it('keeps letters, digits and named keys unchanged', () => {
-    expect(acceleratorToGlyphs('Alt+Shift+K', true, italian)).toEqual(['⌥', '⇧', 'K']);
-    expect(acceleratorToGlyphs('Control+Shift+3', true, italian)).toEqual(['⌃', '⇧', '3']);
-    expect(acceleratorToGlyphs('Shift+Command+Space', true, italian)).toEqual(['⇧', '⌘', 'Space']);
+    expect(acceleratorToGlyphs('Alt+Shift+K', 'darwin', italian)).toEqual(['⌥', '⇧', 'K']);
+    expect(acceleratorToGlyphs('Control+Shift+3', 'darwin', italian)).toEqual(['⌃', '⇧', '3']);
+    expect(acceleratorToGlyphs('Shift+Command+Space', 'darwin', italian)).toEqual(['⇧', '⌘', 'Space']);
     expect(acceleratorHint('Alt+Shift+K', true, italian)).toBeUndefined();
   });
 
   it('uses the US labels by default', () => {
-    expect(acceleratorToGlyphs('Control+Alt+-', true)).toEqual(['⌃', '⌥', '-']);
+    expect(acceleratorToGlyphs('Control+Alt+-', 'darwin')).toEqual(['⌃', '⌥', '-']);
   });
 });
 

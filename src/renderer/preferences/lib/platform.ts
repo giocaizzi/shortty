@@ -1,13 +1,12 @@
-/**
- * Whether the app runs on macOS. `process` does not exist in the sandboxed
- * renderer, so the preload exposes the platform.
- */
-export function isMacPlatform(): boolean {
-  return window.electronAPI.platform === 'darwin';
-}
+import type { KeyPlatform } from '../../../shared/keys';
 
-export function isWindowsPlatform(): boolean {
-  return window.electronAPI.platform === 'win32';
+/**
+ * The OS whose key names label shortcuts (macOS when unknown). `process` does
+ * not exist in the sandboxed renderer, so the preload exposes the platform.
+ */
+export function keyPlatform(): KeyPlatform {
+  const { platform } = window.electronAPI;
+  return platform === 'win32' || platform === 'linux' ? platform : 'darwin';
 }
 
 /** The installed app's `--reset-settings` command (docs/runbooks/reset-settings.md). */

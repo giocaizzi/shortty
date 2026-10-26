@@ -1,17 +1,26 @@
 import { access, constants, stat } from 'node:fs/promises';
-import { isAbsolute } from 'node:path';
-import { pathDirectories } from '../commands/path-scanner';
+import { isAbsolute, win32 } from 'node:path';
+import { pathDirectories, windowsExecutableExtensions } from '../commands/path-scanner';
 import { runSandboxed } from '../commands/sandbox-exec';
 import log from '../logger';
 
-/** First executable `name` on PATH, like the shell resolves it; null when missing. */
+/**
+ * First executable `name` on PATH, like the shell resolves it; null when missing.
+ * On Windows a name without a PATHEXT extension tries each one in order
+ * (`pwsh` finds `pwsh.exe`), and any existing file counts: there is no execute bit.
+ */
 export async function findOnPath(name: string, pathValue?: string): Promise<string | null> {
+  const win = process.platform === 'win32';
+  const exts = win ? windowsExecutableExtensions() : [];
+  const names = !win || exts.includes(win32.extname(name).toLowerCase()) ? [name] : exts.map((ext) => name + ext);
   for (const dir of pathDirectories(pathValue)) {
-    const candidate = `${dir}/${name}`;
-    try {
-      await access(candidate, constants.X_OK);
-      if ((await stat(candidate)).isFile()) return candidate;
-    } catch { /* not here */ }
+    for (const file of names) {
+      const candidate = win ? win32.join(dir, file) : `${dir}/${file}`;
+      try {
+        if (!win) await access(candidate, constants.X_OK);
+        if ((await stat(candidate)).isFile()) return candidate;
+      } catch { /* not here */ }
+    }
   }
   return null;
 }
