@@ -64,12 +64,17 @@ function usePathChecks(paths: string[], delayMs = 0): Map<string, PathCheck> {
   const [checks, setChecks] = useState<Map<string, PathCheck>>(new Map());
   const key = paths.join('\n');
 
+  // No paths, no checks: forget the last answer, so paths typed again wait
+  // for a fresh one. Adjusted while rendering, not in the effect below.
+  const [checkedKey, setCheckedKey] = useState(key);
+  if (key !== checkedKey) {
+    setCheckedKey(key);
+    if (key === '') setChecks(new Map());
+  }
+
   useEffect(() => {
-    const list = key === '' ? [] : key.split('\n');
-    if (list.length === 0) {
-      setChecks(new Map());
-      return;
-    }
+    if (key === '') return;
+    const list = key.split('\n');
     let cancelled = false;
     const timer = setTimeout(() => {
       window.electronAPI

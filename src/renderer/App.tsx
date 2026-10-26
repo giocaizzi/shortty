@@ -120,8 +120,11 @@ export function App() {
   const { commands } = useCommands();
   const { commandPrefixMode, dismissAfterCopy, commandsEnabled, resultLimits, globalShortcut, resetLauncher } =
     useAppSettings();
+  // Read by the window hide/show listeners, which subscribe once.
   const resetDelay = useRef(RESET_DELAY_MS[resetLauncher]);
-  resetDelay.current = RESET_DELAY_MS[resetLauncher];
+  useLayoutEffect(() => {
+    resetDelay.current = RESET_DELAY_MS[resetLauncher];
+  }, [resetLauncher]);
   const layout = useKeyboardLayout();
 
   const [navStack, setNavStack] = useState<StackEntry[]>([ROOT]);
