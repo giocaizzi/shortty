@@ -58,7 +58,6 @@ function updateStatusText({ state, version }: UpdateStatus): string {
 /** Updates row: current version, status and the one action that fits it (also on About). */
 export function UpdatesSection({ settings, onUpdate }: GeneralTabProps) {
   const [status, setStatus] = useState<UpdateStatus | null>(null);
-  const platform = window.electronAPI.platform;
 
   useEffect(() => {
     window.electronAPI.getUpdateStatus().then(setStatus).catch(() => undefined);
@@ -87,19 +86,19 @@ export function UpdatesSection({ settings, onUpdate }: GeneralTabProps) {
       </button>
     );
 
-  // Squirrel installs updates only on macOS and Windows (docs/spec.md §12.4).
-  const autoPossible = platform === 'darwin' || platform === 'win32';
+  // Only a copy Squirrel can update (docs/spec.md §12.4) gets the switch.
+  const selfUpdate = status.canAutoUpdate === true;
   return (
     <Section
       label="Updates"
       footer={
-        autoPossible
-          ? `Automatic updates need ${platform === 'darwin' ? 'a signed build' : 'the installer build'}; otherwise Shortty tells you about new versions and links to the download.`
-          : 'Shortty tells you about new versions and links to the download.'
+        selfUpdate
+          ? 'Updates install in the background and apply when you restart.'
+          : "This copy can't update itself. Shortty will tell you when a new version is out and link to the download."
       }
     >
       <Row label={`Shortty ${status.current}`} description={updateStatusText(status)} control={button} />
-      {autoPossible && (
+      {selfUpdate && (
         <SwitchRow
           label="Download updates automatically"
           description="Off: only tell me when a new version is out."

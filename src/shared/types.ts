@@ -146,6 +146,8 @@ export interface UpdateStatus {
   state: 'disabled' | 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'ready' | 'error';
   /** The newer version, when known (available, downloading, ready). */
   version?: string;
+  /** Whether this copy can install updates itself (canAutoUpdate); absent until known, and in development and e2e. */
+  canAutoUpdate?: boolean;
 }
 
 /**

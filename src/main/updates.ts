@@ -120,6 +120,7 @@ export class Updater {
   private status: UpdateStatus;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private capable: Promise<boolean> | null = null;
+  private selfUpdate: boolean | undefined;
   private auto = false;
   private listening = false;
 
@@ -136,7 +137,12 @@ export class Updater {
     if (!this.deps.enabled) return;
     this.stop();
     this.capable ??= this.deps.canAutoUpdate().catch(() => false);
-    this.auto = autoUpdate && (await this.capable);
+    const capable = await this.capable;
+    if (this.selfUpdate !== capable) {
+      this.selfUpdate = capable;
+      this.set({ ...this.status });
+    }
+    this.auto = autoUpdate && capable;
     if (this.auto) this.listen();
     log.info(`Updates: ${this.auto ? 'auto-update' : 'notify only'}`);
     const interval = this.auto ? AUTO_INTERVAL_MS : NOTIFY_INTERVAL_MS;
@@ -202,6 +208,7 @@ export class Updater {
 
   private set(next: Omit<UpdateStatus, 'current'>): void {
     this.status = { current: this.deps.currentVersion, ...next };
+    if (this.selfUpdate !== undefined) this.status.canAutoUpdate = this.selfUpdate;
     this.deps.onStatus(this.status);
   }
 }

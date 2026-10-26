@@ -46,6 +46,7 @@ A 404 with "No updates found (needs asset matching …)" means an asset name no 
 
 ## Debug a copy that does not update
 
+- Preferences → General → Updates says which path this copy is on: "Updates install in the background…" (auto-update) or "This copy can't update itself…" (notify only, no "Download updates automatically" switch).
 - The log (`~/Library/Logs/Shortty/main.log`, `%APPDATA%\Shortty\logs\main.log`) says `Updates: auto-update` or `Updates: notify only` at start, and `Auto-update failed…` on a Squirrel error (Shortty then falls back to the notify check).
 - macOS: `codesign -dv --verbose=2 /Applications/Shortty.app` must list `Authority=Developer ID Application: …`; ad-hoc or unsigned builds only notify. Squirrel.Mac also fails on a translocated app (run from the DMG or Downloads): move it to /Applications.
 - Windows: auto-update needs `%LOCALAPPDATA%\shortty\Update.exe`; the portable ZIP has none.
