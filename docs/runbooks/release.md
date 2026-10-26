@@ -3,7 +3,7 @@
 **When:** shipping a new Shortty version (macOS DMG/ZIP, Windows installer/ZIP, Linux deb/rpm on a GitHub Release), or getting test installers without releasing.
 **Preconditions:** the release-please GitHub App is installed on `giocaizzi/shortty` and the repo has the secrets `RP_APP_ID` and `RP_APP_KEY` (same app as the other `giocaizzi` repos); changes land on `main` as Conventional Commits.
 
-Releases are automated by `.github/workflows/release.yml`. macOS builds are signed with the Developer ID and notarized when the `release` environment holds the Apple secrets (below); otherwise they build unsigned with a warning. Windows builds are signed through SignPath (free certificate from SignPath Foundation) when the `release` environment holds the SignPath token and organization (below); otherwise they build unsigned with a warning, and SmartScreen warns on first launch. Installed apps update themselves: Windows and signed macOS through update.electronjs.org, Linux and unsigned macOS by notifying that a new version is out.
+Releases are automated by `.github/workflows/release.yml`. macOS builds are signed with the Developer ID and notarized when the `release` environment holds the Apple secrets (below); otherwise they build unsigned with a warning. Windows release builds are signed through SignPath (free certificate from SignPath Foundation) when the `release` environment holds the SignPath token and organization (below); manual runs and builds without them are unsigned with a warning, and SmartScreen warns on first launch. Installed apps update themselves: Windows and signed macOS through update.electronjs.org, Linux and unsigned macOS by notifying that a new version is out.
 
 ## Cut a release
 
@@ -30,7 +30,7 @@ The names carry no version, so `https://github.com/giocaizzi/shortty/releases/la
 
 ## Test installers without releasing
 
-Actions → Release → Run workflow (or `gh workflow run release.yml --ref <branch>`). Only the build jobs run; download the installers from the run's artifacts (`gh run download <run-id>`). With Windows signing set up, these runs submit signing requests too: approve them, or the Windows job fails after an hour. SignPath only signs builds from the branches its signing policy allows (`main`).
+Actions → Release → Run workflow (or `gh workflow run release.yml --ref <branch>`). Only the build jobs run; download the installers from the run's artifacts (`gh run download <run-id>`). Windows installers from these runs are always unsigned: only real releases (merged Release PR) go to SignPath, since each signing request needs a manual approval.
 
 ## Windows signing
 
@@ -40,7 +40,7 @@ Squirrel packs the app executable into the `.nupkg` (update feed) and into `Setu
 2. `shortty.exe` is uploaded as the artifact `unsigned-app-exe` and signed with the artifact configuration `app-exe`; the signed copy replaces it.
 3. `make make FROM_PACKAGE=1` builds the ZIP, the `.nupkg`, `RELEASES` and `Setup.exe` from the signed folder.
 4. `Shortty-Windows-x64-Setup.exe` is uploaded as `unsigned-setup-exe`, signed with `setup-exe` and replaced. The `.nupkg` and `RELEASES` do not change.
-5. `Verify the signature (Windows)` checks both files with `Get-AuthenticodeSignature` (status `Valid`, timestamped). Unsigned files only warn when SignPath is not configured; anything else fails the job.
+5. `Verify the signature (Windows)` checks both files with `Get-AuthenticodeSignature` (status `Valid`, timestamped). Unsigned files only warn when signing did not run (a manual run, or SignPath not configured); anything else fails the job.
 
 The artifact configurations live in [`.signpath/artifact-configurations/`](../../.signpath/artifact-configurations/); SignPath does not read them from the repo, so paste a changed file into the SignPath project in the same change. The Electron DLLs next to `shortty.exe` are upstream binaries and stay unsigned, as SignPath Foundation allows. Applying for SignPath Foundation and configuring SignPath: [signpath-application.md](signpath-application.md).
 

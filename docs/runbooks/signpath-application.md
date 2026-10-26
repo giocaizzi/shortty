@@ -13,8 +13,7 @@ SignPath Foundation gives free code signing certificates to open source projects
 
 ## Steps
 
-1. Publish the code signing policy: add the section below to `README.md` (the home page) in a PR, and link it from the Install section next to the Windows download. Do this before applying, since the reviewers check it.
-2. Apply at <https://signpath.org/apply>. The form is a web form; have this ready:
+1. Apply at <https://signpath.org/apply>. The form is a web form; have this ready:
 
    | Field | Value |
    |---|---|
@@ -23,13 +22,14 @@ SignPath Foundation gives free code signing certificates to open source projects
    | Home page | `https://github.com/giocaizzi/shortty` |
    | Download page | `https://github.com/giocaizzi/shortty/releases` |
    | License | MIT |
-   | Code signing policy | `https://github.com/giocaizzi/shortty#code-signing-policy` |
+   | Code signing policy | `https://github.com/giocaizzi/shortty#code-signing-policy` once published (step 3); until then, the policy text below |
    | Description | A launcher that shows the keyboard shortcuts of your tools and the CLI commands on your PATH behind one fuzzy search (Electron, macOS, Windows, Linux). |
    | Build system | GitHub Actions on GitHub-hosted runners (`.github/workflows/release.yml`) |
    | Files to sign | `shortty.exe` (app executable) and `Shortty-Windows-x64-Setup.exe` (Squirrel installer) |
    | Team | giocaizzi (author, reviewer, approver) |
 
-3. Wait for acceptance. SignPath Foundation creates the organization and the project and issues the certificate.
+2. Wait for acceptance. SignPath Foundation creates the organization and the project and issues the certificate.
+3. Publish the code signing policy only now, once accepted (its attribution line is not true before): add the section below to `README.md` (the home page) in a PR, and link it from the Install section next to the Windows download.
 4. In SignPath (app.signpath.io), with MFA on your SignPath account:
    1. Trusted build systems: add the predefined **GitHub.com** trusted build system to the organization and link it to the project. Optionally install the SignPath GitHub App on `giocaizzi/shortty` for audit log checks.
    2. Project: slug `shortty`, repository URL `https://github.com/giocaizzi/shortty`.
@@ -49,7 +49,7 @@ SignPath Foundation gives free code signing certificates to open source projects
    gh variable set SIGNPATH_SIGNING_POLICY_SLUG -R giocaizzi/shortty --env release --body <policy-slug>
    ```
 
-7. Run the build from `main`: `gh workflow run release.yml --ref main`. Approve the two signing requests in SignPath (`app-exe` first, then `setup-exe`) while `Build (Windows)` waits.
+7. Cut the next release ([release.md](release.md#cut-a-release)): only real releases are signed, manual `workflow_dispatch` runs stay unsigned. Approve the two signing requests in SignPath (`app-exe` first, then `setup-exe`) while `Build (Windows)` waits, up to an hour each.
 8. Update the README install note: drop "SmartScreen may warn about an unknown publisher" once a signed release is out (a new certificate can still warn until it builds reputation).
 
 ## Code signing policy (paste into README.md)
@@ -74,7 +74,7 @@ Shortty keeps your data on your machine: no telemetry, no accounts, no analytics
 ## Verify
 
 - `gh variable list -R giocaizzi/shortty --env release` lists `SIGNPATH_ORGANIZATION_ID`; `gh secret list -R giocaizzi/shortty --env release` lists `SIGNPATH_API_TOKEN` (names only).
-- The test run's `Verify the signature (Windows)` step prints `signed by CN=SignPath Foundation, ...` for `shortty.exe` and `Shortty-Windows-x64-Setup.exe`.
+- The release run's `Verify the signature (Windows)` step prints `signed by CN=SignPath Foundation, ...` for `shortty.exe` and `Shortty-Windows-x64-Setup.exe`.
 - On a Windows machine, the downloaded `Shortty-Windows-x64-Setup.exe` → Properties → Digital Signatures shows SignPath Foundation.
 
 ## Rollback

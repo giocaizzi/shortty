@@ -69,9 +69,10 @@ jobs:
     # Signing secrets live in this environment (docs/runbooks/release.md).
     environment: release
     env:
-      # Windows signs through SignPath only when the token and organization are
-      # set; otherwise the build is unsigned, like a local one.
-      SIGNPATH_ENABLED: ${{ matrix.name == 'Windows' && secrets.SIGNPATH_API_TOKEN != '' && vars.SIGNPATH_ORGANIZATION_ID != '' }}
+      # Windows signs through SignPath only on a real release (each request
+      # needs a manual approval) and when the token and organization are set;
+      # manual runs and unconfigured builds are unsigned, like a local one.
+      SIGNPATH_ENABLED: ${{ matrix.name == 'Windows' && needs.release-please.outputs.created == 'true' && secrets.SIGNPATH_API_TOKEN != '' && vars.SIGNPATH_ORGANIZATION_ID != '' }}
     defaults:
       run:
         shell: bash
@@ -111,7 +112,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           make package
-          if [ "$SIGNPATH_ENABLED" != true ]; then echo "::warning::SignPath not configured: unsigned Windows build"; fi
+          if [ "$SIGNPATH_ENABLED" != true ]; then echo "::warning::Not a release or SignPath not configured: unsigned Windows build"; fi
       - name: Upload the app exe for signing (Windows)
         id: unsigned-exe
         if: env.SIGNPATH_ENABLED == 'true'
