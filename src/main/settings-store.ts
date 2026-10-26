@@ -4,7 +4,9 @@ import { DEFAULT_SETTINGS } from '../shared/settings';
 import { sanitizeSettings } from './settings-validation';
 
 const store = new Store<AppSettings>({
-  defaults: DEFAULT_SETTINGS,
+  // A spread gives the object type the implicit index signature electron-store's
+  // DefaultsOf needs for the dot-notation keys of `sourcePathOverrides`.
+  defaults: { ...DEFAULT_SETTINGS },
 });
 
 export function getSettings(): AppSettings {
@@ -19,7 +21,7 @@ export function getSetting<K extends keyof AppSettings>(
 
 export function setSetting<K extends keyof AppSettings>(
   key: K,
-  value: AppSettings[K],
+  value: Exclude<AppSettings[K], undefined>,
 ): void {
   store.set(key, value);
 }

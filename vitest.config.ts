@@ -15,6 +15,8 @@ export default defineConfig({
     // The on-disk transform cache misses new files matched by import.meta.glob
     // (a new cheatsheet), so tests ran against the old bundled set
     fsModuleCache: false,
+    // Inlined so a test's vi.mock('electron') reaches electron-store's own import
+    server: { deps: { inline: ['electron-store'] } },
   },
   resolve: {
     alias: {

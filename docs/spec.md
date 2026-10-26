@@ -973,7 +973,7 @@ Principle: **never crash the app, never block the user.** Each subsystem fails i
 | Styling | Tailwind CSS (`@tailwindcss/vite`) | 4 |
 | Search | Fuse.js | ^7 |
 | File watching | chokidar | ^5 |
-| Settings | electron-store | ^11 |
+| Settings | electron-store | ^12 |
 | Icons | Lucide React | ^1 |
 | Logging | electron-log | ^5 |
 | Auto-update | Electron `autoUpdater` + update.electronjs.org | built in |
