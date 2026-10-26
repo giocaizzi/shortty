@@ -15,7 +15,7 @@ import {
 import path from 'node:path';
 import os from 'node:os';
 import started from 'electron-squirrel-startup';
-import log from './logger';
+import log, { ignoreBrokenPipe } from './logger';
 import { registerIpcHandlers } from './ipc';
 import { ParserRegistry } from './parsers/registry';
 import { startWatching, stopWatching, restartWatching } from './watcher';
@@ -44,6 +44,10 @@ import { buildAppMenuTemplate } from './app-menu';
 import { focusLauncher, launcherMaterial, SOLID_PANEL_CSS } from './launcher-window';
 import { loginItemSettings } from './login-item';
 import { Updater, canAutoUpdate, fetchLatestVersion } from './updates';
+
+// The launching terminal may close its pipes while the app runs.
+ignoreBrokenPipe(process.stdout);
+ignoreBrokenPipe(process.stderr);
 
 // `shortty --reset-settings` (docs/spec.md §9.1 escape hatch): restore defaults and quit.
 const resetRequested = process.argv.includes('--reset-settings');

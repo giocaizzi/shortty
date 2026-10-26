@@ -9,6 +9,7 @@ import {
 } from '../../../src/main/parsers/tmux.parser';
 import { normalizeToCanonical } from '../../../src/main/parsers/key-normalizer';
 import { FIXTURES, rows } from './parser-helpers';
+import { REAL_PROCESS_TEST_MS } from '../../helpers';
 
 /** Real `tmux -f /dev/null list-keys` output of tmux 3.6a. */
 const DEFAULTS = readFileSync(join(FIXTURES, 'tmux-list-keys-defaults.txt'), 'utf-8');
@@ -179,17 +180,26 @@ describe('parseTmuxKey', () => {
   });
 });
 
-describe.runIf(process.platform !== 'win32')('TmuxParser runs tmux asynchronously', () => {
+describe.runIf(process.platform !== 'win32')('TmuxParser runs tmux asynchronously', { timeout: REAL_PROCESS_TEST_MS }, () => {
   it('does not block the event loop while tmux runs', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'shortty-tmux-'));
+    const go = join(dir, 'go');
     const savedPath = process.env.PATH;
     try {
-      writeFileSync(join(dir, 'tmux'), '#!/bin/sh\nsleep 0.3\necho "tmux 9.9"\n');
+      // tmux answers only after the test's timer has run, whatever the host load:
+      // a blocking spawn never runs the timer, so tmux gives up waiting and answers first
+      writeFileSync(
+        join(dir, 'tmux'),
+        `#!/bin/sh\ni=0\nwhile [ ! -e '${go}' ] && [ $i -lt 100 ]; do sleep 0.05; i=$((i+1)); done\necho "tmux 9.9"\n`,
+      );
       chmodSync(join(dir, 'tmux'), 0o755);
       process.env.PATH = `${dir}:/usr/bin:/bin`;
 
       const events: string[] = [];
-      setTimeout(() => events.push('timer'), 50);
+      setTimeout(() => {
+        events.push('timer');
+        writeFileSync(go, '');
+      }, 0);
       const available = await new TmuxParser().isAvailable().then((v) => {
         events.push('tmux');
         return v;

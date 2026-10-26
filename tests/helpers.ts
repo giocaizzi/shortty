@@ -35,6 +35,18 @@ export function withPlatform(platform: NodeJS.Platform): void {
   });
 }
 
+/**
+ * Process timeout for real-process tests that are not about the timeout.
+ * Production limits (2 s per `--help` probe, 3 s for the login shell) are
+ * wall-clock budgets that a loaded host (several worktrees running their
+ * suites) exceeds just starting `sh`: the probe is then killed and the test
+ * sees null or a missing run. Pass this instead; a real hang still fails.
+ */
+export const SLOW_HOST_MS = 20_000;
+
+/** Vitest timeout for those tests: room for a few `SLOW_HOST_MS` spawns. */
+export const REAL_PROCESS_TEST_MS = 60_000;
+
 /** Create a Shortcut with sensible defaults, merging any overrides. */
 export function makeShortcut(overrides?: Partial<Shortcut>): Shortcut {
   return {

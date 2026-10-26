@@ -51,7 +51,7 @@ Parsed help formats include cobra (kubectl, gh, docker, helm), clap, click, argp
 Grab the latest release with the buttons above, or from [Releases](https://github.com/giocaizzi/shortty/releases):
 
 - **macOS**: open `Shortty-macOS-arm64.dmg` (Apple silicon) or `Shortty-macOS-x64.dmg` (Intel, from [Releases](https://github.com/giocaizzi/shortty/releases)) and drag Shortty to Applications.
-- **Windows** (x64): run `Shortty-Windows-x64-Setup.exe` (installs for your user, no admin). SmartScreen may warn about an unknown publisher: More info → Run anyway. Windows releases are not signed yet; see the [code signing policy](#code-signing-policy) (signing through SignPath Foundation is pending) and the [privacy policy](#privacy-policy).
+- **Windows** (x64): run `Shortty-Windows-x64-Setup.exe` (installs for your user, no admin). SmartScreen may warn about an unknown publisher: More info → Run anyway. Windows releases are not signed yet; see the [code signing policy](https://github.com/giocaizzi/shortty/blob/main/docs/code-signing-policy.md) (signing through SignPath Foundation is pending) and the [privacy policy](https://github.com/giocaizzi/shortty/blob/main/docs/privacy-policy.md).
 - **Linux** (x64): `sudo apt install ./Shortty-Linux-x64.deb` or `sudo dnf install ./Shortty-Linux-x64.rpm`.
 
 Or build it yourself: `make install && make make` (installers land in `out/make`).
@@ -65,29 +65,6 @@ make e2e       # end-to-end suite on the real app (macOS)
 ```
 
 `make help` lists every target. Docs, spec and runbooks live in [docs/](docs/README.md).
-
-## Privacy policy
-
-Shortty keeps your data on your machine: no telemetry, no accounts, no analytics. The only network requests it makes on its own are update checks, and only in an installed copy:
-
-- A copy that can update itself (a Windows install made with `Setup.exe`, or a signed macOS app) asks update.electronjs.org for a newer release once an hour, with "Download updates automatically" on. update.electronjs.org sees the app version, the platform and your IP address.
-- Any other copy (Linux, the portable Windows ZIP, an unsigned macOS app), or one with "Download updates automatically" off, asks the GitHub releases API (`api.github.com`) for the latest release once a day. GitHub sees your IP address.
-- Check Now in Settings runs the same check when you click it.
-
-Turning off "Download updates automatically" only stops updates from being downloaded and installed; Shortty still checks and tells you when a new version is out. The check itself cannot be turned off yet. Links you click (a release page, the repository, an issue form) open in your browser.
-
-## Code signing policy
-
-macOS releases are signed with the maintainer's Apple Developer ID and notarized by Apple.
-
-Windows releases are currently unsigned. Shortty has applied to [SignPath Foundation](https://signpath.org) for a free code signing certificate; once the application is approved, Windows releases will be signed with that certificate through [SignPath.io](https://about.signpath.io), and this section will say so.
-
-Once signing is in place, Windows releases (`Shortty-Windows-x64-Setup.exe` and the app executable inside it and in `Shortty-Windows-x64.zip`) will be built from this repository by GitHub Actions ([release.yml](.github/workflows/release.yml)) on GitHub-hosted runners and signed through SignPath, with every signing request approved by hand. Only binaries built from this repository will be signed; the Electron runtime libraries shipped next to the app are upstream binaries.
-
-Team roles:
-
-- Committers and reviewers: [giocaizzi](https://github.com/giocaizzi)
-- Approvers: [giocaizzi](https://github.com/giocaizzi)
 
 ## License
 

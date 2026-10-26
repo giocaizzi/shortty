@@ -22,15 +22,15 @@ SignPath Foundation gives free code signing certificates to open source projects
    | Home page | `https://github.com/giocaizzi/shortty` |
    | Download URL | `https://github.com/giocaizzi/shortty#install` |
    | License | MIT |
-   | Code signing policy | `https://github.com/giocaizzi/shortty#code-signing-policy` (published with pending wording) |
-   | Privacy Policy URL | `https://github.com/giocaizzi/shortty#privacy-policy` |
+   | Code signing policy | `https://github.com/giocaizzi/shortty/blob/main/docs/code-signing-policy.md` (published with pending wording) |
+   | Privacy Policy URL | `https://github.com/giocaizzi/shortty/blob/main/docs/privacy-policy.md` |
    | Description | A launcher that shows the keyboard shortcuts of your tools and the CLI commands on your PATH behind one fuzzy search (Electron, macOS, Windows, Linux). |
    | Build system | GitHub Actions on GitHub-hosted runners (`.github/workflows/release.yml`) |
    | Files to sign | `shortty.exe` (app executable) and `Shortty-Windows-x64-Setup.exe` (Squirrel installer) |
    | Team | giocaizzi (author, reviewer, approver) |
 
 2. Wait for acceptance. SignPath Foundation creates the organization and the project and issues the certificate.
-3. Switch the code signing policy to its final wording. `README.md` (the home page) already has a `## Code signing policy` section worded as pending, linked with the `## Privacy policy` section from the Install section next to the Windows download, so the download page mentions SignPath Foundation. Its attribution line ("Free code signing provided by ...") is not true before acceptance, so only now, in a PR, replace that section with the final block below (the `## Privacy policy` section stays as it is) and reword the Windows install note, which still says Windows releases are not signed yet.
+3. Switch the code signing policy to its final wording. [docs/code-signing-policy.md](../code-signing-policy.md) is worded as pending and is linked, with the privacy policy, from the Install section of `README.md` next to the Windows download, so the download page mentions SignPath Foundation. Its attribution line ("Free code signing provided by ...") is not true before acceptance, so only now, in a PR, replace that doc's content with the final block below (`docs/privacy-policy.md` stays as it is) and reword the Windows install note in the README, which still says Windows releases are not signed yet.
 4. In SignPath (app.signpath.io), with MFA on your SignPath account:
    1. Trusted build systems: add the predefined **GitHub.com** trusted build system to the organization and link it to the project. Optionally install the SignPath GitHub App on `giocaizzi/shortty` for audit log checks.
    2. Project: slug `shortty`, repository URL `https://github.com/giocaizzi/shortty`.
@@ -56,11 +56,11 @@ SignPath Foundation gives free code signing certificates to open source projects
 ## Code signing policy (final wording, at acceptance)
 
 ```markdown
-## Code signing policy
+# Code signing policy
 
 Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
 
-Windows releases (`Shortty-Windows-x64-Setup.exe` and the app executable inside it and in `Shortty-Windows-x64.zip`) are built from this repository by GitHub Actions ([release.yml](.github/workflows/release.yml)) on GitHub-hosted runners and signed through SignPath. Every signing request is approved by hand. Only binaries built from this repository are signed; the Electron runtime libraries shipped next to the app are upstream binaries.
+Windows releases (`Shortty-Windows-x64-Setup.exe` and the app executable inside it and in `Shortty-Windows-x64.zip`) are built from this repository by GitHub Actions ([release.yml](../.github/workflows/release.yml)) on GitHub-hosted runners and signed through SignPath. Every signing request is approved by hand. Only binaries built from this repository are signed; the Electron runtime libraries shipped next to the app are upstream binaries.
 
 macOS releases are signed with the maintainer's Apple Developer ID and notarized by Apple.
 

@@ -7,9 +7,12 @@ Source of truth for how Shortty works and how to operate it. Quickstart: [../REA
 - [spec.md](spec.md): product spec and architecture (data model, shortcuts and commands engines, search, settings, UX, lifecycle), with the design decisions in §15.
 - [screens.md](screens.md): every screen and UI state of the launcher, tray and Preferences.
 - [keyboard-layouts.md](keyboard-layouts.md): how keys are modelled, displayed, searched and copied on non-US keyboard layouts.
+- [privacy-policy.md](privacy-policy.md): what Shortty sends over the network (update checks only) and to whom.
+- [code-signing-policy.md](code-signing-policy.md): how macOS and Windows releases are signed, and the signing team roles.
 
 ## Runbooks
 
+- [runbooks/run-unit-tests.md](runbooks/run-unit-tests.md): run the Vitest suite and fix the failures that only show in a fresh checkout or on a busy machine.
 - [runbooks/run-e2e-tests.md](runbooks/run-e2e-tests.md): run and write the Playwright end-to-end suite.
 - [runbooks/release.md](runbooks/release.md): cut a release (release-please, macOS and Windows installers), test installers without releasing, roll back.
 - [runbooks/signpath-application.md](runbooks/signpath-application.md): apply to SignPath Foundation and configure SignPath for Windows signing (policy text, artifact configurations, secrets).
