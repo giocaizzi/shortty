@@ -86,4 +86,4 @@ Releases are published by CI ([release.md](release.md)). By hand: `gh release cr
 
 Before publishing, nothing leaves the machine: delete `out/`. After publishing, delete the GitHub Release and its tag (`gh release delete vX.Y.Z --cleanup-tag`); users who already installed it keep it ([release.md](release.md#rollback)). A notarization submission cannot be withdrawn, but it has no effect without the published artifact.
 
-**Last verified:** 2026-10-14 by the feat/finish-v1 docs pass (commands read against `Makefile` and `forge.config.ts`; signing and publishing not exercised, no certificate available)
+**Last verified:** 2026-10-26, signed and notarized run of `release.yml` (workflow_dispatch): both macOS jobs built, Developer ID signed, notarized and stapled the app and DMG; `spctl` accepted both as "Notarized Developer ID"; the arm64 DMG was also checked on a Mac.

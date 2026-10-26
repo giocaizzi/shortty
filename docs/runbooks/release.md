@@ -45,4 +45,4 @@ Delete the release and its tag: `gh release delete vX.Y.Z --cleanup-tag`. Then f
   - `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` (appleid.apple.com → App-Specific Passwords), `APPLE_TEAM_ID`
 - Windows signing (not set up): an Azure Trusted Signing account or a CA cloud-signing certificate.
 
-**Last verified:** 2026-10-15, workflow written and linted with actionlint; first real run pending.
+**Last verified:** 2026-10-26, signed macOS run green (workflow_dispatch). Windows signing (#80) and the tag-triggered release path are not exercised yet.
