@@ -3,7 +3,7 @@
 **When:** shipping a new Shortty version (macOS DMG/ZIP, Windows installer/ZIP, Linux deb/rpm on a GitHub Release), or getting test installers without releasing.
 **Preconditions:** the release-please GitHub App is installed on `giocaizzi/shortty` and the repo has the secrets `RP_APP_ID` and `RP_APP_KEY` (same app as the other `giocaizzi` repos); changes land on `main` as Conventional Commits.
 
-Releases are automated by `.github/workflows/release.yml`. macOS builds are signed with the Developer ID and notarized when the `release` environment holds the Apple secrets (below); otherwise they build unsigned with a warning. Windows builds are unsigned (SmartScreen warns on first launch). Installed apps update themselves: Windows and signed macOS through update.electronjs.org, Linux and unsigned macOS by notifying that a new version is out.
+Releases are automated by `.github/workflows/release.yml`. macOS builds are signed with the Developer ID and notarized when the `release` environment holds the Apple secrets (below); otherwise they build unsigned with a warning. Windows builds are signed through SignPath (free certificate from SignPath Foundation) when the `release` environment holds the SignPath token and organization (below); otherwise they build unsigned with a warning, and SmartScreen warns on first launch. Installed apps update themselves: Windows and signed macOS through update.electronjs.org, Linux and unsigned macOS by notifying that a new version is out.
 
 ## Cut a release
 
@@ -25,11 +25,26 @@ Releases are automated by `.github/workflows/release.yml`. macOS builds are sign
 
 The names carry no version, so `https://github.com/giocaizzi/shortty/releases/latest/download/<file>` always serves the newest release (the README download badges link there).
 
-4. Check: `gh release view vX.Y.Z` lists these files; download one and launch it.
+4. With Windows signing set up, approve the two signing requests in SignPath while `Build (Windows)` waits (up to an hour each): first the app exe (`app-exe`), then the installer (`setup-exe`). See [Windows signing](#windows-signing).
+5. Check: `gh release view vX.Y.Z` lists these files; download one and launch it.
 
 ## Test installers without releasing
 
-Actions → Release → Run workflow (or `gh workflow run release.yml --ref <branch>`). Only the build jobs run; download the installers from the run's artifacts (`gh run download <run-id>`).
+Actions → Release → Run workflow (or `gh workflow run release.yml --ref <branch>`). Only the build jobs run; download the installers from the run's artifacts (`gh run download <run-id>`). With Windows signing set up, these runs submit signing requests too: approve them, or the Windows job fails after an hour. SignPath only signs builds from the branches its signing policy allows (`main`).
+
+## Windows signing
+
+Squirrel packs the app executable into the `.nupkg` (update feed) and into `Setup.exe`, so the executable must be signed before the installer is built, and `Setup.exe` after. SignPath signs through its GitHub Action (upload a workflow artifact, wait for approval, download the signed file), so `Build (Windows)` splits the build:
+
+1. `make package` builds `out/Shortty-win32-x64/`.
+2. `shortty.exe` is uploaded as the artifact `unsigned-app-exe` and signed with the artifact configuration `app-exe`; the signed copy replaces it.
+3. `make make SKIP_PACKAGE=1` builds the ZIP, the `.nupkg`, `RELEASES` and `Setup.exe` from the signed folder.
+4. `Shortty-Windows-x64-Setup.exe` is uploaded as `unsigned-setup-exe`, signed with `setup-exe` and replaced. The `.nupkg` and `RELEASES` do not change.
+5. `Verify the signature (Windows)` checks both files with `Get-AuthenticodeSignature` (status `Valid`, timestamped). Unsigned files only warn when SignPath is not configured; anything else fails the job.
+
+The artifact configurations live in [`.signpath/artifact-configurations/`](../../.signpath/artifact-configurations/); SignPath does not read them from the repo, so paste a changed file into the SignPath project in the same change. The Electron DLLs next to `shortty.exe` are upstream binaries and stay unsigned, as SignPath Foundation allows. Applying for SignPath Foundation and configuring SignPath: [signpath-application.md](signpath-application.md).
+
+To check a downloaded installer by hand on Windows: file Properties → Digital Signatures shows `SignPath Foundation`, or in PowerShell `Get-AuthenticodeSignature .\Shortty-Windows-x64-Setup.exe` returns `Valid`. A new certificate may still trigger SmartScreen until it builds reputation.
 
 ## Rollback
 
@@ -43,6 +58,9 @@ Delete the release and its tag: `gh release delete vX.Y.Z --cleanup-tag`. Then f
   - `MACOS_CERT_PASSWORD`: the `.p12` export password
   - `APPLE_SIGNING_IDENTITY`: e.g. `Developer ID Application: Your Name (TEAMID)` (`security find-identity -v -p codesigning`)
   - `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` (appleid.apple.com → App-Specific Passwords), `APPLE_TEAM_ID`
-- Windows signing (not set up): an Azure Trusted Signing account or a CA cloud-signing certificate.
+- Windows signing, in the GitHub environment `release` (set them yourself, never in chat), once SignPath Foundation accepted the project ([signpath-application.md](signpath-application.md)):
+  - secret `SIGNPATH_API_TOKEN`: API token of the SignPath CI user with the Submitter role (`gh secret set SIGNPATH_API_TOKEN -R giocaizzi/shortty --env release`, then paste at the prompt)
+  - variable `SIGNPATH_ORGANIZATION_ID`: the SignPath organization ID (`gh variable set SIGNPATH_ORGANIZATION_ID -R giocaizzi/shortty --env release --body <id>`)
+  - optional variables `SIGNPATH_PROJECT_SLUG` (default `shortty`) and `SIGNPATH_SIGNING_POLICY_SLUG` (default `release-signing`) when SignPath uses other slugs
 
 **Last verified:** 2026-10-26, signed macOS run green (workflow_dispatch). Windows signing (#80) and the tag-triggered release path are not exercised yet.

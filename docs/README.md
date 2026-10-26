@@ -12,6 +12,7 @@ Source of truth for how Shortty works and how to operate it. Quickstart: [../REA
 
 - [runbooks/run-e2e-tests.md](runbooks/run-e2e-tests.md): run and write the Playwright end-to-end suite.
 - [runbooks/release.md](runbooks/release.md): cut a release (release-please, macOS and Windows installers), test installers without releasing, roll back.
+- [runbooks/signpath-application.md](runbooks/signpath-application.md): apply to SignPath Foundation and configure SignPath for Windows signing (policy text, artifact configurations, secrets).
 - [runbooks/release-macos.md](runbooks/release-macos.md): build, sign and notarize a macOS build by hand.
 - [runbooks/updates.md](runbooks/updates.md): how releases reach installed copies (auto-update vs notify), asset names that must not change, debugging.
 - [runbooks/reset-settings.md](runbooks/reset-settings.md): recover an unreachable Shortty with `--reset-settings`.
