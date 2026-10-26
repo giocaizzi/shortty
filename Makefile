@@ -28,8 +28,8 @@ dev: ## Start the app in dev mode.
 package: ## Package the app.
 	npm run package
 
-make: ## Build distributables.
-	npm run make
+make: ## Build distributables (ARCH=x64 cross-builds for Intel Macs; default: host arch).
+	npm run make $(if $(ARCH),-- --arch=$(ARCH))
 
 # The launcher hides on blur, so concurrent runs (several worktrees) steal each
 # other's focus: serialize them on a machine-wide lock (macOS lockf).
