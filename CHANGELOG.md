@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.0](https://github.com/giocaizzi/shortty/compare/v0.2.1...v0.3.0) (2026-10-26)
+
+
+### Added
+
+* **sources:** add PowerToys hotkeys and Keyboard Manager remaps ([#88](https://github.com/giocaizzi/shortty/issues/88)) ([d05b0ba](https://github.com/giocaizzi/shortty/commit/d05b0bab99b175ed4523fa511f2364be4a1c4e35))
+
+
+### Fixed
+
+* **commands:** close windows probe gaps (ps1 timeout, PATHEXT, elevation) ([#94](https://github.com/giocaizzi/shortty/issues/94)) ([5218d4c](https://github.com/giocaizzi/shortty/commit/5218d4c257ef0ad738c4299ac51b7a2d636b4d9a))
+* **keys:** linux super key labels and glyph fallback ([#93](https://github.com/giocaizzi/shortty/issues/93)) ([ab4f264](https://github.com/giocaizzi/shortty/commit/ab4f264bd631c9de347aabdea594745e300059c2))
+* **main:** ignore EPIPE when stdout or stderr is closed ([#101](https://github.com/giocaizzi/shortty/issues/101)) ([a768ced](https://github.com/giocaizzi/shortty/commit/a768ced8bede71dc1d13889640e99c692395104a))
+* **main:** register the login item only from a packaged app ([#90](https://github.com/giocaizzi/shortty/issues/90)) ([525884c](https://github.com/giocaizzi/shortty/commit/525884ce3ff4af4bfe82de8561d320e53a8499a0))
+* **prefs:** state whether this copy can update itself ([#98](https://github.com/giocaizzi/shortty/issues/98)) ([d7947ed](https://github.com/giocaizzi/shortty/commit/d7947edad8b2bdb5950934991d71f313bde97b5d))
+
+
+### Changed
+
+* **renderer:** move three state syncs out of render and effects ([#106](https://github.com/giocaizzi/shortty/issues/106)) ([5ec117b](https://github.com/giocaizzi/shortty/commit/5ec117b5f4953739478a1572a863f90195fcfbf0))
+
 ## [0.2.1](https://github.com/giocaizzi/shortty/compare/v0.2.0...v0.2.1) (2026-10-15)
 
 
