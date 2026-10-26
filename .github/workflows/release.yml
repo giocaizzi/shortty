@@ -121,7 +121,8 @@ jobs:
         run: |
           app="$(find out -maxdepth 3 -name Shortty.app -print -quit)"
           dmg="$(find out/make/dmg -name 'Shortty-*.dmg' -print -quit)"
-          if codesign --verify --deep --strict "$app" 2>/dev/null && codesign -dv "$app" 2>&1 | grep -q 'Authority=Developer ID'; then
+          details="$(codesign -dvv "$app" 2>&1 || true)"
+          if codesign --verify --deep --strict "$app" 2>/dev/null && grep -q 'Authority=Developer ID' <<<"$details"; then
             spctl --assess --type execute -vv "$app"
             codesign --verify --strict -vv "$dmg"
             xcrun stapler validate "$dmg"

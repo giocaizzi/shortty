@@ -44,7 +44,7 @@ export APPLE_ID=... APPLE_APP_SPECIFIC_PASSWORD=... APPLE_TEAM_ID=...   # from k
 make make
 ```
 
-Forge signs, notarizes and staples the `.app` before it is zipped and put in the DMG. The DMG maker does not sign the disk image itself, so the `postMake` hook in `forge.config.ts` does it, with the same variables: it signs each DMG with `codesign --timestamp` when `APPLE_SIGNING_IDENTITY` is set, and when all four are set submits it with `xcrun notarytool submit --wait` (the build fails unless the status is `Accepted`; read the reason with `xcrun notarytool log <id>`) and staples the ticket with `xcrun stapler staple`. Each notarization takes a few minutes, twice per architecture.
+Forge signs, notarizes and staples the `.app` before it is zipped and put in the DMG. The DMG maker does not sign the disk image itself, so the `postMake` hook in `forge.config.ts` does it, with the same variables: it signs each DMG with `codesign --timestamp` when `APPLE_SIGNING_IDENTITY` is set, and when all four are set submits it with `xcrun notarytool submit --wait` (the build fails unless the status is `Accepted`; read the reason with `xcrun notarytool log <id>`) and staples the ticket with `xcrun stapler staple`. Notarizing twice per architecture made the first signed run take about 40 minutes per macOS job.
 
 ## 3. Verify
 
