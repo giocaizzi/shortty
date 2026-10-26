@@ -1,0 +1,34 @@
+{
+	"launchAtLogin": false,
+	"showDockIcon": false,
+	"showMenuBar": true,
+	"dismissAfterCopy": true,
+	"resetLauncher": "immediately",
+	"theme": "dark",
+	"globalShortcut": "Alt+Space",
+	"windowPosition": "top-center",
+	"disabledParsers": [
+		"vscode"
+	],
+	"sourcePathOverrides": {
+		"zed": [
+			"/tmp/a.json",
+			"/tmp/b.json"
+		]
+	},
+	"search": {
+		"keyWeight": 0.4,
+		"commandWeight": 0.4,
+		"sourceWeight": 0.1,
+		"contextWeight": 0.1,
+		"threshold": 0.35
+	},
+	"commandPrefixMode": false,
+	"resultLimits": {
+		"sources": 5,
+		"shortcuts": 10,
+		"commands": 2
+	},
+	"commandsEnabled": true,
+	"autoUpdate": false
+}
