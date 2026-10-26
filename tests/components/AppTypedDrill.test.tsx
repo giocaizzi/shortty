@@ -131,6 +131,8 @@ describe('App typed drill-down: what main sees', () => {
         crumbs: ['cloud', 'compute', 'instances', 'create', 'from-template'],
       }),
     );
+    // The last level's own --help answered too (nothing left in flight)
+    await screen.findByText('--template flag');
     expect(heights()).toEqual([WINDOW_HEIGHT_EXPANDED]);
     expect(heights()).not.toContain(WINDOW_HEIGHT_COLLAPSED);
   });
