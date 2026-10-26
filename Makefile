@@ -28,8 +28,8 @@ dev: ## Start the app in dev mode.
 package: ## Package the app.
 	npm run package
 
-MAKE_ARGS = $(strip $(if $(ARCH),--arch=$(ARCH)) $(if $(SKIP_PACKAGE),--skip-package))
-make: ## Build distributables (ARCH=x64 cross-builds for Intel Macs; SKIP_PACKAGE=1 reuses out/ from make package).
+MAKE_ARGS = $(strip $(if $(ARCH),--arch=$(ARCH)) $(if $(FROM_PACKAGE),--from-package))
+make: ## Build distributables (ARCH=x64 cross-builds for Intel Macs; FROM_PACKAGE=1 reuses out/ from make package).
 	npm run make $(if $(MAKE_ARGS),-- $(MAKE_ARGS))
 
 # The launcher hides on blur, so concurrent runs (several worktrees) steal each

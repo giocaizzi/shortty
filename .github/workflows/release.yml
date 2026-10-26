@@ -106,7 +106,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "$kc_pw" "$kc" > /dev/null
           security list-keychains -d user -s "$kc" login.keychain-db
       # Squirrel packs the app exe into the .nupkg and Setup.exe, so on Windows
-      # the exe is signed between `make package` and `make make SKIP_PACKAGE=1`.
+      # the exe is signed between `make package` and `make make FROM_PACKAGE=1`.
       - name: Package (Windows)
         if: runner.os == 'Windows'
         run: |
@@ -138,7 +138,7 @@ jobs:
       - name: Put the signed app exe back (Windows)
         if: env.SIGNPATH_ENABLED == 'true'
         run: cp signed-app-exe/shortty.exe out/Shortty-win32-x64/shortty.exe
-      - run: make make ARCH=${{ matrix.arch }} ${{ runner.os == 'Windows' && 'SKIP_PACKAGE=1' || '' }}
+      - run: make make ARCH=${{ matrix.arch }} ${{ runner.os == 'Windows' && 'FROM_PACKAGE=1' || '' }}
         env:
           # forge.config.ts signs the app and the DMG when the identity is set
           # and notarizes (and staples) both when all four are set.

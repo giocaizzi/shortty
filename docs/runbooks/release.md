@@ -38,7 +38,7 @@ Squirrel packs the app executable into the `.nupkg` (update feed) and into `Setu
 
 1. `make package` builds `out/Shortty-win32-x64/`.
 2. `shortty.exe` is uploaded as the artifact `unsigned-app-exe` and signed with the artifact configuration `app-exe`; the signed copy replaces it.
-3. `make make SKIP_PACKAGE=1` builds the ZIP, the `.nupkg`, `RELEASES` and `Setup.exe` from the signed folder.
+3. `make make FROM_PACKAGE=1` builds the ZIP, the `.nupkg`, `RELEASES` and `Setup.exe` from the signed folder.
 4. `Shortty-Windows-x64-Setup.exe` is uploaded as `unsigned-setup-exe`, signed with `setup-exe` and replaced. The `.nupkg` and `RELEASES` do not change.
 5. `Verify the signature (Windows)` checks both files with `Get-AuthenticodeSignature` (status `Valid`, timestamped). Unsigned files only warn when SignPath is not configured; anything else fails the job.
 
