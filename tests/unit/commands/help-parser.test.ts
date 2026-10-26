@@ -9,6 +9,10 @@ vi.mock('../../../src/main/commands/sandbox-exec', () => ({
   runSandboxed: vi.fn(),
 }));
 
+vi.mock('../../../src/main/commands/elevation', () => ({
+  isWindowsElevated: vi.fn(async () => false),
+}));
+
 vi.mock('node:fs/promises', () => ({
   stat: vi.fn(),
   realpath: vi.fn(),
@@ -16,12 +20,14 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 import { runSandboxed } from '../../../src/main/commands/sandbox-exec';
+import { isWindowsElevated } from '../../../src/main/commands/elevation';
 import { open, realpath, stat } from 'node:fs/promises';
 
 const mockRun = vi.mocked(runSandboxed);
 const mockStat = vi.mocked(stat);
 const mockRealpath = vi.mocked(realpath);
 const mockOpen = vi.mocked(open);
+const mockElevated = vi.mocked(isWindowsElevated);
 
 const MACH_O = Buffer.from('cffaedfe', 'hex');
 const SHEBANG = Buffer.from('#!/b');
@@ -355,6 +361,13 @@ describe('Windows probing policy', () => {
     setStat(4242, 0o100777);
     setMagic(magic);
   }
+
+  it('never probes when Shortty runs elevated', async () => {
+    setupWindows();
+    mockElevated.mockResolvedValueOnce(true);
+    expect(await parseHelp('mytool', 'D:\\tools\\mytool.exe')).toBeNull();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
 
   it('probes PE executables anywhere outside the system directories', async () => {
     setupWindows();
