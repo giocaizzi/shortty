@@ -62,6 +62,7 @@ Main process (src/main)                          Renderer (src/renderer)
 ## Testing
 
 - Vitest with globals, jsdom, setup in `tests/setup.ts`. Layout: `tests/unit/<area>/` (parsers, commands, cheatsheets, hooks, main, shortcuts, utils, …), `tests/components/` (React Testing Library, incl. `preferences/`), `tests/e2e/*.spec.ts` (Playwright, not run by Vitest).
+- Tests that spawn real processes pass `SLOW_HOST_MS` (`tests/helpers.ts`) as the process timeout, never the production default (2 s probe), or they fail whenever the machine is busy: [docs/runbooks/run-unit-tests.md](docs/runbooks/run-unit-tests.md).
 - Parser tests point `getConfigPaths()` at `fixtures/`. Commands parser tests are golden tests on real captured `--help`/`man` output in `fixtures/commands/<cmd>/` with expectations in `fixtures/commands/expected.json`.
 - Layout tests use the fake layout maps in `src/renderer/lib/keyboard-layouts.data.ts`.
 - E2E: how to run and write them is in [docs/runbooks/run-e2e-tests.md](docs/runbooks/run-e2e-tests.md).
@@ -82,7 +83,7 @@ Main process (src/main)                          Renderer (src/renderer)
 
 ## Docs
 
-Index: [docs/README.md](docs/README.md). Runbooks: [run e2e tests](docs/runbooks/run-e2e-tests.md), [release macOS](docs/runbooks/release-macos.md), [reset settings](docs/runbooks/reset-settings.md), [updates](docs/runbooks/updates.md), [SignPath application](docs/runbooks/signpath-application.md). v1 status: [docs/wip/v1-status.md](docs/wip/v1-status.md). Update the matching doc in the same change as the behaviour.
+Index: [docs/README.md](docs/README.md). Runbooks: [run unit tests](docs/runbooks/run-unit-tests.md), [run e2e tests](docs/runbooks/run-e2e-tests.md), [release macOS](docs/runbooks/release-macos.md), [reset settings](docs/runbooks/reset-settings.md), [updates](docs/runbooks/updates.md), [SignPath application](docs/runbooks/signpath-application.md). v1 status: [docs/wip/v1-status.md](docs/wip/v1-status.md). Update the matching doc in the same change as the behaviour.
 
 ## Workflow
 

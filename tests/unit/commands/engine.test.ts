@@ -43,6 +43,17 @@ const mockScan = vi.mocked(scanPath);
 const mockWhatis = vi.mocked(readWhatis);
 
 let userData: string;
+let engines: CommandsEngine[] = [];
+
+/**
+ * An engine stopped after its test: a pending debounced save (real 2 s timer)
+ * would otherwise fire during a later, slower test and land in its spies.
+ */
+function createEngine(): CommandsEngine {
+  const engine = new CommandsEngine(userData);
+  engines.push(engine);
+  return engine;
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -51,6 +62,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  for (const engine of engines) engine.stop();
+  engines = [];
   rmSync(userData, { recursive: true, force: true });
 });
 
@@ -65,7 +78,7 @@ describe('CommandsEngine', () => {
     let resolveWhatis: (m: Map<string, string>) => void = () => undefined;
     mockWhatis.mockReturnValue(new Promise(r => { resolveWhatis = r; }));
 
-    const engine = new CommandsEngine(userData);
+    const engine = createEngine();
     const updates: Command[][] = [];
     engine.onUpdate(c => updates.push(c));
 
@@ -83,7 +96,7 @@ describe('CommandsEngine', () => {
       { name: 'git', bin: '/opt/homebrew/bin/git', mtime: 1 },
       { name: 'jq', bin: '/opt/homebrew/bin/jq', mtime: 1 },
     ]);
-    const engine = new CommandsEngine(userData);
+    const engine = createEngine();
     await engine.initialize();
 
     const enriched = engine.getAll().map(c => ({ ...c, enrichment: 'full' as const, flags: [{ long: '--x', description: '' }] }));
@@ -108,7 +121,7 @@ describe('CommandsEngine', () => {
 
   it('rebuild drops the cache and re-enriches every command', async () => {
     mockScan.mockResolvedValue([{ name: 'git', bin: '/opt/homebrew/bin/git', mtime: 1 }]);
-    const engine = new CommandsEngine(userData);
+    const engine = createEngine();
     await engine.initialize();
     batchCallback()(engine.getAll().map(c => ({ ...c, enrichment: 'full' as const })));
     expect(engine.getEnrichmentStats().enriched).toBe(1);
@@ -122,7 +135,7 @@ describe('CommandsEngine', () => {
 
   it('ignores a finished enrichment for a binary that was replaced meanwhile', async () => {
     mockScan.mockResolvedValue([{ name: 'jq', bin: '/opt/homebrew/bin/jq', mtime: 1 }]);
-    const engine = new CommandsEngine(userData);
+    const engine = createEngine();
     await engine.initialize();
     const stale = { ...engine.getAll()[0], enrichment: 'full' as const };
 
@@ -134,14 +147,14 @@ describe('CommandsEngine', () => {
 
   it('does not reuse a cached detail after the binary changed (warm start)', async () => {
     mockScan.mockResolvedValue([{ name: 'jq', bin: '/opt/homebrew/bin/jq', mtime: 1 }]);
-    const first = new CommandsEngine(userData);
+    const first = createEngine();
     await first.initialize();
     // a detail written for an older jq binary
     const cacheDir = join(userData, 'commands-cache', 'details');
     const { writeFileSync } = await import('node:fs');
     writeFileSync(join(cacheDir, 'jq.json'), JSON.stringify({ ...first.getAll()[0], mtime: 0, enrichment: 'full' }));
 
-    const second = new CommandsEngine(userData);
+    const second = createEngine();
     // pathHash is computed over pathDirectories() (mocked to []) so the cache is valid
     await second.initialize();
     expect(second.getAll()[0].enrichment).toBe('basic');
@@ -149,7 +162,7 @@ describe('CommandsEngine', () => {
 
   it('refuses drill-in for a command that is not on PATH', async () => {
     mockScan.mockResolvedValue([{ name: 'git', bin: '/opt/homebrew/bin/git', mtime: 1 }]);
-    const engine = new CommandsEngine(userData);
+    const engine = createEngine();
     await engine.initialize();
 
     expect((await engine.getSubcommandDetail('evil sub')).enrichment).toBe('failed');
@@ -164,7 +177,7 @@ describe('CommandsEngine', () => {
       { name: 'jq', bin: '/opt/homebrew/bin/jq', mtime: 1 },
       { name: 'fd', bin: '/opt/homebrew/bin/fd', mtime: 1 },
     ]);
-    const engine = new CommandsEngine(userData);
+    const engine = createEngine();
     await engine.initialize();
     const pushed: Command[][] = [];
     engine.onUpdate(c => pushed.push(c));
@@ -184,7 +197,7 @@ describe('CommandsEngine', () => {
 
   it('pauses enrichment while the launcher is visible, resuming on hide', async () => {
     mockScan.mockResolvedValue([]);
-    const engine = new CommandsEngine(userData);
+    const engine = createEngine();
     await engine.initialize();
     engine.onWindowShown();
     expect(workerPause).toHaveBeenCalled();
@@ -203,7 +216,7 @@ describe('CommandsEngine', () => {
         { name: 'git', bin: '/opt/homebrew/bin/git', mtime: 1 },
         { name: 'jq', bin: '/opt/homebrew/bin/jq', mtime: 1 },
       ]);
-      const engine = new CommandsEngine(userData);
+      const engine = createEngine();
       await engine.initialize();
       await engine.descriptionsLoaded;
       return engine;
