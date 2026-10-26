@@ -15,6 +15,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # SignPath's GitHub connector downloads the unsigned artifacts of the run.
+  actions: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -66,6 +68,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     # Signing secrets live in this environment (docs/runbooks/release.md).
     environment: release
+    env:
+      # Windows signs through SignPath only on a real release (each request
+      # needs a manual approval) and when the token and organization are set;
+      # manual runs and unconfigured builds are unsigned, like a local one.
+      SIGNPATH_ENABLED: ${{ matrix.name == 'Windows' && needs.release-please.outputs.created == 'true' && secrets.SIGNPATH_API_TOKEN != '' && vars.SIGNPATH_ORGANIZATION_ID != '' }}
     defaults:
       run:
         shell: bash
@@ -99,7 +106,40 @@ jobs:
           rm -f "$RUNNER_TEMP/cert.p12"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$kc_pw" "$kc" > /dev/null
           security list-keychains -d user -s "$kc" login.keychain-db
-      - run: make make ARCH=${{ matrix.arch }}
+      # Squirrel packs the app exe into the .nupkg and Setup.exe, so on Windows
+      # the exe is signed between `make package` and `make make FROM_PACKAGE=1`.
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          make package
+          if [ "$SIGNPATH_ENABLED" != true ]; then echo "::warning::Not a release or SignPath not configured: unsigned Windows build"; fi
+      - name: Upload the app exe for signing (Windows)
+        id: unsigned-exe
+        if: env.SIGNPATH_ENABLED == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-app-exe
+          path: out/Shortty-win32-x64/shortty.exe
+          if-no-files-found: error
+          retention-days: 1
+      # Waits for an approver to approve the request in SignPath.
+      - name: Sign the app exe with SignPath (Windows)
+        if: env.SIGNPATH_ENABLED == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'shortty' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: app-exe
+          github-artifact-id: ${{ steps.unsigned-exe.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed-app-exe
+      - name: Put the signed app exe back (Windows)
+        if: env.SIGNPATH_ENABLED == 'true'
+        run: cp signed-app-exe/shortty.exe out/Shortty-win32-x64/shortty.exe
+      - run: make make ARCH=${{ matrix.arch }} ${{ runner.os == 'Windows' && 'FROM_PACKAGE=1' || '' }}
         env:
           # forge.config.ts signs the app and the DMG when the identity is set
           # and notarizes (and staples) both when all four are set.
@@ -150,6 +190,49 @@ jobs:
             cp out/make/rpm/x64/*.rpm dist/Shortty-Linux-x64.rpm
           fi
           ls -l dist
+      # Setup.exe is signed after Squirrel built it; the .nupkg and RELEASES
+      # (update feed) already hold the signed app exe and do not change.
+      - name: Upload Setup.exe for signing (Windows)
+        id: unsigned-setup
+        if: env.SIGNPATH_ENABLED == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-setup-exe
+          path: dist/Shortty-Windows-x64-Setup.exe
+          if-no-files-found: error
+          retention-days: 1
+      - name: Sign Setup.exe with SignPath (Windows)
+        if: env.SIGNPATH_ENABLED == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'shortty' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: setup-exe
+          github-artifact-id: ${{ steps.unsigned-setup.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed-setup-exe
+      - name: Put the signed Setup.exe back (Windows)
+        if: env.SIGNPATH_ENABLED == 'true'
+        run: cp signed-setup-exe/Shortty-Windows-x64-Setup.exe dist/Shortty-Windows-x64-Setup.exe
+      - name: Verify the signature (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          foreach ($file in 'out/Shortty-win32-x64/shortty.exe', 'dist/Shortty-Windows-x64-Setup.exe') {
+            $sig = Get-AuthenticodeSignature $file
+            if ($sig.Status -eq 'NotSigned' -and $env:SIGNPATH_ENABLED -ne 'true') {
+              Write-Output "::warning::$file is not signed"
+            } elseif ($sig.Status -ne 'Valid') {
+              throw "${file}: signature $($sig.Status): $($sig.StatusMessage)"
+            } elseif (-not $sig.TimeStamperCertificate) {
+              throw "${file}: signed but not timestamped"
+            } else {
+              Write-Output "${file}: signed by $($sig.SignerCertificate.Subject)"
+            }
+          }
       - uses: actions/upload-artifact@v7
         with:
           name: Shortty-${{ matrix.name }}

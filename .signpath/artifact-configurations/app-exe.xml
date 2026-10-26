@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SignPath artifact configuration "app-exe": the app executable that release.yml
+     uploads after `make package`, signed before Squirrel packs it. GitHub artifacts
+     are zipped, so the root is zip-file. Paste this into the SignPath project
+     (docs/runbooks/signpath-application.md); this file is the source of truth. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="shortty.exe" product-name="Shortty">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

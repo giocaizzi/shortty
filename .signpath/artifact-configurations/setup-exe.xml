@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SignPath artifact configuration "setup-exe": the Squirrel installer that
+     release.yml uploads after `make make`, built from the signed app exe.
+     Paste this into the SignPath project (docs/runbooks/signpath-application.md);
+     this file is the source of truth. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="Shortty-Windows-x64-Setup.exe" product-name="Shortty">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

@@ -74,6 +74,7 @@ Main process (src/main)                          Renderer (src/renderer)
 - The packaged app ships only `.vite/`, no `node_modules`: never mark a runtime dependency `external` in `vite.main.config.ts`. E2E would still pass (it resolves from the repo's `node_modules`) while the installed app crashes with `Cannot find module`.
 - Dismissal goes through main (`hideWindow` IPC, exit animation, `window-hider.ts`); blur-to-hide is disabled in `make dev`.
 - Changing a commands parser (`src/main/commands/parsers/`) in a way that alters its output: bump `CACHE_VERSION` in `src/main/commands/cache.ts`, or users keep the old cached results.
+- Windows releases are signed through SignPath between `make package` and `make make FROM_PACKAGE=1` ([docs/runbooks/release.md](docs/runbooks/release.md#windows-signing)): renaming `shortty.exe` or the installer asset means updating `.signpath/artifact-configurations/` and the SignPath project.
 - Updates (`src/main/updates.ts`) never run in dev or e2e; update.electronjs.org finds releases by asset name, so don't rename release assets without reading [docs/runbooks/updates.md](docs/runbooks/updates.md).
 - Probed binaries must go through `runSandboxed` (`src/main/commands/sandbox-exec.ts`): env allowlist, timeout, blocklist. Never spawn a user binary another way.
 - The single-instance lock is per `userData` dir: `make dev` shares it with an installed Shortty, so quit the running app first or the dev instance exits immediately. E2E runs use their own dir and are unaffected.
@@ -81,7 +82,7 @@ Main process (src/main)                          Renderer (src/renderer)
 
 ## Docs
 
-Index: [docs/README.md](docs/README.md). Runbooks: [run e2e tests](docs/runbooks/run-e2e-tests.md), [release macOS](docs/runbooks/release-macos.md), [reset settings](docs/runbooks/reset-settings.md), [updates](docs/runbooks/updates.md). v1 status: [docs/wip/v1-status.md](docs/wip/v1-status.md). Update the matching doc in the same change as the behaviour.
+Index: [docs/README.md](docs/README.md). Runbooks: [run e2e tests](docs/runbooks/run-e2e-tests.md), [release macOS](docs/runbooks/release-macos.md), [reset settings](docs/runbooks/reset-settings.md), [updates](docs/runbooks/updates.md), [SignPath application](docs/runbooks/signpath-application.md). v1 status: [docs/wip/v1-status.md](docs/wip/v1-status.md). Update the matching doc in the same change as the behaviour.
 
 ## Workflow
 
