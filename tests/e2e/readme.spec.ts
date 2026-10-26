@@ -1,12 +1,13 @@
 /**
  * README screenshots: the launcher on tmux, vim and a real kubectl help.
  * Skipped unless SHORTTY_E2E_README=1 (run via `make readme-screenshots`).
- * Writes docs/assets/readme-*.png.
+ * Writes the raw captures to docs/assets/raw/readme-*.png; `make readme-images`
+ * frames them into docs/assets.
  */
 import path from 'node:path';
 import { test, expect, launchShortty, screenshot, waitForEnrichment } from './fixtures';
 
-const OUT = path.resolve(__dirname, '../../docs/assets');
+const OUT = path.resolve(__dirname, '../../docs/assets/raw');
 const FIXTURES = path.resolve(__dirname, '../../fixtures');
 
 /** Real captured help, served by fake binaries on the hermetic PATH. */

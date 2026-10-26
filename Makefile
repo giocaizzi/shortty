@@ -1,4 +1,4 @@
-.PHONY: help check install lint typecheck test knip precommit dev package make setup-hooks e2e e2e-benchmark smoke readme-screenshots
+.PHONY: help check install lint typecheck test knip precommit dev package make setup-hooks e2e e2e-benchmark smoke readme-screenshots readme-images
 
 help: ## Show this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*##/ { printf "  %-12s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -48,8 +48,12 @@ LABEL ?= baseline
 e2e-benchmark: ## Build, then write timings and screenshots to docs/wip/benchmark (LABEL=baseline).
 	$(E2E_RUN) sh -c 'npm run package && SHORTTY_E2E_BENCHMARK=$(LABEL) npx playwright test benchmark'
 
-readme-screenshots: ## Build, then regenerate the README screenshots in docs/assets.
+readme-screenshots: ## Build, then recapture the README screenshots into docs/assets/raw and frame them.
 	$(E2E_RUN) sh -c 'npm run package && SHORTTY_E2E_README=1 npx playwright test tests/e2e/readme.spec.ts'
+	$(MAKE) readme-images
+
+readme-images: ## Frame docs/assets/raw/*.png on a gradient into docs/assets (no rebuild).
+	npx electron scripts/readme-images.mjs
 
 setup-hooks: ## Install the pre-commit hook.
 	@echo "#!/bin/sh\nmake precommit" > .git/hooks/pre-commit
