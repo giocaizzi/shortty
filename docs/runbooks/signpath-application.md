@@ -20,16 +20,17 @@ SignPath Foundation gives free code signing certificates to open source projects
    | Project name | Shortty |
    | Repository | `https://github.com/giocaizzi/shortty` |
    | Home page | `https://github.com/giocaizzi/shortty` |
-   | Download page | `https://github.com/giocaizzi/shortty/releases` |
+   | Download URL | `https://github.com/giocaizzi/shortty#install` |
    | License | MIT |
-   | Code signing policy | `https://github.com/giocaizzi/shortty#code-signing-policy` once published (step 3); until then, the policy text below |
+   | Code signing policy | `https://github.com/giocaizzi/shortty#code-signing-policy` (published with pending wording) |
+   | Privacy Policy URL | `https://github.com/giocaizzi/shortty#privacy-policy` |
    | Description | A launcher that shows the keyboard shortcuts of your tools and the CLI commands on your PATH behind one fuzzy search (Electron, macOS, Windows, Linux). |
    | Build system | GitHub Actions on GitHub-hosted runners (`.github/workflows/release.yml`) |
    | Files to sign | `shortty.exe` (app executable) and `Shortty-Windows-x64-Setup.exe` (Squirrel installer) |
    | Team | giocaizzi (author, reviewer, approver) |
 
 2. Wait for acceptance. SignPath Foundation creates the organization and the project and issues the certificate.
-3. Publish the code signing policy only now, once accepted (its attribution line is not true before): add the section below to `README.md` (the home page) in a PR, and link it from the Install section next to the Windows download.
+3. Switch the code signing policy to its final wording. `README.md` (the home page) already has a `## Code signing policy` section worded as pending, linked with the `## Privacy policy` section from the Install section next to the Windows download, so the download page mentions SignPath Foundation. Its attribution line ("Free code signing provided by ...") is not true before acceptance, so only now, in a PR, replace that section with the final block below (the `## Privacy policy` section stays as it is) and reword the Windows install note, which still says Windows releases are not signed yet.
 4. In SignPath (app.signpath.io), with MFA on your SignPath account:
    1. Trusted build systems: add the predefined **GitHub.com** trusted build system to the organization and link it to the project. Optionally install the SignPath GitHub App on `giocaizzi/shortty` for audit log checks.
    2. Project: slug `shortty`, repository URL `https://github.com/giocaizzi/shortty`.
@@ -52,7 +53,7 @@ SignPath Foundation gives free code signing certificates to open source projects
 7. Cut the next release ([release.md](release.md#cut-a-release)): only real releases are signed, manual `workflow_dispatch` runs stay unsigned. Approve the two signing requests in SignPath (`app-exe` first, then `setup-exe`) while `Build (Windows)` waits, up to an hour each.
 8. Update the README install note: drop "SmartScreen may warn about an unknown publisher" once a signed release is out (a new certificate can still warn until it builds reputation).
 
-## Code signing policy (paste into README.md)
+## Code signing policy (final wording, at acceptance)
 
 ```markdown
 ## Code signing policy
@@ -61,14 +62,12 @@ Free code signing provided by [SignPath.io](https://about.signpath.io), certific
 
 Windows releases (`Shortty-Windows-x64-Setup.exe` and the app executable inside it and in `Shortty-Windows-x64.zip`) are built from this repository by GitHub Actions ([release.yml](.github/workflows/release.yml)) on GitHub-hosted runners and signed through SignPath. Every signing request is approved by hand. Only binaries built from this repository are signed; the Electron runtime libraries shipped next to the app are upstream binaries.
 
+macOS releases are signed with the maintainer's Apple Developer ID and notarized by Apple.
+
 Team roles:
 
 - Committers and reviewers: [giocaizzi](https://github.com/giocaizzi)
 - Approvers: [giocaizzi](https://github.com/giocaizzi)
-
-### Privacy policy
-
-Shortty keeps your data on your machine: no telemetry, no accounts, no analytics. The only network requests it makes are update checks: an installed copy asks update.electronjs.org (which sees the app version, the platform and your IP address) or the GitHub releases API for the latest release, at most once an hour. Turn off "Download updates automatically" in Settings to only be told about new versions; the check itself cannot be turned off yet.
 ```
 
 ## Verify
