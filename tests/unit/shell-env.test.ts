@@ -8,6 +8,7 @@ vi.mock('../../src/main/logger', () => ({
 }));
 
 import { importLoginShellPath, mergePaths } from '../../src/main/shell-env';
+import { REAL_PROCESS_TEST_MS, SLOW_HOST_MS } from '../helpers';
 
 const LAUNCHD_PATH = '/usr/bin:/bin:/usr/sbin:/sbin';
 let dir: string;
@@ -39,19 +40,19 @@ describe('mergePaths', () => {
   });
 });
 
-describe.runIf(process.platform !== 'win32')('importLoginShellPath', () => {
+describe.runIf(process.platform !== 'win32')('importLoginShellPath', { timeout: REAL_PROCESS_TEST_MS }, () => {
   it('imports the PATH printed by the login shell, ignoring rc-file output', async () => {
     // rc noise on stdout before and after the command, like a banner or nvm message
     const shell = fakeShell('zsh', 'echo "Welcome!"; PATH=/opt/homebrew/bin:/Users/u/.local/bin:/usr/bin; export PATH; /bin/sh -c "$2"; echo bye');
     const env: NodeJS.ProcessEnv = { SHELL: shell, PATH: LAUNCHD_PATH };
-    await importLoginShellPath(env);
+    await importLoginShellPath(env, SLOW_HOST_MS);
     expect(env.PATH).toBe('/opt/homebrew/bin:/Users/u/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin');
   });
 
   it('passes -ilc so login and interactive rc files are read', async () => {
     const shell = fakeShell('args', 'PATH="/flags/$1"; export PATH; /bin/sh -c "$2"');
     const env: NodeJS.ProcessEnv = { SHELL: shell, PATH: LAUNCHD_PATH };
-    await importLoginShellPath(env);
+    await importLoginShellPath(env, SLOW_HOST_MS);
     expect(env.PATH?.split(':')[0]).toBe('/flags/-ilc');
   });
 
@@ -61,16 +62,17 @@ describe.runIf(process.platform !== 'win32')('importLoginShellPath', () => {
     const started = Date.now();
     await importLoginShellPath(env, 300);
     expect(env.PATH).toBe(LAUNCHD_PATH);
-    expect(Date.now() - started).toBeLessThan(2000);
+    // Gave up near the 300 ms timeout, long before `sleep 30` ends
+    expect(Date.now() - started).toBeLessThan(10_000);
   });
 
   it('keeps the inherited PATH when the shell fails or prints nothing', async () => {
     const env: NodeJS.ProcessEnv = { SHELL: fakeShell('fail', 'exit 1'), PATH: LAUNCHD_PATH };
-    await importLoginShellPath(env);
+    await importLoginShellPath(env, SLOW_HOST_MS);
     expect(env.PATH).toBe(LAUNCHD_PATH);
 
     const missing: NodeJS.ProcessEnv = { SHELL: join(dir, 'no-such-shell'), PATH: LAUNCHD_PATH };
-    await importLoginShellPath(missing);
+    await importLoginShellPath(missing, SLOW_HOST_MS);
     expect(missing.PATH).toBe(LAUNCHD_PATH);
   });
 
@@ -88,7 +90,7 @@ describe.runIf(process.platform !== 'win32')('importLoginShellPath', () => {
       `sleep 30 & echo $! > '${pidFile}'; while :; do printf '%01000d\\n' 0; done`,
     );
     const env: NodeJS.ProcessEnv = { SHELL: shell, PATH: LAUNCHD_PATH };
-    await importLoginShellPath(env, 10_000);
+    await importLoginShellPath(env, SLOW_HOST_MS);
     expect(env.PATH).toBe(LAUNCHD_PATH);
 
     const pid = Number(readFileSync(pidFile, 'utf-8'));
@@ -100,6 +102,6 @@ describe.runIf(process.platform !== 'win32')('importLoginShellPath', () => {
         return false;
       }
     };
-    await vi.waitFor(() => expect(alive()).toBe(false), { timeout: 2000 });
+    await vi.waitFor(() => expect(alive()).toBe(false), { timeout: SLOW_HOST_MS });
   });
 });

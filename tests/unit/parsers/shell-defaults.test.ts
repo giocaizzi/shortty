@@ -4,10 +4,11 @@ import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, rmSync, readFileSync,
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { findOnPath, shellDefaults } from '../../../src/main/parsers/shell-defaults';
+import { REAL_PROCESS_TEST_MS, SLOW_HOST_MS } from '../../helpers';
 
 const posix = process.platform !== 'win32';
 
-describe.runIf(posix)('shellDefaults', () => {
+describe.runIf(posix)('shellDefaults', { timeout: REAL_PROCESS_TEST_MS }, () => {
   let dir: string;
   let originalPath: string | undefined;
   let counter: string;
@@ -44,14 +45,14 @@ describe.runIf(posix)('shellDefaults', () => {
     const bin = fakeShell('fakesh-cache', 'echo "args=$* inputrc=$INPUTRC secret=$SHORTTY_SECRET cwd=$(pwd)"');
     process.env.SHORTTY_SECRET = 'leak';
     try {
-      const first = await shellDefaults('fakesh-cache', ['-c', 'bind -p'], { INPUTRC: '/dev/null' });
+      const first = await shellDefaults('fakesh-cache', ['-c', 'bind -p'], { INPUTRC: '/dev/null' }, SLOW_HOST_MS);
       expect(first).toMatch(/^args=-c bind -p inputrc=\/dev\/null secret= cwd=.*shortty-help-/);
-      expect(await shellDefaults('fakesh-cache', ['-c', 'bind -p'], { INPUTRC: '/dev/null' })).toBe(first);
+      expect(await shellDefaults('fakesh-cache', ['-c', 'bind -p'], { INPUTRC: '/dev/null' }, SLOW_HOST_MS)).toBe(first);
       expect(runs()).toBe(1);
 
       // a new binary (shell upgrade) is run again
       utimesSync(bin, new Date(), new Date(Date.now() + 60_000));
-      await shellDefaults('fakesh-cache', ['-c', 'bind -p'], { INPUTRC: '/dev/null' });
+      await shellDefaults('fakesh-cache', ['-c', 'bind -p'], { INPUTRC: '/dev/null' }, SLOW_HOST_MS);
       expect(runs()).toBe(2);
     } finally {
       delete process.env.SHORTTY_SECRET;
@@ -59,10 +60,10 @@ describe.runIf(posix)('shellDefaults', () => {
   });
 
   it('returns null when the shell is missing or fails, without caching the failure', async () => {
-    expect(await shellDefaults('fakesh-missing', ['-c', 'x'])).toBeNull();
+    expect(await shellDefaults('fakesh-missing', ['-c', 'x'], {}, SLOW_HOST_MS)).toBeNull();
     fakeShell('fakesh-fail', 'exit 1');
-    expect(await shellDefaults('fakesh-fail', ['-c', 'x'])).toBeNull();
-    expect(await shellDefaults('fakesh-fail', ['-c', 'x'])).toBeNull();
+    expect(await shellDefaults('fakesh-fail', ['-c', 'x'], {}, SLOW_HOST_MS)).toBeNull();
+    expect(await shellDefaults('fakesh-fail', ['-c', 'x'], {}, SLOW_HOST_MS)).toBeNull();
     expect(runs()).toBe(2);
   });
 });
