@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react';
+import type { KeyPlatform } from '../../src/shared/keys';
 import { KeyCombo } from '../../src/renderer/components/KeyCombo';
 
 describe('KeyCombo', () => {
@@ -32,5 +33,34 @@ describe('KeyCombo', () => {
     expect(screen.getByText('·')).toHaveClass('text-fg-4');
     expect(screen.getByText('unbound')).toHaveClass('text-fg-4');
     expect(container.innerHTML).not.toMatch(/white/);
+  });
+
+  describe('without strokes, off macOS', () => {
+    const setPlatform = (platform: KeyPlatform | undefined) => {
+      window.electronAPI = (platform ? { platform } : undefined) as unknown as typeof window.electronAPI;
+    };
+    afterEach(() => setPlatform(undefined));
+
+    it('turns the macOS glyphs into Linux key names', () => {
+      setPlatform('linux');
+      render(<KeyCombo keys="⌃⌥⇧⌘P ⌥Return ⌘↩ ⌫ Q" />);
+      expect(screen.getByText('Ctrl+Alt+Shift+Super+P')).toBeInTheDocument();
+      expect(screen.getByText('Alt+Enter')).toBeInTheDocument();
+      expect(screen.getByText('Super+Enter')).toBeInTheDocument();
+      expect(screen.getByText('Backspace')).toBeInTheDocument();
+      expect(screen.getByText('Q')).toBeInTheDocument();
+    });
+
+    it('says Win on Windows', () => {
+      setPlatform('win32');
+      render(<KeyCombo keys="⌘⇧P" />);
+      expect(screen.getByText('Shift+Win+P')).toBeInTheDocument();
+    });
+
+    it('keeps the glyphs on macOS', () => {
+      setPlatform('darwin');
+      render(<KeyCombo keys="⌘⇧P" />);
+      expect(screen.getByText('⌘⇧P')).toBeInTheDocument();
+    });
   });
 });

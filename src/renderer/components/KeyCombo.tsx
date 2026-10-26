@@ -1,8 +1,8 @@
 import type { KeyStroke } from '../../shared/keys';
-import { resolveStrokes, useKeyboardLayout } from '../lib/keyboard-layout';
+import { fallbackLabel, resolveStrokes, useKeyboardLayout } from '../lib/keyboard-layout';
 
 interface KeyComboProps {
-  /** Display string from the main process (fallback when strokes are absent). */
+  /** macOS-style display string from the main process (fallback when strokes are absent). */
   keys: string;
   /** Structured strokes, resolved against the user's keyboard layout. */
   strokes?: KeyStroke[];
@@ -18,7 +18,7 @@ export function KeyCombo({ keys, strokes }: KeyComboProps) {
 
   const pills: Pill[] = strokes && strokes.length > 0
     ? resolveStrokes(strokes, layout)
-    : (keys ?? '').split(/\s+/).filter(Boolean).map((text) => ({ text }));
+    : (keys ?? '').split(/\s+/).filter(Boolean).map((text) => ({ text: fallbackLabel(text, layout.platform) }));
 
   if (pills.length === 0) {
     return <span className="text-[11px] italic text-fg-4">unbound</span>;

@@ -8,7 +8,7 @@ import { useSearch } from './hooks/useSearch';
 import { useSubcommandDetail } from './hooks/useSubcommandDetail';
 import { isImeComposing } from './lib/ime';
 import { useAppSettings } from './context/SettingsContext';
-import { resolveStrokes, useKeyboardLayout, type KeyboardLayout } from './lib/keyboard-layout';
+import { fallbackLabel, resolveStrokes, useKeyboardLayout, type KeyboardLayout } from './lib/keyboard-layout';
 import { LauncherPanel } from './components/LauncherPanel';
 import { SearchInput, formatAccelerator } from './components/SearchInput';
 import { ResultsContainer } from './components/ResultsContainer';
@@ -76,7 +76,9 @@ function isDetailLevel(level: NavLevel): level is NavLevel & { kind: 'command' |
  * clipboard gets "⌘Ò" on an Italian keyboard rather than the US "⌘;".
  */
 function shortcutLabel(shortcut: Shortcut, layout: KeyboardLayout): string {
-  if (!shortcut.strokes?.length) return shortcut.key;
+  if (!shortcut.strokes?.length) {
+    return shortcut.key.split(/\s+/).filter(Boolean).map((k) => fallbackLabel(k, layout.platform)).join(' ');
+  }
   return resolveStrokes(shortcut.strokes, layout)
     .map((s) => s.text)
     .join(' ');
