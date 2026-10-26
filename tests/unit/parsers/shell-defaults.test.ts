@@ -1,6 +1,6 @@
 // Real-process tests for running a shell to list its default key bindings.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, chmodSync, rmSync, readFileSync, utimesSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, rmSync, readFileSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { findOnPath, shellDefaults } from '../../../src/main/parsers/shell-defaults';
@@ -64,5 +64,51 @@ describe.runIf(posix)('shellDefaults', () => {
     expect(await shellDefaults('fakesh-fail', ['-c', 'x'])).toBeNull();
     expect(await shellDefaults('fakesh-fail', ['-c', 'x'])).toBeNull();
     expect(runs()).toBe(2);
+  });
+});
+
+describe.runIf(!posix)('findOnPath on Windows', () => {
+  let dir: string;
+  let first: string;
+  let second: string;
+  let originalPathext: string | undefined;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'shortty-find-on-path-'));
+    first = join(dir, 'first');
+    second = join(dir, 'second');
+    mkdirSync(first);
+    mkdirSync(second);
+    originalPathext = process.env.PATHEXT;
+    process.env.PATHEXT = '.COM;.EXE;.BAT;.CMD';
+    // No execute bit on Windows: any existing file counts
+    writeFileSync(join(first, 'tool'), '');
+    writeFileSync(join(first, 'tool.cmd'), '');
+    writeFileSync(join(second, 'tool.exe'), '');
+    writeFileSync(join(second, 'script.ps1'), '');
+    mkdirSync(join(first, 'dir.exe'));
+  });
+
+  afterEach(() => {
+    process.env.PATHEXT = originalPathext;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  const pathValue = () => `${join(dir, 'missing')};${first};${second}`;
+
+  it('tries each PATHEXT extension on a bare name, in PATH order', async () => {
+    // tool.cmd in the first directory wins over tool.exe in the second; the extensionless "tool" is skipped
+    expect(await findOnPath('tool', pathValue())).toBe(join(first, 'tool.cmd'));
+    expect(await findOnPath('script', pathValue())).toBe(join(second, 'script.ps1'));
+  });
+
+  it('takes a name that already has its extension as is, case-insensitively', async () => {
+    expect(await findOnPath('tool.exe', pathValue())).toBe(join(second, 'tool.exe'));
+    expect(await findOnPath('TOOL.EXE', pathValue())).toBe(join(second, 'TOOL.EXE'));
+  });
+
+  it('skips directories and missing names', async () => {
+    expect(await findOnPath('dir', pathValue())).toBeNull();
+    expect(await findOnPath('nope', pathValue())).toBeNull();
   });
 });

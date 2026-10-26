@@ -468,7 +468,7 @@ The index holds one entry per executable. Subcommand names are a search key of t
 |-----------|-------|
 | File read concurrency | 3 parallel |
 | Process spawn concurrency (`--help`) | 1 at a time |
-| Process timeout | 2 seconds, hard kill |
+| Process timeout | 2 seconds (15 seconds for `.ps1` scripts, which pay a cold PowerShell start), hard kill |
 | Pause when | Main window is visible |
 | Resume when | Window hidden or 5s idle |
 | Batch save | Every 50 commands enriched |
@@ -505,14 +505,15 @@ The index holds one entry per executable. Subcommand names are a search key of t
 
 Anything else, notably the user's own scripts in `~/bin`, `~/.local/bin` or a project directory, is never executed: such a script may act on any argument (`deploy.sh --help` may deploy). Those commands are enriched from their man page and the whatis database only. In e2e mode (`SHORTTY_E2E=1`) `$SHORTTY_E2E_DIR/bin/` is also trusted, so the suite's fake `#!` CLIs can be probed ([runbook](runbooks/run-e2e-tests.md)).
 
-Other rules: dotfile/hidden commands (names starting with `.` or `_`) are skipped; at most one probe runs at a time; 2 second timeout, hard kill (SIGKILL to the whole process group).
+Other rules: dotfile/hidden commands (names starting with `.` or `_`) are skipped; at most one probe runs at a time; 2 second timeout (`helpTimeoutMs` in `src/main/commands/sandbox-exec.ts`: 15 seconds for a Windows `.ps1`, since PowerShell alone takes 5-15 s to start cold), hard kill (SIGKILL to the whole process group).
 
 **Windows policy** (`isTrustedWindowsBinary`): there are no owner or mode bits, so rule 3b does not apply, and paths compare case-insensitively.
 
+0. Nothing is probed while Shortty runs elevated, the equivalent of rule 1 (`isWindowsElevated` in `src/main/commands/elevation.ts`): `%SystemRoot%\System32\whoami.exe /groups` runs once per session, by full path, and a High or System integrity level (`S-1-16-12288`, `S-1-16-16384`) means elevated. If that check fails, Shortty counts as elevated.
 1. Never probed: anything under `%SystemRoot%\` (System32 holds `format`, `diskpart` and GUI tools), `%LOCALAPPDATA%\Microsoft\WindowsApps\` (Store app execution aliases: `python.exe` there opens the Store; they may not even resolve) and `C:\Program Files\WindowsApps\`, checked on the PATH entry before resolving it and again on the resolved file.
 2. **PE executables** (`MZ` magic) anywhere else.
 3. **`.cmd`, `.bat`, `.ps1` scripts** (the Windows equivalent of `#!` scripts) only under trusted prefixes: `%ProgramFiles%\`, `%ProgramFiles(x86)%\`, `%ProgramData%\chocolatey\`, `~\scoop\shims\`, `~\scoop\apps\`, `%APPDATA%\npm\`, `%LOCALAPPDATA%\Microsoft\WinGet\Links\` and `\Packages\`, `%LOCALAPPDATA%\Programs\`, `~\.cargo\bin\`, `~\go\bin\` (and the e2e dir in e2e mode). Anything else (other `PATHEXT` types such as `.vbs` or `.js`, `#!` scripts) is never run.
-4. Blocklist lookups lowercase the name and strip its `PATHEXT` extension (`Python.EXE` is `python`). The running-as-root check has no Windows equivalent yet: an elevated Shortty probes like a normal one.
+4. Blocklist lookups lowercase the name and strip its `PATHEXT` extension (`Python.EXE` is `python`).
 
 **`--help` blocklist (hardcoded, `BLOCKLIST`):**
 

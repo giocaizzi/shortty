@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mkdtempSync, writeFileSync, chmodSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { runSandboxed, sandboxEnv, windowsCommand } from '../../../src/main/commands/sandbox-exec';
+import { helpTimeoutMs, runSandboxed, sandboxEnv, windowsCommand } from '../../../src/main/commands/sandbox-exec';
 import { withPlatform } from '../../helpers';
 
 const posix = process.platform !== 'win32';
@@ -166,6 +166,16 @@ describe('windowsCommand', () => {
       args: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', 'C:\\s\\x.ps1', '--help'],
       verbatim: false,
     });
+  });
+});
+
+describe('helpTimeoutMs', () => {
+  it('gives .ps1 scripts time for a cold PowerShell start, everything else 2 s', () => {
+    expect(helpTimeoutMs('C:\\s\\x.ps1')).toBe(15_000);
+    expect(helpTimeoutMs('C:\\s\\X.PS1')).toBe(15_000);
+    for (const bin of ['C:\\s\\x.cmd', 'C:\\s\\x.exe', '/opt/homebrew/bin/rg', '/usr/local/bin/ps1']) {
+      expect(helpTimeoutMs(bin)).toBe(2000);
+    }
   });
 });
 
