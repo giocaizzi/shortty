@@ -1,4 +1,4 @@
-import { PC_NAMED_KEY_LABELS, usCodeForChar } from '../../../shared/keys';
+import { PC_MODIFIER_LABELS, PC_NAMED_KEY_LABELS, usCodeForChar, type KeyPlatform } from '../../../shared/keys';
 import { resolveStroke, US_KEYBOARD, type KeyboardLayout } from '../../lib/keyboard-layout';
 
 /**
@@ -190,8 +190,9 @@ function modifierFromToken(token: string, mac: boolean): Modifier | null {
  * Turn a keydown into a recorder outcome. Modifier-only presses keep the
  * recorder listening; a plain Escape cancels.
  */
-export function recordChord(chord: KeyChord, mac: boolean, windows = false): RecordResult {
+export function recordChord(chord: KeyChord, platform: KeyPlatform): RecordResult {
   if (MODIFIER_CODES.has(chord.code)) return { kind: 'modifiers' };
+  const mac = platform === 'darwin';
 
   const mods = modifiersOf(chord, mac);
   if (chord.code === 'Escape' && mods.length === 0) return { kind: 'cancel' };
@@ -203,7 +204,8 @@ export function recordChord(chord: KeyChord, mac: boolean, windows = false): Rec
 
   const hasNonShiftModifier = mods.some((m) => m !== 'Shift');
   if (!hasNonShiftModifier && !isFunctionKey(key)) {
-    const options = mac ? '⌘, ⌃ or ⌥' : 'Ctrl, Alt or Win';
+    const labels = modifierLabels(platform);
+    const options = mac ? '⌘, ⌃ or ⌥' : `${labels.Control}, ${labels.Alt} or ${labels.Super}`;
     return { kind: 'invalid', reason: `Include ${options} so the shortcut doesn't block typing.` };
   }
 
@@ -214,19 +216,19 @@ export function recordChord(chord: KeyChord, mac: boolean, windows = false): Rec
     if (owner) {
       return {
         kind: 'invalid',
-        reason: `macOS uses ${acceleratorToGlyphs(accelerator, mac).join('')} for ${owner}. Choose another shortcut.`,
+        reason: `macOS uses ${acceleratorToGlyphs(accelerator, platform).join('')} for ${owner}. Choose another shortcut.`,
       };
     }
   }
 
-  if (windows) {
+  if (platform === 'win32') {
     const canonical = canonicalAccelerator(accelerator, mac);
     // The shell owns Win shortcuts; RegisterHotKey refuses or shadows them.
     const owner = WIN_RESERVED[canonical] ?? (mods.includes('Super') ? 'the system' : undefined);
     if (owner) {
       return {
         kind: 'invalid',
-        reason: `Windows uses ${acceleratorToGlyphs(accelerator, mac).join('+')} for ${owner}. Choose another shortcut.`,
+        reason: `Windows uses ${acceleratorToGlyphs(accelerator, platform).join('+')} for ${owner}. Choose another shortcut.`,
       };
     }
   }
@@ -242,13 +244,12 @@ const MAC_MODIFIER_GLYPHS: Record<Modifier, string> = {
   Super: '⌘',
 };
 
-const OTHER_MODIFIER_LABELS: Record<Modifier, string> = {
-  Control: 'Ctrl',
-  Alt: 'Alt',
-  Shift: 'Shift',
-  Command: 'Win',
-  Super: 'Win',
-};
+/** Modifier keycaps on `platform`: glyphs on macOS, Win on Windows, Super on Linux. */
+function modifierLabels(platform: KeyPlatform): Record<Modifier, string> {
+  if (platform === 'darwin') return MAC_MODIFIER_GLYPHS;
+  const pc = PC_MODIFIER_LABELS[platform];
+  return { Control: pc.ctrl, Alt: pc.opt, Shift: pc.shift, Command: pc.cmd, Super: pc.cmd };
+}
 
 const KEY_GLYPHS: Record<string, string> = {
   Return: '↩',
@@ -302,11 +303,12 @@ function acceleratorKey(accelerator: string, mac: boolean): string | undefined {
  */
 export function acceleratorToGlyphs(
   accelerator: string,
-  mac: boolean,
+  platform: KeyPlatform,
   layout: KeyboardLayout = US_KEYBOARD,
 ): string[] {
+  const mac = platform === 'darwin';
   const canonical = splitAccelerator(canonicalAccelerator(accelerator, mac));
-  const labels = mac ? MAC_MODIFIER_GLYPHS : OTHER_MODIFIER_LABELS;
+  const labels = modifierLabels(platform);
   return canonical.map((part) => {
     const mod = modifierFromToken(part, mac);
     return mod ? labels[mod] : keyLabel(part, layout, mac);
@@ -324,7 +326,7 @@ export function acceleratorHint(
 }
 
 /** Keycap labels for the modifiers currently held while recording. */
-export function heldModifierGlyphs(chord: Omit<KeyChord, 'code'>, mac: boolean): string[] {
-  const labels = mac ? MAC_MODIFIER_GLYPHS : OTHER_MODIFIER_LABELS;
-  return modifiersOf({ ...chord, code: '' }, mac).map((m) => labels[m]);
+export function heldModifierGlyphs(chord: Omit<KeyChord, 'code'>, platform: KeyPlatform): string[] {
+  const labels = modifierLabels(platform);
+  return modifiersOf({ ...chord, code: '' }, platform === 'darwin').map((m) => labels[m]);
 }

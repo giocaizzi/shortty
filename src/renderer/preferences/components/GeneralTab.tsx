@@ -4,7 +4,7 @@ import { DEFAULT_SETTINGS } from '../../../shared/settings';
 import type { UpdateStatus } from '../../../shared/types';
 import { useKeyboardLayout } from '../../lib/keyboard-layout';
 import { acceleratorToGlyphs } from '../lib/accelerator';
-import { isMacPlatform, resetSettingsCommand } from '../lib/platform';
+import { keyPlatform, resetSettingsCommand } from '../lib/platform';
 import type { UpdateSetting } from '../hooks/useSettings';
 import { Keycaps, PaneHeader, Row, Section, Segmented, SwitchRow } from './controls';
 import { ShortcutRecorder } from './ShortcutRecorder';
@@ -112,7 +112,8 @@ export function UpdatesSection({ settings, onUpdate }: GeneralTabProps) {
 }
 
 export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
-  const mac = isMacPlatform();
+  const platform = keyPlatform();
+  const mac = platform === 'darwin';
   const trayName = mac ? 'menu bar' : 'system tray';
   const layout = useKeyboardLayout();
   const [pendingHide, setPendingHide] = useState<VisibilityKey | null>(null);
@@ -139,8 +140,8 @@ export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
   const saveShortcut = async (accelerator: string): Promise<string | null> => {
     const result = await onUpdate('globalShortcut', accelerator);
     if (result.success) return null;
-    const wanted = acceleratorToGlyphs(accelerator, mac, layout).join('');
-    const kept = acceleratorToGlyphs(settings.globalShortcut, mac, layout).join('');
+    const wanted = acceleratorToGlyphs(accelerator, platform, layout).join('');
+    const kept = acceleratorToGlyphs(settings.globalShortcut, platform, layout).join('');
     return `Couldn't register ${wanted}. Another app or a system shortcut already uses it. Shortty kept ${kept}.`;
   };
 
@@ -198,7 +199,7 @@ export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
             <ShortcutRecorder
               value={settings.globalShortcut}
               defaultValue={DEFAULT_SETTINGS.globalShortcut}
-              mac={mac}
+              platform={platform}
               layout={layout}
               onSave={saveShortcut}
               labelledBy={shortcutLabelId}
@@ -252,7 +253,7 @@ export function GeneralTab({ settings, onUpdate }: GeneralTabProps) {
             aria-describedby="pf-hide-body"
           >
             <div className="pf-sheet-icon" aria-hidden="true">
-              <Keycaps keys={acceleratorToGlyphs(settings.globalShortcut, mac, layout)} />
+              <Keycaps keys={acceleratorToGlyphs(settings.globalShortcut, platform, layout)} />
             </div>
             <h2 id="pf-hide-title" className="pf-sheet-title">
               Hide Shortty everywhere?

@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent } from 'react';
+import type { KeyPlatform } from '../../../shared/keys';
 import type { KeyboardLayout } from '../../lib/keyboard-layout';
 import {
   acceleratorHint,
@@ -8,14 +9,13 @@ import {
   recordChord,
 } from '../lib/accelerator';
 import { Keycaps, Message } from './controls';
-import { isWindowsPlatform } from '../lib/platform';
 
 type SaveShortcut = (accelerator: string) => Promise<string | null>;
 
 interface ShortcutRecorderProps {
   value: string;
   defaultValue: string;
-  mac: boolean;
+  platform: KeyPlatform;
   /** The user's keyboard layout, to label the recorded key as printed on it. */
   layout: KeyboardLayout;
   /** Persist the accelerator; resolves to an error message, or null on success. */
@@ -32,11 +32,12 @@ type Feedback = { tone: 'error' | 'ok'; text: string } | null;
 export function ShortcutRecorder({
   value,
   defaultValue,
-  mac,
+  platform,
   layout,
   onSave,
   labelledBy,
 }: ShortcutRecorderProps) {
+  const mac = platform === 'darwin';
   const [recording, setRecording] = useState(false);
   const [saving, setSaving] = useState(false);
   const [held, setHeld] = useState<string[]>([]);
@@ -58,10 +59,10 @@ export function ShortcutRecorder({
     if (!recording) return;
     e.preventDefault();
     e.stopPropagation();
-    const result = recordChord(e, mac, isWindowsPlatform());
+    const result = recordChord(e, platform);
     switch (result.kind) {
       case 'modifiers':
-        setHeld(heldModifierGlyphs(e, mac));
+        setHeld(heldModifierGlyphs(e, platform));
         return;
       case 'cancel':
         stop();
@@ -81,7 +82,7 @@ export function ShortcutRecorder({
   };
 
   const handleKeyUp = (e: KeyboardEvent<HTMLButtonElement>) => {
-    if (recording) setHeld(heldModifierGlyphs(e, mac));
+    if (recording) setHeld(heldModifierGlyphs(e, platform));
   };
 
   const hint = acceleratorHint(value, mac, layout);
@@ -114,7 +115,7 @@ export function ShortcutRecorder({
               <span className="pf-recorder-placeholder">Type shortcut</span>
             )
           ) : (
-            <Keycaps keys={acceleratorToGlyphs(value, mac, layout)} />
+            <Keycaps keys={acceleratorToGlyphs(value, platform, layout)} />
           )}
         </button>
         {!isDefault && !recording && (
