@@ -21,7 +21,7 @@ make e2e                 # build, then run the Playwright e2e suite on the real 
 make e2e-benchmark       # build, then write timings/screenshots to docs/wip/benchmark (LABEL=baseline)
 make smoke               # package, launch the packaged app, wait for "App ready" (CI runs it on every OS)
 make package             # package the app
-make make                # build distributables (DMG + ZIP on macOS)
+make make                # build distributables (DMG + ZIP on macOS; ARCH=x64 for Intel)
 make setup-hooks         # install the pre-commit hook
 make help                # list targets
 ```

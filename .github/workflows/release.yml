@@ -53,6 +53,12 @@ jobs:
         include:
           - name: macOS
             os: macos-latest
+            arch: arm64
+          # Intel Macs: cross-built on the same Apple silicon runner (no
+          # runtime native modules), smoke-tested under Rosetta.
+          - name: macOS Intel
+            os: macos-latest
+            arch: x64
           - name: Windows
             os: windows-latest
           - name: Linux
@@ -93,32 +99,47 @@ jobs:
           rm -f "$RUNNER_TEMP/cert.p12"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$kc_pw" "$kc" > /dev/null
           security list-keychains -d user -s "$kc" login.keychain-db
-      - run: make make
+      - run: make make ARCH=${{ matrix.arch }}
         env:
-          # forge.config.ts signs when the identity is set and notarizes when
-          # all four are set.
+          # forge.config.ts signs the app and the DMG when the identity is set
+          # and notarizes (and staples) both when all four are set.
           APPLE_SIGNING_IDENTITY: ${{ runner.os == 'macOS' && secrets.APPLE_SIGNING_IDENTITY || '' }}
           APPLE_ID: ${{ runner.os == 'macOS' && secrets.APPLE_ID || '' }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ runner.os == 'macOS' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
           APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_TEAM_ID || '' }}
+      - name: Install Rosetta (macOS Intel)
+        if: runner.os == 'macOS' && matrix.arch == 'x64'
+        run: softwareupdate --install-rosetta --agree-to-license
       - name: Launch the packaged app (smoke test)
+        env:
+          # The first launch under Rosetta translates the app first.
+          SMOKE_TIMEOUT_MS: ${{ matrix.arch == 'x64' && runner.os == 'macOS' && '300000' || '' }}
         run: |
           if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a node scripts/smoke-packaged.mjs; else node scripts/smoke-packaged.mjs; fi
       - name: Verify the signature (macOS)
         if: runner.os == 'macOS'
         run: |
           app="$(find out -maxdepth 3 -name Shortty.app -print -quit)"
-          if codesign --verify --deep --strict "$app" 2>/dev/null && codesign -dv "$app" 2>&1 | grep -q 'Authority=Developer ID'; then
+          dmg="$(find out/make/dmg -name 'Shortty-*.dmg' -print -quit)"
+          details="$(codesign -dvv "$app" 2>&1 || true)"
+          if codesign --verify --deep --strict "$app" 2>/dev/null && grep -q 'Authority=Developer ID' <<<"$details"; then
             spctl --assess --type execute -vv "$app"
+            codesign --verify --strict -vv "$dmg"
+            xcrun stapler validate "$dmg"
+            spctl --assess --type open --context context:primary-signature -vv "$dmg"
           else
             echo "::warning::macOS build is not Developer ID signed"
           fi
       - name: Name installers for stable download links
+        env:
+          ARCH: ${{ matrix.arch }}
         run: |
           mkdir dist
           if [ "$RUNNER_OS" = macOS ]; then
-            cp out/make/dmg/*/Shortty-*.dmg dist/Shortty-macOS-arm64.dmg
-            cp out/make/zip/darwin/*/Shortty-darwin-*.zip dist/Shortty-macOS-arm64.zip
+            # update.electronjs.org serves the zip without "-arm64" to Intel Macs
+            # (docs/runbooks/updates.md): keep these names.
+            cp out/make/dmg/*/Shortty-*.dmg "dist/Shortty-macOS-$ARCH.dmg"
+            cp out/make/zip/darwin/*/Shortty-darwin-*.zip "dist/Shortty-macOS-$ARCH.zip"
           elif [ "$RUNNER_OS" = Windows ]; then
             cp out/make/squirrel.windows/x64/*Setup.exe dist/Shortty-Windows-x64-Setup.exe
             cp out/make/zip/win32/x64/Shortty-win32-*.zip dist/Shortty-Windows-x64.zip

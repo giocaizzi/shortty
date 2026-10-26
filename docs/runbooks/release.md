@@ -9,12 +9,14 @@ Releases are automated by `.github/workflows/release.yml`. macOS builds are sign
 
 1. Merge feature and fix PRs to `main`. On every push, release-please updates one open PR titled `chore(release): X.Y.Z` with the version bump (`package.json`, `.release-please-manifest.json`) and `CHANGELOG.md`. `feat` bumps the minor version, `fix` the patch, `BREAKING CHANGE:` the major (minor while 0.x). To pick the version yourself, end the PR description with a `Release-As: X.Y.Z` line: it must be in the last block of footers (with `Co-Authored-By:`), with nothing after it, or release-please ignores it.
 2. Review the Release PR's changelog, then merge it (auto-merge once CI passes).
-3. The merge tags `vX.Y.Z` and creates the GitHub Release. The `Build (macOS)`, `Build (Windows)` and `Build (Linux)` jobs then run `make make` and attach:
+3. The merge tags `vX.Y.Z` and creates the GitHub Release. The `Build (macOS)`, `Build (macOS Intel)`, `Build (Windows)` and `Build (Linux)` jobs then run `make make` and attach:
 
 | File | What |
 |---|---|
 | `Shortty-macOS-arm64.dmg` | macOS installer (Apple silicon) |
-| `Shortty-macOS-arm64.zip` | macOS app, zipped |
+| `Shortty-macOS-arm64.zip` | macOS app, zipped (Apple silicon; update feed) |
+| `Shortty-macOS-x64.dmg` | macOS installer (Intel) |
+| `Shortty-macOS-x64.zip` | macOS app, zipped (Intel; update feed) |
 | `Shortty-Windows-x64-Setup.exe` | Windows installer (Squirrel, per-user, no admin) |
 | `Shortty-Windows-x64.zip` | Windows portable app |
 | `Shortty-Linux-x64.deb` | Debian/Ubuntu package |
@@ -23,7 +25,7 @@ Releases are automated by `.github/workflows/release.yml`. macOS builds are sign
 
 The names carry no version, so `https://github.com/giocaizzi/shortty/releases/latest/download/<file>` always serves the newest release (the README download badges link there).
 
-4. Check: `gh release view vX.Y.Z` lists the six files; download one and launch it.
+4. Check: `gh release view vX.Y.Z` lists these files; download one and launch it.
 
 ## Test installers without releasing
 
@@ -43,4 +45,4 @@ Delete the release and its tag: `gh release delete vX.Y.Z --cleanup-tag`. Then f
   - `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` (appleid.apple.com → App-Specific Passwords), `APPLE_TEAM_ID`
 - Windows signing (not set up): an Azure Trusted Signing account or a CA cloud-signing certificate.
 
-**Last verified:** 2026-10-15, workflow written and linted with actionlint; first real run pending.
+**Last verified:** 2026-10-26, signed macOS run green (workflow_dispatch). Windows signing (#80) and the tag-triggered release path are not exercised yet.

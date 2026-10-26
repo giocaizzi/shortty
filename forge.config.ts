@@ -1,4 +1,5 @@
-import type { ForgeConfig } from '@electron-forge/shared-types';
+import { execFileSync } from 'node:child_process';
+import type { ForgeConfig, ForgeMakeResult } from '@electron-forge/shared-types';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerZIP } from '@electron-forge/maker-zip';
@@ -15,6 +16,31 @@ const { APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID } = process.env;
 const canNotarize = Boolean(
   signingIdentity && APPLE_ID && APPLE_APP_SPECIFIC_PASSWORD && APPLE_TEAM_ID,
 );
+
+// The DMG maker neither signs nor notarizes the disk image (only the .app
+// inside is), so Gatekeeper would check it online on first open. Sign it,
+// notarize it and staple the ticket, with the same env gates as the app.
+function signDmg(dmg: string): void {
+  if (!signingIdentity) return;
+  execFileSync('codesign', ['--sign', signingIdentity, '--timestamp', dmg], { stdio: 'inherit' });
+  if (!canNotarize) return;
+  // Parse the status: an Invalid submission must fail the build.
+  const output = execFileSync(
+    'xcrun',
+    [
+      'notarytool', 'submit', dmg, '--wait', '--output-format', 'json',
+      '--apple-id', APPLE_ID as string,
+      '--password', APPLE_APP_SPECIFIC_PASSWORD as string,
+      '--team-id', APPLE_TEAM_ID as string,
+    ],
+    { encoding: 'utf8' },
+  );
+  const { id, status } = JSON.parse(output) as { id?: string; status?: string };
+  if (status !== 'Accepted') {
+    throw new Error(`Notarization of ${dmg} ended as ${status ?? 'unknown'} (xcrun notarytool log ${id ?? '<id>'})`);
+  }
+  execFileSync('xcrun', ['stapler', 'staple', dmg], { stdio: 'inherit' });
+}
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -45,6 +71,15 @@ const config: ForgeConfig = {
       : {}),
   },
   rebuildConfig: {},
+  hooks: {
+    postMake: async (_config, results: ForgeMakeResult[]) => {
+      for (const result of results) {
+        if (result.platform !== 'darwin') continue;
+        for (const artifact of result.artifacts) if (artifact.endsWith('.dmg')) signDmg(artifact);
+      }
+      return results;
+    },
+  },
   makers: [
     // Installs per user into %LOCALAPPDATA%\shortty (src/main/login-item.ts, docs/runbooks/reset-settings.md).
     new MakerSquirrel({
