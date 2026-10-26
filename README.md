@@ -50,7 +50,7 @@ Parsed help formats include cobra (kubectl, gh, docker, helm), clap, click, argp
 
 Grab the latest release with the buttons above, or from [Releases](https://github.com/giocaizzi/shortty/releases):
 
-- **macOS** (Apple silicon): open `Shortty-macOS-arm64.dmg` and drag Shortty to Applications. Builds are not notarized yet: the first time, right-click Shortty → Open.
+- **macOS**: open `Shortty-macOS-arm64.dmg` (Apple silicon) or `Shortty-macOS-x64.dmg` (Intel, from [Releases](https://github.com/giocaizzi/shortty/releases)) and drag Shortty to Applications. Builds are not notarized yet: the first time, right-click Shortty → Open.
 - **Windows** (x64): run `Shortty-Windows-x64-Setup.exe` (installs for your user, no admin). SmartScreen may warn about an unknown publisher: More info → Run anyway.
 - **Linux** (x64): `sudo apt install ./Shortty-Linux-x64.deb` or `sudo dnf install ./Shortty-Linux-x64.rpm`.
 
