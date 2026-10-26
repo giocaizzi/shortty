@@ -26,5 +26,14 @@
     "import/no-unresolved": ["error", { "ignore": ["^@electron-forge/", "^@electron/fuses$"] }],
     "react/react-in-jsx-scope": "off",
     "react/prop-types": "off"
-  }
+  },
+  "overrides": [
+    {
+      // Playwright fixtures call use(), which is not React's use() hook
+      "files": ["tests/e2e/**"],
+      "rules": {
+        "react-hooks/rules-of-hooks": "off"
+      }
+    }
+  ]
 }
