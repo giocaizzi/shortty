@@ -127,6 +127,19 @@ describe('Updater', () => {
     expect(updater.getStatus().state).toBe('disabled');
     expect(deps.fetchLatestVersion).not.toHaveBeenCalled();
     expect(deps.canAutoUpdate).not.toHaveBeenCalled();
+    expect(updater.getStatus().canAutoUpdate).toBeUndefined();
+  });
+
+  it('reports whether this copy can update itself once known, whatever the setting', async () => {
+    const { updater, deps } = makeUpdater({ canAutoUpdate: vi.fn(async () => true) });
+    expect(updater.getStatus().canAutoUpdate).toBeUndefined();
+    await updater.start(false);
+    expect(updater.getStatus()).toEqual({ current: '0.1.0', state: 'idle', canAutoUpdate: true });
+    expect(deps.onStatus).toHaveBeenCalledOnce();
+
+    await updater.start(true);
+    expect(deps.canAutoUpdate).toHaveBeenCalledOnce();
+    expect(deps.onStatus).toHaveBeenCalledOnce();
   });
 
   it('notify only: checks the latest release after the startup delay, then opens its page', async () => {
@@ -135,7 +148,12 @@ describe('Updater', () => {
     expect(deps.fetchLatestVersion).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(FIRST_CHECK_DELAY_MS);
-    expect(updater.getStatus()).toEqual({ current: '0.1.0', state: 'available', version: '0.2.0' });
+    expect(updater.getStatus()).toEqual({
+      current: '0.1.0',
+      state: 'available',
+      version: '0.2.0',
+      canAutoUpdate: false,
+    });
     expect(deps.onStatus).toHaveBeenLastCalledWith(updater.getStatus());
     expect(autoUpdater.setFeedURL).not.toHaveBeenCalled();
 
@@ -176,7 +194,7 @@ describe('Updater', () => {
     autoUpdater.emit('update-available');
     expect(updater.getStatus().state).toBe('downloading');
     autoUpdater.emit('update-downloaded', {}, 'notes', 'v0.2.0', new Date(), 'url');
-    expect(updater.getStatus()).toEqual({ current: '0.1.0', state: 'ready', version: '0.2.0' });
+    expect(updater.getStatus()).toEqual({ current: '0.1.0', state: 'ready', version: '0.2.0', canAutoUpdate: true });
 
     updater.install();
     expect(deps.beforeInstall).toHaveBeenCalled();

@@ -232,17 +232,24 @@ describe('GeneralTab updates row', () => {
     expect(await screen.findByRole('button', { name: 'Check Now' })).toBeDisabled();
   });
 
-  it('writes the auto-update switch on macOS and Windows', async () => {
-    installMockApi({}, 'win32');
+  it('offers the auto-update switch on a copy that can update itself', async () => {
+    const { api } = installMockApi();
+    api.getUpdateStatus.mockResolvedValue({ current: '0.1.0', state: 'up-to-date', canAutoUpdate: true });
     const { onUpdate } = renderTab();
     fireEvent.click(await screen.findByRole('switch', { name: 'Download updates automatically' }));
     expect(onUpdate).toHaveBeenCalledWith('autoUpdate', false);
+    expect(screen.getByText('Updates install in the background and apply when you restart.')).toBeInTheDocument();
   });
 
-  it('has no auto-update switch on Linux (notify only)', async () => {
-    installMockApi({}, 'linux');
+  it.each([false, undefined])('notify only without the switch when canAutoUpdate is %s', async (canAutoUpdate) => {
+    const { api } = installMockApi({}, 'darwin');
+    api.getUpdateStatus.mockResolvedValue({ current: '0.1.0', state: 'up-to-date', canAutoUpdate });
     renderTab();
-    await screen.findByText('Shortty 0.1.0');
+    expect(
+      await screen.findByText(
+        "This copy can't update itself. Shortty will tell you when a new version is out and link to the download.",
+      ),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('switch', { name: 'Download updates automatically' })).not.toBeInTheDocument();
   });
 });
