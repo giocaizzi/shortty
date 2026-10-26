@@ -22,7 +22,7 @@ const MODIFIER_GLYPHS: Record<KeyModifier, string> = {
 };
 
 /** Windows/Linux modifier words; the order (Ctrl+Alt+Shift+Win) matches MODIFIER_ORDER. */
-const PC_MODIFIER_LABELS: Record<Exclude<KeyPlatform, 'darwin'>, Record<KeyModifier, string>> = {
+export const PC_MODIFIER_LABELS: Record<Exclude<KeyPlatform, 'darwin'>, Record<KeyModifier, string>> = {
   win32: { ctrl: 'Ctrl', opt: 'Alt', shift: 'Shift', cmd: 'Win' },
   linux: { ctrl: 'Ctrl', opt: 'Alt', shift: 'Shift', cmd: 'Super' },
 };

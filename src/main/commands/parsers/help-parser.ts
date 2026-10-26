@@ -23,6 +23,7 @@ import {
 } from './help-extras';
 import { parseManContent } from './man-parser';
 import { runSandboxed } from '../sandbox-exec';
+import { isWindowsElevated } from '../elevation';
 import { windowsExecutableExtensions } from '../path-scanner';
 
 const BLOCKLIST = new Set([
@@ -205,11 +206,12 @@ async function isTrustedBinary(binPath: string): Promise<boolean> {
 }
 
 /**
- * The Windows policy: no owner or mode bits to check; paths compared
- * case-insensitively; PE executables (`MZ`) anywhere outside the system
- * directories, .cmd/.bat/.ps1 only under trusted install prefixes.
+ * The Windows policy: never when elevated; no owner or mode bits to check;
+ * paths compared case-insensitively; PE executables (`MZ`) anywhere outside
+ * the system directories, .cmd/.bat/.ps1 only under trusted install prefixes.
  */
 async function isTrustedWindowsBinary(binPath: string): Promise<boolean> {
+  if (await isWindowsElevated()) return false;
   const system = windowsSystemPrefixes().map((p) => p.toLowerCase());
   const inSystem = (path: string) => system.some((prefix) => path.toLowerCase().startsWith(prefix));
   // Checked before realpath: an app execution alias may not resolve at all

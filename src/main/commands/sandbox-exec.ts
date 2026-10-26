@@ -5,6 +5,13 @@ import { join, win32 } from 'node:path';
 
 /** Hard limit for a `--help` invocation (docs/spec.md §7.5: 2 seconds, hard kill). */
 const HELP_TIMEOUT_MS = 2000;
+/** A cold PowerShell start alone takes 5-15 s, so a `.ps1` probe gets longer. */
+const PS1_HELP_TIMEOUT_MS = 15_000;
+
+/** The hard limit for probing `bin`: longer for `.ps1` scripts, which run through PowerShell. */
+export function helpTimeoutMs(bin: string): number {
+  return win32.extname(bin).toLowerCase() === '.ps1' ? PS1_HELP_TIMEOUT_MS : HELP_TIMEOUT_MS;
+}
 /** Output cap per invocation; output beyond this is discarded and the process killed. */
 const HELP_MAX_BYTES = 1024 * 1024;
 
@@ -104,13 +111,14 @@ interface RunOptions {
 
 /**
  * Run `bin args` in a throwaway cwd with stdin closed, a sanitized env, a hard
- * timeout (SIGKILL to the whole process group) and an output cap.
+ * timeout (SIGKILL to the whole process group; `helpTimeoutMs` by default)
+ * and an output cap.
  * Rejects only if the process cannot be spawned.
  */
 export async function runSandboxed(
   bin: string,
   args: string[],
-  { timeoutMs = HELP_TIMEOUT_MS, maxBytes = HELP_MAX_BYTES, env = {} }: RunOptions = {},
+  { timeoutMs = helpTimeoutMs(bin), maxBytes = HELP_MAX_BYTES, env = {} }: RunOptions = {},
 ): Promise<SandboxResult> {
   const cwd = await mkdtemp(join(tmpdir(), 'shortty-help-'));
   try {
