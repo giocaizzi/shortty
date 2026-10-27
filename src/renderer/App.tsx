@@ -435,25 +435,26 @@ export function App() {
   // Typed drill-down (docs/spec.md §10.2): ">gh auth lo" opens gh › auth
   // filtered by "lo", one level per render and as deep as the subcommands
   // go. Details that load later (on-demand enrichment, a subcommand's --help)
-  // re-run this, so a paste or fast typing ends where slow typing would.
-  // A layout effect: the next keystroke must land in the drilled field, not
-  // in the text the drill is about to replace.
-  useLayoutEffect(() => {
-    if (!typed || composing) return;
+  // re-render and resolve the next word, so a paste or fast typing ends where
+  // slow typing would. Resolved while rendering: React re-renders with the
+  // pushed level before anything commits, so the next keystroke lands in the
+  // drilled field, not in the text the drill is about to replace.
+  const typedDrill = ((): Parameters<typeof pushLevel> | null => {
+    if (!typed || composing) return null;
     if (currentLevel.kind === 'flat') {
-      if (!commandPrefixActive) return;
+      if (!commandPrefixActive) return null;
       const step = typedStep(query.slice(1), activeCommands.map((c) => c.name));
       const command = step && activeCommands.find((c) => c.name === step.word);
-      if (step && command) pushLevel({ kind: 'command', command }, '>' + step.head, step.rest);
-      return;
+      return step && command ? [{ kind: 'command', command }, '>' + step.head, step.rest] : null;
     }
-    if (!isDetailLevel(currentLevel) || !detailData) return;
+    if (!isDetailLevel(currentLevel) || !detailData) return null;
     const step = typedStep(query, detailData.subcommands.map((sc) => lastWord(sc.name)));
     const sub = step && detailData.subcommands.find((sc) => lastWord(sc.name) === step.word);
-    if (!step || !sub) return;
+    if (!step || !sub) return null;
     const baseBinPath = currentLevel.kind === 'command' ? currentLevel.command.bin : currentLevel.baseBinPath;
-    pushLevel({ kind: 'subcommand', qualifiedName: sub.name, baseBinPath }, step.head, step.rest);
-  }, [typed, composing, currentLevel, commandPrefixActive, query, activeCommands, detailData, pushLevel]);
+    return [{ kind: 'subcommand', qualifiedName: sub.name, baseBinPath }, step.head, step.rest];
+  })();
+  if (typedDrill) pushLevel(...typedDrill);
 
   // Typed words wait for an unenriched command's details: show "Loading..."
   // rather than a passing "No matches" for them.
